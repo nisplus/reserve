@@ -1,0 +1,26 @@
+# Normalise everything to LF in the repository. Production is Linux, and mixed
+# line endings in PHP show up as stray whitespace in diffs rather than as errors,
+# so they are easy to introduce and annoying to find later.
+* text=auto eol=lf
+
+# Windows batch files must keep CRLF. A .cmd with LF endings can misparse
+# labels and goto targets.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Shell scripts must keep LF even when checked out on Windows.
+*.sh  text eol=lf
+
+*.php text eol=lf
+*.sql text eol=lf
+*.css text eol=lf
+*.js  text eol=lf
+*.md  text eol=lf
+
+# Never touched by the line-ending machinery.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.eml binary

@@ -1,0 +1,10 @@
+/config/config.php
+/storage/mail/*
+/storage/logs/*
+/storage/sessions/*
+!/storage/mail/.gitkeep
+!/storage/logs/.gitkeep
+!/storage/sessions/.gitkeep
+*.log
+.DS_Store
+Thumbs.db
