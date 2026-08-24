@@ -54,7 +54,8 @@ use App\Core\Csrf;
           <a class="btn btn--ghost btn--small" href="/admin/events/<?= (int) $event['id'] ?>/sessions">開催回</a>
           <a class="btn btn--ghost btn--small" href="/admin/events/<?= (int) $event['id'] ?>/edit">編集</a>
           <?php if ((int) $event['session_count'] === 0): ?>
-            <form class="inline-form" method="post" action="/admin/events/<?= (int) $event['id'] ?>/delete">
+            <form class="inline-form" method="post" action="/admin/events/<?= (int) $event['id'] ?>/delete"
+                  onsubmit="return confirm('このイベントを削除します。よろしいですか？この操作は取り消せません。')">
               <?= Csrf::field() ?>
               <button type="submit" class="btn btn--danger btn--small">削除</button>
             </form>

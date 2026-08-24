@@ -32,7 +32,10 @@ use App\Core\Csrf;
         <td>
           <a class="btn btn--ghost btn--small" href="/admin/companies/<?= (int) $company['id'] ?>/edit">編集</a>
           <?php if ((int) $company['event_count'] === 0): ?>
-            <form class="inline-form" method="post" action="/admin/companies/<?= (int) $company['id'] ?>/delete">
+            <?php /* The message is deliberately static: interpolating a name
+                     into inline JS would need JS-escaping on top of e(). */ ?>
+            <form class="inline-form" method="post" action="/admin/companies/<?= (int) $company['id'] ?>/delete"
+                  onsubmit="return confirm('この会社を削除します。よろしいですか？この操作は取り消せません。')">
               <?= Csrf::field() ?>
               <button type="submit" class="btn btn--danger btn--small">削除</button>
             </form>
