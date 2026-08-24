@@ -1,0 +1,52 @@
+<?php
+
+/**
+ * @var array<string, int> $stats
+ * @var array<int, array<string, mixed>> $promotable
+ */
+?>
+<h1>ダッシュボード</h1>
+
+<div class="stat-row">
+  <div class="stat"><strong><?= $stats['confirmed'] ?></strong><span>確定申込</span></div>
+  <div class="stat"><strong><?= $stats['waitlisted'] ?></strong><span>キャンセル待ち</span></div>
+  <div class="stat"><strong><?= $stats['sessions_full'] ?></strong><span>満席の開催回</span></div>
+  <div class="stat"><strong><?= count($promotable) ?></strong><span>繰り上げ候補あり</span></div>
+</div>
+
+<div class="stat-row">
+  <div class="stat"><strong><?= $stats['companies'] ?></strong><span>会社</span></div>
+  <div class="stat"><strong><?= $stats['events'] ?></strong><span>イベント</span></div>
+  <div class="stat"><strong><?= $stats['sessions'] ?></strong><span>開催回</span></div>
+  <div class="stat">
+    <strong><?= $stats['mail_pending'] ?></strong><span>メール未送信<?= $stats['mail_failed'] > 0 ? '（失敗 ' . $stats['mail_failed'] . '）' : '' ?></span>
+  </div>
+</div>
+
+<?php if ($promotable !== []): ?>
+  <h2>繰り上げ候補のある開催回 <span class="badge badge--warn"><?= count($promotable) ?></span></h2>
+  <p class="muted">空席があり、キャンセル待ちの方が居る開催回です。繰り上げ操作画面は今後追加されます（段階8）。</p>
+  <div class="table-scroll">
+    <table class="table">
+      <thead>
+        <tr><th>開催回</th><th>日時</th><th>空き</th><th>待ち</th></tr>
+      </thead>
+      <tbody>
+      <?php foreach ($promotable as $row): ?>
+        <tr>
+          <td><?= e($row['company_name']) ?>　<?= e($row['event_title']) ?></td>
+          <td><?= e(jp_datetime((string) $row['starts_at'])) ?>〜<?= e(jp_time((string) $row['ends_at'])) ?></td>
+          <td><?= (int) $row['seats_left'] ?> 名分</td>
+          <td><?= (int) $row['waitlist_count'] ?> 件</td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+<?php endif; ?>
+
+<h2>管理</h2>
+<div class="form-actions">
+  <a class="btn" href="/admin/companies">会社の管理</a>
+  <a class="btn" href="/admin/events">イベントと開催回の管理</a>
+</div>

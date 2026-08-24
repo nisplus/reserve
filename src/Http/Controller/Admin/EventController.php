@@ -1,0 +1,173 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controller\Admin;
+
+use App\Core\Csrf;
+use App\Core\Flash;
+use App\Core\Request;
+use App\Core\Response;
+use App\Core\Validator;
+use App\Core\View;
+use App\Exception\NotFoundException;
+use App\Repository\CompanyRepository;
+use App\Repository\EventRepository;
+
+final class EventController
+{
+    /** GET /admin/events?company=N */
+    public function index(Request $request): Response
+    {
+        $companyId = $request->queryInt('company');
+
+        return Response::html(View::render('admin/events_index', [
+            'title'     => 'イベントの管理',
+            'events'    => (new EventRepository())->listForAdmin($companyId > 0 ? $companyId : null),
+            'options'   => (new CompanyRepository())->options(),
+            'companyId' => $companyId,
+        ], 'layouts/admin'));
+    }
+
+    /** GET /admin/events/new?company=N */
+    public function create(Request $request): Response
+    {
+        return $this->renderForm(null, [], [
+            'company_id' => (string) $request->queryInt('company'),
+        ]);
+    }
+
+    /** POST /admin/events */
+    public function store(Request $request): Response
+    {
+        Csrf::verify($request);
+
+        $input = $this->validate($request, null);
+        if ($input instanceof Response) {
+            return $input;
+        }
+
+        (new EventRepository())->create(
+            (int) $input['company_id'],
+            (string) $input['title'],
+            $input['description'] !== null ? (string) $input['description'] : null,
+            $input['venue'] !== null ? (string) $input['venue'] : null,
+            (int) $input['sort_order'],
+            $request->has('is_published')
+        );
+
+        Flash::success('イベントを登録しました。続けて開催回を登録してください。');
+        return Response::redirect('/admin/events?company=' . (int) $input['company_id']);
+    }
+
+    /** GET /admin/events/{id}/edit */
+    public function edit(Request $request): Response
+    {
+        return $this->renderForm($this->load($request->routeInt('id')), [], []);
+    }
+
+    /** POST /admin/events/{id} */
+    public function update(Request $request): Response
+    {
+        Csrf::verify($request);
+        $event = $this->load($request->routeInt('id'));
+
+        $input = $this->validate($request, (int) $event['id']);
+        if ($input instanceof Response) {
+            return $input;
+        }
+
+        (new EventRepository())->update(
+            (int) $event['id'],
+            (int) $input['company_id'],
+            (string) $input['title'],
+            $input['description'] !== null ? (string) $input['description'] : null,
+            $input['venue'] !== null ? (string) $input['venue'] : null,
+            (int) $input['sort_order'],
+            $request->has('is_published')
+        );
+
+        Flash::success('イベントを更新しました。');
+        return Response::redirect('/admin/events?company=' . (int) $input['company_id']);
+    }
+
+    /** POST /admin/events/{id}/delete */
+    public function delete(Request $request): Response
+    {
+        Csrf::verify($request);
+        $event = $this->load($request->routeInt('id'));
+        $repo = new EventRepository();
+
+        // FK is ON DELETE RESTRICT; explain instead of letting it explode.
+        $sessions = $repo->sessionCount((int) $event['id']);
+        if ($sessions > 0) {
+            Flash::error("「{$event['title']}」には開催回が {$sessions} 件あるため削除できません。先に開催回を削除してください。");
+            return Response::redirect('/admin/events?company=' . (int) $event['company_id']);
+        }
+
+        $repo->delete((int) $event['id']);
+        Flash::success("「{$event['title']}」を削除しました。");
+        return Response::redirect('/admin/events?company=' . (int) $event['company_id']);
+    }
+
+    /** @return array<string, mixed> */
+    private function load(int $id): array
+    {
+        $event = (new EventRepository())->find($id);
+        if ($event === null) {
+            throw new NotFoundException('お探しのイベントは見つかりませんでした。');
+        }
+        return $event;
+    }
+
+    /** @return array<string, mixed>|Response */
+    private function validate(Request $request, ?int $exceptId): array|Response
+    {
+        $options = (new CompanyRepository())->options();
+
+        $validator = new Validator();
+        $validator->inList(
+            'company_id',
+            '主催会社',
+            $request->post('company_id'),
+            array_map('strval', array_keys($options))
+        );
+        $validator->required('title', 'イベント名', $request->post('title'))
+                  ->maxLength('title', 'イベント名', $request->post('title'), 200);
+        $validator->optional('description', $request->post('description'), 5000);
+        $validator->optional('venue', $request->post('venue'), 200);
+        $validator->intRange('sort_order', '表示順', $request->post('sort_order', '0'), 0, 9999);
+
+        if (!$validator->hasErrors()) {
+            $values = $validator->values();
+            $values['company_id'] = (int) $values['company_id'];
+            return $values;
+        }
+
+        $event = $exceptId !== null ? $this->load($exceptId) : null;
+        return $this->renderForm($event, $validator->errors(), [
+            'company_id'   => $request->post('company_id'),
+            'title'        => $request->post('title'),
+            'description'  => $request->post('description'),
+            'venue'        => $request->post('venue'),
+            'sort_order'   => $request->post('sort_order'),
+            'is_published' => $request->has('is_published') ? '1' : '',
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed>|null $event
+     * @param array<string, string>     $errors
+     * @param array<string, string>     $old
+     */
+    private function renderForm(?array $event, array $errors, array $old): Response
+    {
+        return Response::html(View::render('admin/event_form', [
+            'title'   => $event === null ? 'イベントの登録' : 'イベントの編集',
+            'event'   => $event,
+            'errors'  => $errors,
+            'old'     => $old,
+            'options' => (new CompanyRepository())->options(),
+        ], 'layouts/admin'), $errors === [] ? 200 : 422);
+    }
+}

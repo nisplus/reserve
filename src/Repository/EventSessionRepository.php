@@ -110,6 +110,20 @@ final class EventSessionRepository
         );
     }
 
+    /**
+     * Any bookings at all, cancelled included. The FK is ON DELETE RESTRICT,
+     * so even a cancelled booking blocks deletion - by design: bookings are
+     * the audit trail of who applied, and deleting a session must not be a
+     * way to shred it.
+     */
+    public function hasAnyBookings(int $sessionId): bool
+    {
+        return (int) Db::scalar(
+            'SELECT COUNT(*) FROM bookings WHERE session_id = ?',
+            [$sessionId]
+        ) > 0;
+    }
+
     /** Does another session of this event already start at this instant? */
     public function startExists(int $eventId, string $startsAt, ?int $exceptId = null): bool
     {
