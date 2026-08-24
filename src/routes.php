@@ -22,4 +22,8 @@ return static function (Router $router): void {
     $router->post('/sessions/{id}/confirm', [App\Http\Controller\Pub\BookingController::class, 'confirm']);
     $router->post('/bookings',              [App\Http\Controller\Pub\BookingController::class, 'store']);
     $router->get('/bookings/done/{ref}',    [App\Http\Controller\Pub\BookingController::class, 'done']);
+
+    // --- self-service via e-mailed token ------------------------------------
+    $router->get('/manage/{token}',          [App\Http\Controller\Pub\ManageController::class, 'show']);
+    $router->post('/manage/{token}/cancel',  [App\Http\Controller\Pub\ManageController::class, 'cancel']);
 };

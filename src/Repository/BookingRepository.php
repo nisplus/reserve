@@ -92,9 +92,47 @@ final class BookingRepository
      */
     public function findByReference(string $referenceCode): ?array
     {
+        return $this->findWithContext('b.reference_code = ?', $referenceCode);
+    }
+
+    /**
+     * Same row, addressed by the hashed cancel token from a /manage URL.
+     * Non-locking on purpose: this is how the cancel flow finds out which
+     * applicant and session rows to lock, and taking the booking lock first
+     * would invert the fixed lock order.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findByTokenHash(string $tokenHash): ?array
+    {
+        return $this->findWithContext('b.cancel_token_hash = ?', $tokenHash);
+    }
+
+    /**
+     * Re-read status and seat count under an exclusive lock, third in the lock
+     * order (applicants -> event_sessions -> bookings). The caller must compare
+     * this against what it saw before locking: two concurrent cancels both pass
+     * the unlocked read, and only this re-check keeps the second one from
+     * returning the seats twice (an unsigned counter would wrap, not go negative).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function lockForUpdate(int $id): ?array
+    {
         return Db::selectOne(
-            "SELECT b.id, b.reference_code, b.session_id, b.email, b.name, b.party_size,
-                    b.status, b.waitlist_seq, b.created_at, b.confirmed_at, b.cancelled_at,
+            'SELECT id, session_id, applicant_id, status, party_size, waitlist_seq
+             FROM bookings WHERE id = ? FOR UPDATE',
+            [$id]
+        );
+    }
+
+    /** @return array<string, mixed>|null */
+    private function findWithContext(string $where, string $param): ?array
+    {
+        return Db::selectOne(
+            "SELECT b.id, b.reference_code, b.session_id, b.applicant_id, b.email, b.name,
+                    b.party_size, b.status, b.waitlist_seq, b.created_at, b.confirmed_at,
+                    b.cancelled_at,
                     s.starts_at, s.ends_at,
                     e.title AS event_title, e.venue,
                     c.name AS company_name,
@@ -106,8 +144,8 @@ final class BookingRepository
              JOIN event_sessions s ON s.id = b.session_id
              JOIN events e         ON e.id = s.event_id
              JOIN companies c      ON c.id = e.company_id
-             WHERE b.reference_code = ?",
-            [$referenceCode]
+             WHERE {$where}",
+            [$param]
         );
     }
 }
