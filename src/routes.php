@@ -58,4 +58,13 @@ return static function (Router $router): void {
     $router->get('/admin/sessions/{id}/edit',         [App\Http\Controller\Admin\SessionController::class, 'edit'], $auth);
     $router->post('/admin/sessions/{id}',             [App\Http\Controller\Admin\SessionController::class, 'update'], $auth);
     $router->post('/admin/sessions/{id}/delete',      [App\Http\Controller\Admin\SessionController::class, 'delete'], $auth);
+
+    $router->get('/admin/bookings',               [App\Http\Controller\Admin\BookingController::class, 'index'], $auth);
+    $router->get('/admin/bookings/export',        [App\Http\Controller\Admin\BookingController::class, 'export'], $auth);
+    $router->post('/admin/bookings/{id}/promote', [App\Http\Controller\Admin\BookingController::class, 'promote'], $auth);
+    $router->post('/admin/bookings/{id}/cancel',  [App\Http\Controller\Admin\BookingController::class, 'cancel'], $auth);
+
+    $router->get('/admin/mail',               [App\Http\Controller\Admin\MailController::class, 'index'], $auth);
+    $router->post('/admin/mail/{id}/resend',  [App\Http\Controller\Admin\MailController::class, 'resend'], $auth);
+    $router->post('/admin/mail/send-pending', [App\Http\Controller\Admin\MailController::class, 'sendPending'], $auth);
 };

@@ -26,8 +26,10 @@ $user = Auth::user();
     <?php if ($user !== null): ?>
       <nav class="admin-nav">
         <a href="/admin">ダッシュボード</a>
+        <a href="/admin/bookings">申込一覧</a>
         <a href="/admin/companies">会社</a>
         <a href="/admin/events">イベント</a>
+        <a href="/admin/mail">メール</a>
         <a href="/" target="_blank" rel="noopener">公開サイト</a>
       </nav>
       <form class="inline-form" method="post" action="/admin/logout">

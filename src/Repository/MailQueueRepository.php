@@ -74,4 +74,58 @@ final class MailQueueRepository
             [mb_substr($error, 0, 500), $maxAttempts, $id]
         );
     }
+
+    /** @return array<string, mixed>|null */
+    public function find(int $id): ?array
+    {
+        return Db::selectOne('SELECT * FROM mail_queue WHERE id = ?', [$id]);
+    }
+
+    /**
+     * Newest-first admin listing, optionally by status.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listForAdmin(string $status, int $limit, int $offset): array
+    {
+        $where = $status !== '' ? 'WHERE status = ?' : '';
+        $statement = Db::pdo()->prepare(
+            "SELECT id, to_email, to_name, subject, status, attempts, last_error,
+                    booking_id, created_at, sent_at
+             FROM mail_queue {$where}
+             ORDER BY id DESC
+             LIMIT ? OFFSET ?"
+        );
+        $position = 1;
+        if ($status !== '') {
+            $statement->bindValue($position++, $status);
+        }
+        $statement->bindValue($position++, $limit, \PDO::PARAM_INT);
+        $statement->bindValue($position, $offset, \PDO::PARAM_INT);
+        $statement->execute();
+        return $statement->fetchAll();
+    }
+
+    public function countForAdmin(string $status): int
+    {
+        if ($status === '') {
+            return (int) Db::scalar('SELECT COUNT(*) FROM mail_queue');
+        }
+        return (int) Db::scalar('SELECT COUNT(*) FROM mail_queue WHERE status = ?', [$status]);
+    }
+
+    /**
+     * Put a parked (failed) message back in line with a fresh attempt budget.
+     * Returns false when the row was not failed - resending an already-sent
+     * mail must be an explicit decision, not a stray double-click.
+     */
+    public function requeueFailed(int $id): bool
+    {
+        return Db::execute(
+            "UPDATE mail_queue
+             SET status = 'pending', attempts = 0, last_error = NULL
+             WHERE id = ? AND status = 'failed'",
+            [$id]
+        ) === 1;
+    }
 }

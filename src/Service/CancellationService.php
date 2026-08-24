@@ -34,30 +34,52 @@ final class CancellationService
     }
 
     /**
-     * Cancel the booking behind a raw /manage token.
+     * Cancel the booking behind a raw /manage token (the applicant's own action).
      *
-     * Cancelling an already-cancelled booking reports success without touching
-     * the seats: to the person clicking the button twice, the second click
-     * worked just as well as the first.
-     *
-     * @return array{already_cancelled: bool, was: BookingStatus}
+     * @return array{already_cancelled: bool, was: BookingStatus, auto_promoted: int}
      * @throws NotFoundException unknown token
      */
     public function cancelByToken(string $rawToken): array
     {
-        // Locate outside the transaction, without locks: we only need the ids
-        // that tell us WHICH applicant and session rows to lock. Trusting
-        // status here would be wrong, and the code below never does.
         $found = $this->bookings->findByTokenHash(TokenService::hashToken($rawToken));
         if ($found === null) {
             throw new NotFoundException('お探しの予約は見つかりませんでした。URLをお確かめください。');
         }
+        return $this->cancel($found, 'applicant', byAdmin: false);
+    }
 
+    /**
+     * Cancel on the applicant's behalf, from the admin screen.
+     *
+     * @return array{already_cancelled: bool, was: BookingStatus, auto_promoted: int}
+     * @throws NotFoundException unknown booking
+     */
+    public function cancelById(int $bookingId, string $actor): array
+    {
+        $found = $this->bookings->findById($bookingId);
+        if ($found === null) {
+            throw new NotFoundException('お探しの申込は見つかりませんでした。');
+        }
+        return $this->cancel($found, $actor, byAdmin: true);
+    }
+
+    /**
+     * The shared cancel transaction. Cancelling an already-cancelled booking
+     * reports success without touching the seats: to whoever clicks the button
+     * twice, the second click worked just as well as the first.
+     *
+     * @param array<string, mixed> $found Context row located WITHOUT locks - it
+     *                                    only tells us which rows to lock;
+     *                                    status is re-read under lock below.
+     * @return array{already_cancelled: bool, was: BookingStatus, auto_promoted: int}
+     */
+    private function cancel(array $found, string $actor, bool $byAdmin): array
+    {
         $applicantId = (int) $found['applicant_id'];
         $sessionId   = (int) $found['session_id'];
         $bookingId   = (int) $found['id'];
 
-        return Db::transaction(function () use ($applicantId, $sessionId, $bookingId, $found): array {
+        $result = Db::transaction(function () use ($applicantId, $sessionId, $bookingId, $found, $actor, $byAdmin): array {
             // 1) Applicant gate - same first lock as booking, so a cancel and
             //    a new application by the same person serialise cleanly.
             $this->applicants->lock($applicantId);
@@ -98,24 +120,44 @@ final class CancellationService
             );
 
             // 5) Audit trail + outbox, all inside the transaction.
-            $this->bookings->logEvent($bookingId, $was->value, BookingStatus::Cancelled->value, 'applicant');
-            $this->enqueueCancellationMail($found, $was);
+            $this->bookings->logEvent($bookingId, $was->value, BookingStatus::Cancelled->value, $actor);
+            $this->enqueueCancellationMail($found, $was, $byAdmin);
 
-            if ($was === BookingStatus::Confirmed) {
+            // An admin cancelling already knows a seat came free; the vacancy
+            // notice is for cancellations that happen without one watching.
+            if ($was === BookingStatus::Confirmed && !$byAdmin) {
                 $this->notifyAdminOfVacancy($sessionId, $found, (int) $booking['party_size']);
             }
 
             return ['already_cancelled' => false, 'was' => $was];
         });
+
+        // After commit: with auto_promote on, a freed seat goes straight to the
+        // head of the queue. Separate transactions on purpose - a promotion
+        // failure must not roll back the cancellation that freed the seat.
+        $result['auto_promoted'] = 0;
+        if (!$result['already_cancelled']
+            && $result['was'] === BookingStatus::Confirmed
+            && Config::bool('waitlist.auto_promote')
+        ) {
+            $result['auto_promoted'] = (new WaitlistService())->autoPromote($sessionId);
+        }
+
+        return $result;
     }
 
     /** Confirmation to the applicant that the cancellation went through. */
-    private function enqueueCancellationMail(array $found, BookingStatus $was): void
+    private function enqueueCancellationMail(array $found, BookingStatus $was, bool $byAdmin): void
     {
         $when = jp_datetime((string) $found['starts_at']) . '〜' . jp_time((string) $found['ends_at']);
-        $line = $was === BookingStatus::Waitlisted
-            ? 'キャンセル待ちのお申し込みを取り消しました。'
-            : 'ご予約をキャンセルしました。';
+        if ($byAdmin) {
+            $line = '事務局にて以下のお申し込みをキャンセルしました。'
+                  . "\nご不明な点は事務局までお問い合わせください。";
+        } else {
+            $line = $was === BookingStatus::Waitlisted
+                ? 'キャンセル待ちのお申し込みを取り消しました。'
+                : 'ご予約をキャンセルしました。';
+        }
 
         $body = <<<TEXT
         {$found['name']} 様

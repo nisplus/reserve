@@ -25,11 +25,11 @@
 
 <?php if ($promotable !== []): ?>
   <h2>繰り上げ候補のある開催回 <span class="badge badge--warn"><?= count($promotable) ?></span></h2>
-  <p class="muted">空席があり、キャンセル待ちの方が居る開催回です。繰り上げ操作画面は今後追加されます（段階8）。</p>
+  <p class="muted">空席があり、キャンセル待ちの方が居る開催回です。「候補を見る」から個別に繰り上げできます。</p>
   <div class="table-scroll">
     <table class="table">
       <thead>
-        <tr><th>開催回</th><th>日時</th><th>空き</th><th>待ち</th></tr>
+        <tr><th>開催回</th><th>日時</th><th>空き</th><th>待ち</th><th></th></tr>
       </thead>
       <tbody>
       <?php foreach ($promotable as $row): ?>
@@ -38,6 +38,10 @@
           <td><?= e(jp_datetime((string) $row['starts_at'])) ?>〜<?= e(jp_time((string) $row['ends_at'])) ?></td>
           <td><?= (int) $row['seats_left'] ?> 名分</td>
           <td><?= (int) $row['waitlist_count'] ?> 件</td>
+          <td>
+            <a class="btn btn--ghost btn--small"
+               href="/admin/bookings?session=<?= (int) $row['id'] ?>&status=waitlisted">候補を見る</a>
+          </td>
         </tr>
       <?php endforeach; ?>
       </tbody>

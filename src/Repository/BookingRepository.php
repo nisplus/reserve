@@ -24,8 +24,17 @@ final class BookingRepository
      * @return array<string, mixed>|null The earliest conflicting booking, with
      *                                   event context for the error message.
      */
-    public function findOverlapping(int $applicantId, string $startsAt, string $endsAt): ?array
+    public function findOverlapping(int $applicantId, string $startsAt, string $endsAt, ?int $excludeBookingId = null): ?array
     {
+        // The exclusion exists for promotion: the waitlisted booking being
+        // promoted overlaps its own session by definition and must not count
+        // as its own conflict.
+        $exclude = $excludeBookingId !== null ? 'AND b.id <> ?' : '';
+        $params  = [$applicantId, $endsAt, $startsAt];
+        if ($excludeBookingId !== null) {
+            $params[] = $excludeBookingId;
+        }
+
         return Db::selectOne(
             "SELECT b.id, b.session_id, b.status, s.starts_at, s.ends_at,
                     e.title AS event_title, c.name AS company_name
@@ -37,9 +46,10 @@ final class BookingRepository
                AND b.status IN ('confirmed', 'waitlisted')
                AND s.starts_at < ?
                AND ? < s.ends_at
+               {$exclude}
              ORDER BY s.starts_at
              LIMIT 1",
-            [$applicantId, $endsAt, $startsAt]
+            $params
         );
     }
 
@@ -124,6 +134,95 @@ final class BookingRepository
              FROM bookings WHERE id = ? FOR UPDATE',
             [$id]
         );
+    }
+
+    /** Same context row by primary key; the admin screens address rows this way. */
+    /** @return array<string, mixed>|null */
+    public function findById(int $id): ?array
+    {
+        return $this->findWithContext('b.id = ?', (string) $id);
+    }
+
+    /**
+     * Admin list search. $filters keys: company_id, event_id, session_id,
+     * status, email (substring). All optional; unknown keys are ignored -
+     * every fragment below is bound, nothing is interpolated.
+     *
+     * @param array<string, mixed> $filters
+     * @return array<int, array<string, mixed>>
+     */
+    public function searchForAdmin(array $filters, int $limit, int $offset): array
+    {
+        [$where, $params] = $this->adminFilterWhere($filters);
+
+        $sql = "SELECT b.id, b.reference_code, b.email, b.name, b.party_size, b.status,
+                       b.waitlist_seq, b.created_at, b.cancelled_at,
+                       s.id AS session_id, s.starts_at, s.ends_at,
+                       s.capacity, s.confirmed_seats,
+                       e.id AS event_id, e.title AS event_title,
+                       c.id AS company_id, c.name AS company_name
+                FROM bookings b
+                JOIN event_sessions s ON s.id = b.session_id
+                JOIN events e         ON e.id = s.event_id
+                JOIN companies c      ON c.id = e.company_id
+                {$where}
+                ORDER BY b.created_at DESC, b.id DESC
+                LIMIT ? OFFSET ?";
+
+        // Native prepares refuse string-typed LIMIT/OFFSET, so bind by hand.
+        $statement = Db::pdo()->prepare($sql);
+        $position = 1;
+        foreach ($params as $value) {
+            $statement->bindValue($position++, $value);
+        }
+        $statement->bindValue($position++, $limit, \PDO::PARAM_INT);
+        $statement->bindValue($position, $offset, \PDO::PARAM_INT);
+        $statement->execute();
+        return $statement->fetchAll();
+    }
+
+    /** @param array<string, mixed> $filters */
+    public function countForAdmin(array $filters): int
+    {
+        [$where, $params] = $this->adminFilterWhere($filters);
+        return (int) Db::scalar(
+            "SELECT COUNT(*)
+             FROM bookings b
+             JOIN event_sessions s ON s.id = b.session_id
+             JOIN events e         ON e.id = s.event_id
+             JOIN companies c      ON c.id = e.company_id
+             {$where}",
+            $params
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return array{0: string, 1: array<int, mixed>}
+     */
+    private function adminFilterWhere(array $filters): array
+    {
+        $conditions = [];
+        $params = [];
+
+        foreach (['company_id' => 'c.id', 'event_id' => 'e.id', 'session_id' => 's.id'] as $key => $column) {
+            if ((int) ($filters[$key] ?? 0) > 0) {
+                $conditions[] = "{$column} = ?";
+                $params[] = (int) $filters[$key];
+            }
+        }
+        // Status values come from the controller's whitelist, but bind anyway.
+        if (($filters['status'] ?? '') !== '') {
+            $conditions[] = 'b.status = ?';
+            $params[] = (string) $filters['status'];
+        }
+        if (($filters['email'] ?? '') !== '') {
+            $conditions[] = 'b.email LIKE ?';
+            // Escape LIKE wildcards so a search for "100%" means the literal text.
+            $params[] = '%' . addcslashes((string) $filters['email'], '%_\\') . '%';
+        }
+
+        return [$conditions === [] ? '' : 'WHERE ' . implode(' AND ', $conditions), $params];
     }
 
     /** @return array<string, mixed>|null */
