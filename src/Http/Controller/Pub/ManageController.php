@@ -10,6 +10,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\View;
 use App\Exception\NotFoundException;
+use App\Mail\MailDispatcher;
 use App\Repository\BookingRepository;
 use App\Service\CancellationService;
 use App\Service\TokenService;
@@ -46,6 +47,9 @@ final class ManageController
         if ($result['already_cancelled']) {
             Flash::info('この予約は既にキャンセル済みです。');
         } else {
+            // Committed; deliver the cancellation (and any admin vacancy
+            // notice) immediately. Best effort - failure leaves it queued.
+            MailDispatcher::tryProcessPending();
             Flash::success('キャンセルを受け付けました。確認メールをお送りしています。');
         }
         return Response::redirect('/manage/' . $token);

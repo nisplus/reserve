@@ -14,6 +14,7 @@ use App\Exception\DuplicateBookingException;
 use App\Exception\NotFoundException;
 use App\Exception\SessionFullException;
 use App\Exception\ValidationException;
+use App\Mail\MailDispatcher;
 use App\Repository\BookingRepository;
 use App\Repository\EventSessionRepository;
 use App\Service\BookingService;
@@ -91,6 +92,10 @@ final class BookingController
                 'party_size' => (string) $input['party_size'],
             ]);
         }
+
+        // The booking is committed; get its mail out now rather than at the
+        // next CLI run. Best effort - failure leaves it queued.
+        MailDispatcher::tryProcessPending();
 
         Flash::success('お申し込みを受け付けました。確認メールをお送りしています。');
         return Response::redirect('/bookings/done/' . $result['reference_code']);
