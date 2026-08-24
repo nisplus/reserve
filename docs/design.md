@@ -80,13 +80,13 @@
 active_key VARCHAR(300) GENERATED ALWAYS AS (
   CASE WHEN status = 'cancelled' THEN NULL
        ELSE CONCAT(session_id, ':', applicant_id) END
-) PERSISTENT,
+) STORED,
 UNIQUE KEY uq_bookings_active (active_key)
 ```
 
 **UNIQUE インデックス内で NULL は何個でも許される**という InnoDB の仕様を使っています。キャンセルすると `active_key` が NULL になるので、同じ回への再申込が通ります。
 
-`VIRTUAL` ではなく `PERSISTENT` にすること。300 文字 × 4 バイト = 1200 バイトで、インデックスの 3072 バイト上限内に収まります。
+`VIRTUAL` ではなく `STORED` にすること。300 文字 × 4 バイト = 1200 バイトで、インデックスの 3072 バイト上限内に収まります。キーワードは `STORED` と綴ること — MariaDB は `PERSISTENT` と `STORED` の両方を受け付けますが、**MySQL 8 は `STORED` のみ**です。
 
 ### `confirmed_seats` は意図的な非正規化
 
@@ -532,6 +532,7 @@ PHP で実装しているのは、PowerShell 5.1 に `<` 入力リダイレク�
 - **`SKIP LOCKED` は 10.6 以降。** `FOR UPDATE WAIT n` / `NOWAIT` は 10.3 以降なので使える
 - **EXCLUDE 制約・部分インデックス・フィルタ付き UNIQUE が無い。** だから `active_key` 生成列トリックとアプリ側の重なりチェックが必要
 - **CHECK 制約は 10.2 以降で実際に強制される。** 定員の引き下げが失敗し得る点に注意（[前述](#chk_sessions_seats-の副作用)）
+- **MySQL 8 でも動くように書く。** 生成列は `STORED`（`PERSISTENT` は MariaDB 方言）。分離レベルの確認は `@@transaction_isolation` を先に試す（MySQL 8 は `tx_isolation` を削除、MariaDB は 11.1 まで新名称なし）。CHECK 違反のエラー番号は MariaDB 4025 / MySQL 8 は 3819（`Db::isCheckViolation` は両対応）。CHECK の強制は MySQL では 8.0.16 以降
 
 ### Linux 本番への移植
 

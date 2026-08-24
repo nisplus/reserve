@@ -175,10 +175,11 @@ final class Db
         return ($e->errorInfo[1] ?? null) === 1062;
     }
 
-    /** CHECK constraint violation (MariaDB 4025). */
+    /** CHECK constraint violation (MariaDB 4025, MySQL 8 uses 3819). */
     public static function isCheckViolation(PDOException $e): bool
     {
-        return ($e->errorInfo[1] ?? null) === 4025;
+        $driverCode = $e->errorInfo[1] ?? null;
+        return $driverCode === 4025 || $driverCode === 3819;
     }
 
     /**

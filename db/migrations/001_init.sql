@@ -55,7 +55,9 @@ CREATE TABLE event_sessions (
   confirmed_seats  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   waitlist_counter INT UNSIGNED NOT NULL DEFAULT 0,
   status           ENUM('open','closed') NOT NULL DEFAULT 'open',
-  session_date     DATE GENERATED ALWAYS AS (DATE(starts_at)) PERSISTENT,
+  -- STORED, not PERSISTENT: MariaDB accepts both spellings (10.2+), MySQL 8
+  -- accepts only STORED. Same reasoning for active_key on bookings.
+  session_date     DATE GENERATED ALWAYS AS (DATE(starts_at)) STORED,
   created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_sessions_event FOREIGN KEY (event_id)
@@ -105,7 +107,7 @@ CREATE TABLE bookings (
   active_key VARCHAR(300) GENERATED ALWAYS AS (
     CASE WHEN status = 'cancelled' THEN NULL
          ELSE CONCAT(session_id, ':', applicant_id) END
-  ) PERSISTENT,
+  ) STORED,
 
   CONSTRAINT fk_bookings_session   FOREIGN KEY (session_id)   REFERENCES event_sessions(id) ON DELETE RESTRICT,
   CONSTRAINT fk_bookings_applicant FOREIGN KEY (applicant_id) REFERENCES applicants(id)     ON DELETE RESTRICT,

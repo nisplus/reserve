@@ -46,14 +46,22 @@ final class DiagnosticController
                 'SELECT VERSION() AS version,
                         @@session.sql_mode AS sql_mode,
                         @@session.time_zone AS time_zone,
-                        @@session.tx_isolation AS isolation,
                         @@session.innodb_lock_wait_timeout AS lock_timeout,
                         @@character_set_client AS cs_client,
                         @@character_set_connection AS cs_connection'
             ) ?? [];
 
+            // Asked separately because the variable was renamed: MySQL 8
+            // removed tx_isolation outright, while MariaDB only learned the
+            // new name (transaction_isolation) in 11.1.
+            try {
+                $isolation = (string) Db::scalar('SELECT @@session.transaction_isolation');
+            } catch (Throwable) {
+                $isolation = (string) Db::scalar('SELECT @@session.tx_isolation');
+            }
+
             $checks[] = self::row('DB connection', 'ok', true);
-            $checks[] = self::row('MariaDB version', (string) ($server['version'] ?? ''), true);
+            $checks[] = self::row('database version', (string) ($server['version'] ?? ''), true);
 
             $sqlMode = (string) ($server['sql_mode'] ?? '');
             $checks[] = self::row(
@@ -64,7 +72,7 @@ final class DiagnosticController
             );
 
             $checks[] = self::row('session time_zone', (string) ($server['time_zone'] ?? ''), ($server['time_zone'] ?? '') === '+09:00');
-            $checks[] = self::row('isolation level', (string) ($server['isolation'] ?? ''), str_contains((string) ($server['isolation'] ?? ''), 'READ-COMMITTED'));
+            $checks[] = self::row('isolation level', $isolation, str_contains($isolation, 'READ-COMMITTED'));
             $checks[] = self::row('innodb_lock_wait_timeout', (string) ($server['lock_timeout'] ?? ''), (int) ($server['lock_timeout'] ?? 0) === 5);
             $checks[] = self::row('character_set_connection', (string) ($server['cs_connection'] ?? ''), ($server['cs_connection'] ?? '') === 'utf8mb4');
 
