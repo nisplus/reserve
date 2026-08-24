@@ -2,6 +2,8 @@
 
 14 社が主催するイベントの参加申込を受け付ける Web アプリケーション。素の PHP 8.2 + MariaDB / MySQL で、外部ライブラリへの依存はありません（Composer 不要）。
 
+設計判断とその理由は **[docs/design.md](docs/design.md)** にまとまっています。このファイルはセットアップと運用手順だけを扱います。
+
 ## 何ができるか
 
 - 会社ごとにグループ化したイベント一覧と、開催回（1 イベントあたり 1 日 5〜10 回）の選択
@@ -208,7 +210,7 @@ php.cmd bin/request.php /events/1 --headers
 - `event_sessions.confirmed_seats` は**意図的な非正規化**です。`SUM(party_size)` では、まだ存在しない行をロックできないため同時申込が両方とも最後の 1 席を取れてしまいます
 - `bookings.active_key` は `status='cancelled'` のとき NULL になる生成列で、UNIQUE インデックス内で NULL が重複を許される性質を使って「キャンセル後の再申込」を可能にしています
 
-詳細は `src/Service/BookingService.php` と `db/migrations/001_init.sql` のコメントにあります。
+**なぜこの設計なのかは [docs/design.md](docs/design.md) に詳しく書いてあります。** 排他制御まわりを変更する前に必ず読んでください。実装のコメントも `src/Service/BookingService.php` と `db/migrations/001_init.sql` にあります。
 
 ### 競合テストは HTTP 経由では再現できない
 
@@ -241,7 +243,7 @@ php.cmd bin/request.php /events/1 --headers
 | 8. 管理・運用機能 | 未着手 |
 | 9. 競合テストと堅牢化 | 未着手 |
 
-設計の全体像・各段階の詳細・想定される落とし穴は、別途の実装計画書にまとめてあります。
+各段階で何を作るかは [docs/design.md の実装順序](docs/design.md#d-実装順序) を参照してください。
 
 ---
 
@@ -259,6 +261,7 @@ templates/       素の PHP テンプレート
 config/          config.sample.php（コミット） / config.php（対象外）
 db/migrations/   スキーマ
 bin/             CLI スクリプト
+docs/design.md   設計判断の記録（排他制御・スキーマ・落とし穴）
 storage/         ログ・セッション・メール出力（対象外）
 ```
 
