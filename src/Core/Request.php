@@ -12,6 +12,13 @@ final class Request
     /** @var array<string, string> Route placeholders, filled in by the Router. */
     private array $routeParams = [];
 
+    /**
+     * URL prefix the application is mounted under ('' at the domain root,
+     * '/booking' when deployed to https://host/booking/). Set by fromGlobals();
+     * read by the app_base() template helper and Response::redirect().
+     */
+    private static string $basePath = '';
+
     private function __construct(
         public readonly string $method,
         public readonly string $path,
@@ -23,6 +30,10 @@ final class Request
         $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
         $path   = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         $path   = is_string($path) ? rawurldecode($path) : '/';
+
+        self::$basePath = self::deriveBasePath((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+        $path = self::stripBasePath($path, self::$basePath);
+
         if ($path !== '/') {
             $path = rtrim($path, '/');
             if ($path === '') {
@@ -30,6 +41,52 @@ final class Request
             }
         }
         return new self($method, $path);
+    }
+
+    public static function basePath(): string
+    {
+        return self::$basePath;
+    }
+
+    /**
+     * Where is the application mounted, as seen from the browser?
+     *
+     * SCRIPT_NAME is the executed front controller as a URL path - e.g.
+     * /booking/public/index.php on a shared host where the whole repository
+     * sits in a subdirectory and the root .htaccess rewrites into public/.
+     * Its directory, minus the /public segment the rewrite added, is the
+     * public base. At the domain root this collapses to ''.
+     */
+    public static function deriveBasePath(string $scriptName): string
+    {
+        $dir = str_replace('\\', '/', dirname($scriptName));
+        if (str_ends_with($dir, '/public')) {
+            $dir = substr($dir, 0, -strlen('/public'));
+        }
+        if ($dir === '/' || $dir === '.' || $dir === '') {
+            return '';
+        }
+        return rtrim($dir, '/');
+    }
+
+    /**
+     * Reduce the request path to what the route table expects: no mount
+     * prefix, and no /public or /index.php remnants from URLs that hit the
+     * front controller directly (no rewrite, or a hand-typed address).
+     */
+    public static function stripBasePath(string $path, string $basePath): string
+    {
+        if ($basePath !== '' && str_starts_with($path, $basePath)) {
+            $path = (string) substr($path, strlen($basePath));
+        }
+        foreach (['/public/index.php', '/public', '/index.php'] as $prefix) {
+            if ($path === $prefix) {
+                $path = '/';
+            } elseif (str_starts_with($path, $prefix . '/')) {
+                $path = (string) substr($path, strlen($prefix));
+            }
+        }
+        return $path === '' ? '/' : $path;
     }
 
     /** @param array<string, string> $params */

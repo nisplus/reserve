@@ -7,13 +7,13 @@ use App\Core\Csrf;
  * @var array<string, string>     $errors
  * @var array<string, string>     $old
  */
-$action = $company === null ? '/admin/companies' : '/admin/companies/' . (int) $company['id'];
+$action = $company === null ? url('/admin/companies') : url('/admin/companies/') . (int) $company['id'];
 $value = static fn (string $key, string $column) => $old[$key] ?? (string) ($company[$column] ?? '');
 $published = $old !== []
     ? ($old['is_published'] ?? '') === '1'
     : ($company === null || (int) $company['is_published'] === 1);
 ?>
-<p class="breadcrumb"><a href="/admin/companies">会社の管理</a> ／ <?= $company === null ? '登録' : '編集' ?></p>
+<p class="breadcrumb"><a href="<?= url('/admin/companies') ?>">会社の管理</a> ／ <?= $company === null ? '登録' : '編集' ?></p>
 
 <h1><?= $company === null ? '会社の登録' : '会社の編集' ?></h1>
 
@@ -58,7 +58,7 @@ $published = $old !== []
 
     <div class="form-actions">
       <button type="submit" class="btn"><?= $company === null ? '登録する' : '更新する' ?></button>
-      <a class="btn btn--ghost" href="/admin/companies">戻る</a>
+      <a class="btn btn--ghost" href="<?= url('/admin/companies') ?>">戻る</a>
     </div>
   </form>
 </div>

@@ -11,8 +11,8 @@ $seatsLeft = (int) $session['seats_left'];
 $isFull    = $seatsLeft === 0;
 ?>
 <p class="breadcrumb">
-  <a href="/">イベント一覧</a> ／
-  <a href="/events/<?= (int) $session['event_id'] ?>"><?= e($session['event_title']) ?></a> ／
+  <a href="<?= url('/') ?>">イベント一覧</a> ／
+  <a href="<?= url('/events/') ?><?= (int) $session['event_id'] ?>"><?= e($session['event_title']) ?></a> ／
   申し込み
 </p>
 
@@ -55,7 +55,7 @@ $isFull    = $seatsLeft === 0;
   確定の時点で満席となった場合はキャンセル待ちでの受付になります。
 </p>
 
-<form method="post" action="/sessions/<?= (int) $session['id'] ?>/confirm" novalidate>
+<form method="post" action="<?= url('/sessions/') ?><?= (int) $session['id'] ?>/confirm" novalidate>
   <?= Csrf::field() ?>
 
   <div class="field">
@@ -86,6 +86,6 @@ $isFull    = $seatsLeft === 0;
 
   <div class="form-actions">
     <button type="submit" class="btn"><?= $isFull ? 'キャンセル待ちで確認画面へ' : '確認画面へ進む' ?></button>
-    <a class="btn btn--ghost" href="/events/<?= (int) $session['event_id'] ?>">開催時間の選択に戻る</a>
+    <a class="btn btn--ghost" href="<?= url('/events/') ?><?= (int) $session['event_id'] ?>">開催時間の選択に戻る</a>
   </div>
 </form>

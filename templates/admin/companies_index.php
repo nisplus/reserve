@@ -7,7 +7,7 @@ use App\Core\Csrf;
 <h1>会社の管理</h1>
 
 <div class="form-actions" style="margin-bottom:16px">
-  <a class="btn" href="/admin/companies/new">会社を登録</a>
+  <a class="btn" href="<?= url('/admin/companies/new') ?>">会社を登録</a>
 </div>
 
 <div class="table-scroll">
@@ -30,11 +30,11 @@ use App\Core\Csrf;
         </td>
         <td><?= (int) $company['event_count'] ?> 件</td>
         <td>
-          <a class="btn btn--ghost btn--small" href="/admin/companies/<?= (int) $company['id'] ?>/edit">編集</a>
+          <a class="btn btn--ghost btn--small" href="<?= url('/admin/companies/') ?><?= (int) $company['id'] ?>/edit">編集</a>
           <?php if ((int) $company['event_count'] === 0): ?>
             <?php /* The message is deliberately static: interpolating a name
                      into inline JS would need JS-escaping on top of e(). */ ?>
-            <form class="inline-form" method="post" action="/admin/companies/<?= (int) $company['id'] ?>/delete"
+            <form class="inline-form" method="post" action="<?= url('/admin/companies/') ?><?= (int) $company['id'] ?>/delete"
                   onsubmit="return confirm('この会社を削除します。よろしいですか？この操作は取り消せません。')">
               <?= Csrf::field() ?>
               <button type="submit" class="btn btn--danger btn--small">削除</button>

@@ -7,7 +7,7 @@ use App\Core\Csrf;
 <h1>ログイン</h1>
 
 <div class="panel" style="max-width:480px">
-  <form method="post" action="/admin/login">
+  <form method="post" action="<?= url('/admin/login') ?>">
     <?= Csrf::field() ?>
 
     <div class="field">

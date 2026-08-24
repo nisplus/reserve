@@ -10,7 +10,9 @@ return [
     // Show stack traces in the browser. MUST be false in production.
     'debug' => true,
 
-    // No trailing slash. Used to build absolute URLs in e-mails.
+    // No trailing slash. Used to build absolute URLs in e-mails, which have no
+    // request to derive them from. Include the subdirectory when the app is
+    // not at the domain root: 'https://example.com/booking'.
     'base_url' => 'http://127.0.0.1:8000',
 
     'db' => [

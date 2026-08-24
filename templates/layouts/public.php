@@ -11,12 +11,12 @@ $pageTitle = isset($title) && $title !== '' ? $title . ' | イベント予約' :
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($pageTitle) ?></title>
-<link rel="stylesheet" href="/assets/css/app.css">
+<link rel="stylesheet" href="<?= url('/assets/css/app.css') ?>">
 </head>
 <body>
 <header class="site-header">
   <div class="wrap">
-    <a class="site-title" href="/">イベント予約</a>
+    <a class="site-title" href="<?= url('/') ?>">イベント予約</a>
   </div>
 </header>
 

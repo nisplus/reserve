@@ -40,7 +40,7 @@
           <td><?= (int) $row['waitlist_count'] ?> 件</td>
           <td>
             <a class="btn btn--ghost btn--small"
-               href="/admin/bookings?session=<?= (int) $row['id'] ?>&status=waitlisted">候補を見る</a>
+               href="<?= url('/admin/bookings?session=') ?><?= (int) $row['id'] ?>&status=waitlisted">候補を見る</a>
           </td>
         </tr>
       <?php endforeach; ?>
@@ -51,6 +51,6 @@
 
 <h2>管理</h2>
 <div class="form-actions">
-  <a class="btn" href="/admin/companies">会社の管理</a>
-  <a class="btn" href="/admin/events">イベントと開催回の管理</a>
+  <a class="btn" href="<?= url('/admin/companies') ?>">会社の管理</a>
+  <a class="btn" href="<?= url('/admin/events') ?>">イベントと開催回の管理</a>
 </div>

@@ -9,8 +9,8 @@ use App\Core\Csrf;
  */
 ?>
 <p class="breadcrumb">
-  <a href="/admin/events">イベントの管理</a> ／
-  <a href="/admin/events/<?= (int) $event['id'] ?>/sessions"><?= e($event['title']) ?></a> ／
+  <a href="<?= url('/admin/events') ?>">イベントの管理</a> ／
+  <a href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions"><?= e($event['title']) ?></a> ／
   一括作成
 </p>
 
@@ -29,7 +29,7 @@ use App\Core\Csrf;
 <?php endif; ?>
 
 <div class="panel" style="max-width:560px">
-  <form method="post" action="/admin/events/<?= (int) $event['id'] ?>/sessions/bulk">
+  <form method="post" action="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions/bulk">
     <?= Csrf::field() ?>
 
     <div class="field">
@@ -71,7 +71,7 @@ use App\Core\Csrf;
 
     <div class="form-actions">
       <button type="submit" class="btn">一括作成する</button>
-      <a class="btn btn--ghost" href="/admin/events/<?= (int) $event['id'] ?>/sessions">戻る</a>
+      <a class="btn btn--ghost" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions">戻る</a>
     </div>
   </form>
 </div>

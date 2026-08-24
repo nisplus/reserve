@@ -5,7 +5,7 @@
  * @var int $total
  */
 ?>
-<p class="breadcrumb"><a href="/">イベント一覧</a> ／ <?= e($event['company_name']) ?></p>
+<p class="breadcrumb"><a href="<?= url('/') ?>">イベント一覧</a> ／ <?= e($event['company_name']) ?></p>
 
 <h1><?= e($event['title']) ?></h1>
 
@@ -61,7 +61,7 @@
           </span>
 
           <a class="btn btn--small <?= $isFull ? 'btn--ghost' : '' ?>"
-             href="/sessions/<?= (int) $session['id'] ?>/apply">
+             href="<?= url('/sessions/') ?><?= (int) $session['id'] ?>/apply">
             <?= $isFull ? 'キャンセル待ちで申し込む' : '申し込む' ?>
           </a>
         </li>
@@ -71,4 +71,4 @@
   <?php endforeach; ?>
 <?php endif; ?>
 
-<p><a href="/">イベント一覧へ戻る</a></p>
+<p><a href="<?= url('/') ?>">イベント一覧へ戻る</a></p>

@@ -27,9 +27,16 @@ final class Response
     /**
      * 303 by default: after a successful POST we want the browser to follow up
      * with a GET, so a reload or Back does not resubmit the form.
+     *
+     * Site-relative targets get the mount prefix added here, in one place, so
+     * controllers keep saying redirect('/admin') and it works whether the app
+     * lives at the domain root or under /booking.
      */
     public static function redirect(string $location, int $status = 303): self
     {
+        if (str_starts_with($location, '/')) {
+            $location = Request::basePath() . $location;
+        }
         return new self($status, '', ['Location' => $location]);
     }
 

@@ -25,7 +25,7 @@
         $seatsLeft    = (int) $event['seats_left'];
       ?>
       <article class="card">
-        <h3><a href="/events/<?= (int) $event['id'] ?>"><?= e($event['title']) ?></a></h3>
+        <h3><a href="<?= url('/events/') ?><?= (int) $event['id'] ?>"><?= e($event['title']) ?></a></h3>
 
         <?php if ($event['venue'] !== null && $event['venue'] !== ''): ?>
           <p class="card-meta">会場: <?= e($event['venue']) ?></p>
@@ -49,7 +49,7 @@
           <?php else: ?>
             <span class="badge badge--ok">空き <?= $seatsLeft ?> 名分</span>
           <?php endif; ?>
-          <a class="btn btn--small btn--ghost" href="/events/<?= (int) $event['id'] ?>">開催時間を見る</a>
+          <a class="btn btn--small btn--ghost" href="<?= url('/events/') ?><?= (int) $event['id'] ?>">開催時間を見る</a>
         </p>
       </article>
     <?php endforeach; ?>

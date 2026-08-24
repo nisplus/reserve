@@ -19,8 +19,8 @@ $ends   = $old['ends_at'] ?? ($session !== null ? $toLocal((string) $session['en
 $status = $old['status'] ?? (string) ($session['status'] ?? 'open');
 ?>
 <p class="breadcrumb">
-  <a href="/admin/events">イベントの管理</a> ／
-  <a href="/admin/events/<?= (int) $event['id'] ?>/sessions"><?= e($event['title']) ?></a> ／
+  <a href="<?= url('/admin/events') ?>">イベントの管理</a> ／
+  <a href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions"><?= e($event['title']) ?></a> ／
   <?= $session === null ? '登録' : '編集' ?>
 </p>
 
@@ -73,7 +73,7 @@ $status = $old['status'] ?? (string) ($session['status'] ?? 'open');
 
     <div class="form-actions">
       <button type="submit" class="btn"><?= $session === null ? '登録する' : '更新する' ?></button>
-      <a class="btn btn--ghost" href="/admin/events/<?= (int) $event['id'] ?>/sessions">戻る</a>
+      <a class="btn btn--ghost" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions">戻る</a>
     </div>
   </form>
 </div>

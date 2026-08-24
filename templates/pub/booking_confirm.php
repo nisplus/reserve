@@ -9,8 +9,8 @@ use App\Core\Csrf;
  */
 ?>
 <p class="breadcrumb">
-  <a href="/">イベント一覧</a> ／
-  <a href="/events/<?= (int) $session['event_id'] ?>"><?= e($session['event_title']) ?></a> ／
+  <a href="<?= url('/') ?>">イベント一覧</a> ／
+  <a href="<?= url('/events/') ?><?= (int) $session['event_id'] ?>"><?= e($session['event_title']) ?></a> ／
   申し込み内容の確認
 </p>
 
@@ -45,7 +45,7 @@ use App\Core\Csrf;
   キャンセル待ちでの受付になります。
 </p>
 
-<form method="post" action="/bookings">
+<form method="post" action="<?= url('/bookings') ?>">
   <?= Csrf::field() ?>
   <input type="hidden" name="session_id" value="<?= (int) $session['id'] ?>">
   <input type="hidden" name="email" value="<?= e($input['email']) ?>">
@@ -56,6 +56,6 @@ use App\Core\Csrf;
     <button type="submit" class="btn">
       <?= $willWait ? 'キャンセル待ちで申し込む' : 'この内容で申し込む' ?>
     </button>
-    <a class="btn btn--ghost" href="/sessions/<?= (int) $session['id'] ?>/apply">入力し直す</a>
+    <a class="btn btn--ghost" href="<?= url('/sessions/') ?><?= (int) $session['id'] ?>/apply">入力し直す</a>
   </div>
 </form>

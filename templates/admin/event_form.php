@@ -8,13 +8,13 @@ use App\Core\Csrf;
  * @var array<string, string>     $old
  * @var array<int, string>        $options company id => name
  */
-$action = $event === null ? '/admin/events' : '/admin/events/' . (int) $event['id'];
+$action = $event === null ? url('/admin/events') : url('/admin/events/') . (int) $event['id'];
 $selectedCompany = (int) ($old['company_id'] ?? ($event['company_id'] ?? 0));
 $published = $old !== []
     ? ($old['is_published'] ?? '') === '1'
     : ($event === null || (int) $event['is_published'] === 1);
 ?>
-<p class="breadcrumb"><a href="/admin/events">イベントの管理</a> ／ <?= $event === null ? '登録' : '編集' ?></p>
+<p class="breadcrumb"><a href="<?= url('/admin/events') ?>">イベントの管理</a> ／ <?= $event === null ? '登録' : '編集' ?></p>
 
 <h1><?= $event === null ? 'イベントの登録' : 'イベントの編集' ?></h1>
 
@@ -75,7 +75,7 @@ $published = $old !== []
 
     <div class="form-actions">
       <button type="submit" class="btn"><?= $event === null ? '登録する' : '更新する' ?></button>
-      <a class="btn btn--ghost" href="/admin/events">戻る</a>
+      <a class="btn btn--ghost" href="<?= url('/admin/events') ?>">戻る</a>
     </div>
   </form>
 </div>

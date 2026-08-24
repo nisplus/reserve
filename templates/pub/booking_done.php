@@ -47,4 +47,4 @@ $status = BookingStatus::from((string) $booking['status']);
   メールが届かない場合は、迷惑メールフォルダもご確認ください。
 </p>
 
-<p><a href="/">イベント一覧へ戻る</a></p>
+<p><a href="<?= url('/') ?>">イベント一覧へ戻る</a></p>

@@ -9,15 +9,15 @@ use App\Domain\SessionStatus;
  */
 ?>
 <p class="breadcrumb">
-  <a href="/admin/events">イベントの管理</a> ／ <?= e($event['company_name']) ?> ／ <?= e($event['title']) ?>
+  <a href="<?= url('/admin/events') ?>">イベントの管理</a> ／ <?= e($event['company_name']) ?> ／ <?= e($event['title']) ?>
 </p>
 
 <h1>開催回：<?= e($event['title']) ?></h1>
 
 <div class="form-actions" style="margin-bottom:16px">
-  <a class="btn" href="/admin/events/<?= (int) $event['id'] ?>/sessions/bulk">まとめて作成</a>
-  <a class="btn btn--ghost" href="/admin/events/<?= (int) $event['id'] ?>/sessions/new">1件だけ作成</a>
-  <a class="btn btn--ghost" href="/events/<?= (int) $event['id'] ?>" target="_blank" rel="noopener">公開側で見る</a>
+  <a class="btn" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions/bulk">まとめて作成</a>
+  <a class="btn btn--ghost" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions/new">1件だけ作成</a>
+  <a class="btn btn--ghost" href="<?= url('/events/') ?><?= (int) $event['id'] ?>" target="_blank" rel="noopener">公開側で見る</a>
 </div>
 
 <?php if ($sessions === []): ?>
@@ -49,9 +49,9 @@ use App\Domain\SessionStatus;
           </span>
         </td>
         <td>
-          <a class="btn btn--ghost btn--small" href="/admin/sessions/<?= (int) $session['id'] ?>/edit">編集</a>
+          <a class="btn btn--ghost btn--small" href="<?= url('/admin/sessions/') ?><?= (int) $session['id'] ?>/edit">編集</a>
           <?php if ((int) $session['confirmed_seats'] === 0 && (int) $session['waitlist_count'] === 0): ?>
-            <form class="inline-form" method="post" action="/admin/sessions/<?= (int) $session['id'] ?>/delete"
+            <form class="inline-form" method="post" action="<?= url('/admin/sessions/') ?><?= (int) $session['id'] ?>/delete"
                   onsubmit="return confirm('この開催回を削除します。よろしいですか？この操作は取り消せません。')">
               <?= Csrf::field() ?>
               <button type="submit" class="btn btn--danger btn--small">削除</button>

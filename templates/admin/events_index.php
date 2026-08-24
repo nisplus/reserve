@@ -11,7 +11,7 @@ use App\Core\Csrf;
 <h1>イベントの管理</h1>
 
 <div class="filter-bar" style="margin-bottom:16px">
-  <form class="inline-form" method="get" action="/admin/events">
+  <form class="inline-form" method="get" action="<?= url('/admin/events') ?>">
     <div class="field">
       <label for="company">会社で絞り込み</label>
       <select id="company" name="company" onchange="this.form.submit()">
@@ -23,7 +23,7 @@ use App\Core\Csrf;
     </div>
     <noscript><button type="submit" class="btn btn--small">絞り込む</button></noscript>
   </form>
-  <a class="btn" href="/admin/events/new<?= $companyId > 0 ? '?company=' . $companyId : '' ?>">イベントを登録</a>
+  <a class="btn" href="<?= url('/admin/events/new') ?><?= $companyId > 0 ? '?company=' . $companyId : '' ?>">イベントを登録</a>
 </div>
 
 <?php if ($events === []): ?>
@@ -48,13 +48,13 @@ use App\Core\Csrf;
           <?php endif; ?>
         </td>
         <td>
-          <a href="/admin/events/<?= (int) $event['id'] ?>/sessions"><?= (int) $event['session_count'] ?> 件</a>
+          <a href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions"><?= (int) $event['session_count'] ?> 件</a>
         </td>
         <td>
-          <a class="btn btn--ghost btn--small" href="/admin/events/<?= (int) $event['id'] ?>/sessions">開催回</a>
-          <a class="btn btn--ghost btn--small" href="/admin/events/<?= (int) $event['id'] ?>/edit">編集</a>
+          <a class="btn btn--ghost btn--small" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions">開催回</a>
+          <a class="btn btn--ghost btn--small" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/edit">編集</a>
           <?php if ((int) $event['session_count'] === 0): ?>
-            <form class="inline-form" method="post" action="/admin/events/<?= (int) $event['id'] ?>/delete"
+            <form class="inline-form" method="post" action="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/delete"
                   onsubmit="return confirm('このイベントを削除します。よろしいですか？この操作は取り消せません。')">
               <?= Csrf::field() ?>
               <button type="submit" class="btn btn--danger btn--small">削除</button>

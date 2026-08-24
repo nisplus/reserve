@@ -23,6 +23,21 @@ function enl(mixed $value): string
     return nl2br(e($value), false);
 }
 
+/**
+ * Site-relative URL, prefixed with wherever the application is mounted.
+ *
+ * Templates say url('/events/1'); at the domain root that stays /events/1,
+ * and under https://host/booking/ it becomes /booking/events/1. Writing a
+ * bare "/events/1" in an href is the bug this exists to prevent - it would
+ * point at the server root and 404 on any subdirectory deployment.
+ *
+ * The return value is HTML-escaped, so it drops straight into an attribute.
+ */
+function url(string $path = '/'): string
+{
+    return e(App\Core\Request::basePath() . $path);
+}
+
 /** Format a DATETIME string as "2026-08-20 (木) 10:00". */
 function jp_datetime(string $datetime): string
 {

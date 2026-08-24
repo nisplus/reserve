@@ -20,11 +20,11 @@ $query = http_build_query(array_filter([
     'status'  => (string) $filters['status'] ?: null,
     'email'   => (string) $filters['email'] ?: null,
 ]));
-$pageUrl = static fn (int $p): string => '/admin/bookings?' . ($query !== '' ? $query . '&' : '') . 'page=' . $p;
+$pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query !== '' ? $query . '&' : '') . 'page=' . $p;
 ?>
 <h1>申込一覧</h1>
 
-<form method="get" action="/admin/bookings">
+<form method="get" action="<?= url('/admin/bookings') ?>">
   <div class="filter-bar" style="margin-bottom:16px">
     <div class="field">
       <label for="company">会社</label>
@@ -73,8 +73,8 @@ $pageUrl = static fn (int $p): string => '/admin/bookings?' . ($query !== '' ? $
       <input type="text" id="email" name="email" value="<?= e($filters['email']) ?>" placeholder="部分一致">
     </div>
     <button type="submit" class="btn btn--small">絞り込む</button>
-    <a class="btn btn--ghost btn--small" href="/admin/bookings">解除</a>
-    <a class="btn btn--ghost btn--small" href="/admin/bookings/export<?= $query !== '' ? '?' . e($query) : '' ?>">CSV 出力</a>
+    <a class="btn btn--ghost btn--small" href="<?= url('/admin/bookings') ?>">解除</a>
+    <a class="btn btn--ghost btn--small" href="<?= url('/admin/bookings/export') ?><?= $query !== '' ? '?' . e($query) : '' ?>">CSV 出力</a>
   </div>
 </form>
 
@@ -111,7 +111,7 @@ $pageUrl = static fn (int $p): string => '/admin/bookings?' . ($query !== '' ? $
         <td>
           <?php if ($status === BookingStatus::Waitlisted): ?>
             <?php $fits = ((int) $row['capacity'] - (int) $row['confirmed_seats']) >= (int) $row['party_size']; ?>
-            <form class="inline-form" method="post" action="/admin/bookings/<?= (int) $row['id'] ?>/promote"
+            <form class="inline-form" method="post" action="<?= url('/admin/bookings/') ?><?= (int) $row['id'] ?>/promote"
                   onsubmit="return confirm('この申込を繰り上げて確定にします。よろしいですか？ご本人に確定メールが送られます。')">
               <?= Csrf::field() ?>
               <input type="hidden" name="return_query" value="<?= e($query . ($query !== '' ? '&' : '') . 'page=' . $page) ?>">
@@ -119,7 +119,7 @@ $pageUrl = static fn (int $p): string => '/admin/bookings?' . ($query !== '' ? $
             </form>
           <?php endif; ?>
           <?php if ($status !== BookingStatus::Cancelled): ?>
-            <form class="inline-form" method="post" action="/admin/bookings/<?= (int) $row['id'] ?>/cancel"
+            <form class="inline-form" method="post" action="<?= url('/admin/bookings/') ?><?= (int) $row['id'] ?>/cancel"
                   onsubmit="return confirm('この申込をキャンセルします。よろしいですか？この操作は取り消せません。ご本人に通知メールが送られます。')">
               <?= Csrf::field() ?>
               <input type="hidden" name="return_query" value="<?= e($query . ($query !== '' ? '&' : '') . 'page=' . $page) ?>">

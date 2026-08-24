@@ -52,13 +52,13 @@ $status = BookingStatus::from((string) $booking['status']);
       キャンセルで空いたお席は、キャンセル待ちの方のご案内に使われることがあります。
     <?php endif; ?>
   </p>
-  <form method="post" action="/manage/<?= e($token) ?>/cancel">
+  <form method="post" action="<?= url('/manage/') ?><?= e($token) ?>/cancel">
     <?= Csrf::field() ?>
     <div class="form-actions">
       <button type="submit" class="btn btn--danger">この予約をキャンセルする</button>
-      <a class="btn btn--ghost" href="/">イベント一覧へ</a>
+      <a class="btn btn--ghost" href="<?= url('/') ?>">イベント一覧へ</a>
     </div>
   </form>
 <?php else: ?>
-  <p><a class="btn btn--ghost" href="/">イベント一覧へ</a></p>
+  <p><a class="btn btn--ghost" href="<?= url('/') ?>">イベント一覧へ</a></p>
 <?php endif; ?>

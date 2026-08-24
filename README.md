@@ -143,6 +143,8 @@ cp config/config.sample.php config/config.php      # Windows: copy config\config
 
 `config/config.php` を編集します。最低限、`db.pass` を手順 3 で決めたパスワードにしてください。
 
+サブディレクトリ（`https://example.com/booking/`）に置く場合は、`base_url` にもそのパスまで含めてください。画面内のリンクは実行時に自動で判定しますが、メール本文の URL だけはリクエストが無いため設定値が頼りです。
+
 ```php
 'db' => [
     'dsn'   => 'mysql:host=127.0.0.1;port=3306;dbname=booking;charset=utf8mb4',
@@ -203,6 +205,7 @@ php.cmd bin/send_mail.php             # メールキューの送信（本番で�
 ```
 php.cmd tests/test_autoload_case.php   # クラス名とファイル名の大文字小文字一致（Linux 対策）
 php.cmd tests/test_overlap.php         # 時間帯重なり判定（境界含む）
+php.cmd tests/test_base_path.php       # サブディレクトリ設置時の URL 解決
 php.cmd tests/test_capacity.php        # 定員・キャンセル待ち・CHECK 制約（scratch データで完結）
 php.cmd tests/test_invariants.php      # E-4 の不変条件 5 本（現在の DB 全体）
 php.cmd tests/test_concurrency.php     # E-3 の競合 8 シナリオ（約 1 分、ワーカー 66 プロセス）
@@ -281,3 +284,43 @@ storage/         ログ・セッション・メール出力（対象外）
 ```
 
 `config/` `src/` `storage/` はドキュメントルートの外にあるため、HTTP からは到達できません。
+
+---
+
+## Linux サーバーへの設置
+
+### 置き方は 2 通り
+
+**A. DocumentRoot を `public/` に向けられる場合（VPS など・推奨）**
+
+`src/` や `config/` が公開領域の外に出るので最も安全です。`public/.htaccess` がフロントコントローラへの書き換えを行います。
+
+**B. 公開領域（`public_html` など）にリポジトリごと置く場合（共用サーバー）**
+
+リポジトリのルートにある `.htaccess` が、`config/` `src/` `storage/` などへのアクセスを拒否したうえで、リクエストを `public/` に転送します。**このファイルは必ずアップロードしてください** — FTP クライアントによっては `.` で始まるファイルを既定で転送しないため、これが抜けると設定ファイルが読める状態になります。
+
+### サブディレクトリでも動きます
+
+`https://example.com/` 直下でも `https://example.com/booking/` でも、画面内のリンクは実行時に自動判定されます。ただし **`config.php` の `base_url` にはサブディレクトリまで含めてください**（メール本文の URL はリクエストが無いため設定値が頼りです）。
+
+```php
+'base_url' => 'https://example.com/booking',
+```
+
+### 設置後の確認
+
+1. `https://（設置先）/_diag` を開く — 全項目 OK なら設定は正しい
+2. 赤い項目があれば、その行の説明に従って `php.ini` か `config.php` を直す
+3. `https://（設置先）/config/config.php` を開いてみて、**403 か 404 になること**を確認（中身が表示されたら B の `.htaccess` が効いていません）
+4. `php tests/test_autoload_case.php` を実行 — Linux はファイル名の大文字小文字を区別するため、ここが通らないとクラスが読めません
+5. `storage/` に Web サーバーユーザーの書き込み権限があること（`chmod -R 775 storage`）
+6. メール送信を cron に登録（例: `*/5 * * * * cd /path/to/app && php bin/send_mail.php`）
+
+### うまく動かないとき
+
+| 症状 | 原因 |
+|---|---|
+| 日本語の「ページが見つかりません」 | アプリまでは動いています。URL のパスがルート表と合っていません。`_diag` が開けるか確認してください |
+| 英語の「Not Found」 | PHP に届く前に Apache が返しています。`.htaccess` が未転送か、`AllowOverride None` で無効化されています |
+| CSS が当たらない | `.htaccess` の書き換えが効いていない可能性。B の構成なら `assets/` へのアクセスがルートの `.htaccess` を通っているか確認 |
+| 設定ファイルが見えてしまう | ルートの `.htaccess` が無効。至急 A の構成に変更するか、`AllowOverride All` を有効化してください |

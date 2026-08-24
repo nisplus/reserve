@@ -19,16 +19,16 @@ $label = static fn (string $s): string => match ($s) {
     'pending' => '未送信',
     default   => '失敗',
 };
-$pageUrl = static fn (int $p): string => '/admin/mail?' . ($status !== '' ? 'status=' . e($status) . '&' : '') . 'page=' . $p;
+$pageUrl = static fn (int $p): string => url('/admin/mail') . '?' . ($status !== '' ? 'status=' . e($status) . '&' : '') . 'page=' . $p;
 ?>
 <h1>メール送信キュー</h1>
 
 <div class="filter-bar" style="margin-bottom:16px">
   <?php foreach (['' => 'すべて', 'pending' => '未送信', 'sent' => '送信済み', 'failed' => '失敗'] as $key => $name): ?>
     <a class="btn btn--small <?= $status === $key ? '' : 'btn--ghost' ?>"
-       href="/admin/mail<?= $key !== '' ? '?status=' . e($key) : '' ?>"><?= e($name) ?></a>
+       href="<?= url('/admin/mail') ?><?= $key !== '' ? '?status=' . e($key) : '' ?>"><?= e($name) ?></a>
   <?php endforeach; ?>
-  <form class="inline-form" method="post" action="/admin/mail/send-pending">
+  <form class="inline-form" method="post" action="<?= url('/admin/mail/send-pending') ?>">
     <?= Csrf::field() ?>
     <button type="submit" class="btn btn--small">未送信を今すぐ送る</button>
   </form>
@@ -62,7 +62,7 @@ $pageUrl = static fn (int $p): string => '/admin/mail?' . ($status !== '' ? 'sta
         <td class="muted"><?= $row['sent_at'] !== null ? e(substr((string) $row['sent_at'], 5, 11)) : '—' ?></td>
         <td>
           <?php if ($s === 'failed'): ?>
-            <form class="inline-form" method="post" action="/admin/mail/<?= (int) $row['id'] ?>/resend">
+            <form class="inline-form" method="post" action="<?= url('/admin/mail/') ?><?= (int) $row['id'] ?>/resend">
               <?= Csrf::field() ?>
               <button type="submit" class="btn btn--small">再送</button>
             </form>
