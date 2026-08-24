@@ -1,0 +1,11 @@
+# Production Apache config for when DocumentRoot points at public/ (the
+# intended setup). Everything that is not a real file goes through the front
+# controller, mirroring what `php -S -t public public/index.php` does in dev.
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ index.php [L]
+</IfModule>

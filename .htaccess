@@ -1,0 +1,19 @@
+# Fallback for shared hosts where DocumentRoot cannot be pointed at public/
+# and the whole repository sits under the web root. Two jobs:
+#   1. hard-refuse the directories that must never be reachable over HTTP
+#   2. route everything else into public/
+# When DocumentRoot is public/ (the intended setup) this file never executes.
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # 1) The application's private directories and dotfiles.
+  RewriteRule ^(config|src|storage|db|bin|templates|docs|tests)(/|$) - [F]
+  RewriteRule ^(bootstrap\.php|composer\.(json|lock)|\..*)$ - [F]
+
+  # 2) Everything else is served from public/.
+  RewriteCond %{REQUEST_URI} !^/public/
+  RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>

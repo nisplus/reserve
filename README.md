@@ -193,9 +193,24 @@ serve.cmd                        # Windows
 php.cmd bin/migrate.php --status      # マイグレーションの適用状況
 php.cmd bin/request.php / --text      # サーバーを立てずにページを描画（動作確認用）
 php.cmd bin/request.php /events/1 --headers
+php.cmd bin/send_mail.php             # メールキューの送信（本番では cron 推奨）
 ```
 
 `bin/request.php` はフロントコントローラを CLI から叩くスクリプトです。`--post key=value` で POST も再現できます。
+
+### テスト
+
+```
+php.cmd tests/test_autoload_case.php   # クラス名とファイル名の大文字小文字一致（Linux 対策）
+php.cmd tests/test_overlap.php         # 時間帯重なり判定（境界含む）
+php.cmd tests/test_capacity.php        # 定員・キャンセル待ち・CHECK 制約（scratch データで完結）
+php.cmd tests/test_invariants.php      # E-4 の不変条件 5 本（現在の DB 全体）
+php.cmd tests/test_concurrency.php     # E-3 の競合 8 シナリオ（約 1 分、ワーカー 66 プロセス）
+```
+
+`test_concurrency.php` が `bin/concurrency_test.php`（バリア同期ワーカー）を並列起動して、
+売り越し・二重申込・二重キャンセル・二重繰り上げが**実際の並列実行下で**起きないことを検証します。
+テストデータは `CT-TEST-` 接頭辞の会社の下に作られ、終了時に削除されます。
 
 ---
 
@@ -241,7 +256,7 @@ php.cmd bin/request.php /events/1 --headers
 | 6. メール送信 | ほぼ完了（`bin/send_mail.php` でキュー12通を `.eml` 化、CRLF・RFC 2047 件名・base64 本文を検証済み。申込／キャンセル直後の即時送信も動作。SMTP 実サーバーでの送信とメールクライアントでの目視が残り） |
 | 7. 管理 CRUD | ほぼ完了（ログイン／ロックアウト、会社・イベント・開催回 CRUD、一括生成、削除・定員ガードを実HTTPで検証済み。ブラウザでの目視が残り） |
 | 8. 管理・運用機能 | ほぼ完了（申込一覧の絞込＋ページング、繰り上げ（空席・重複の再検証付き）、管理者キャンセル、CSV出力（BOM/CRLF/数式インジェクション対策）、mail_queue 画面を実HTTPで検証済み） |
-| 9. 競合テストと堅牢化 | 未着手 ← **次はここ** |
+| 9. 競合テストと堅牢化 | 完了（E-3 の 8 シナリオ全グリーン、レート制限 429 実測、.htaccess 2 枚。残タスクは本番デプロイ時の実サーバー確認のみ） |
 
 各段階で何を作るかは [docs/design.md の実装順序](docs/design.md#d-実装順序) を参照してください。
 

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controller\Pub;
 
+use App\Core\Config;
 use App\Core\Csrf;
 use App\Core\Flash;
+use App\Core\RateLimiter;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Validator;
@@ -66,6 +68,19 @@ final class BookingController
     /** POST /bookings - the actual booking. */
     public function store(Request $request): Response
     {
+        // First thing, before any validation: the brake must not depend on
+        // the request being otherwise well-formed.
+        if (!RateLimiter::allow(
+            'booking:' . $request->ip(),
+            Config::int('rate_limit.window', 60),
+            Config::int('rate_limit.max', 10),
+        )) {
+            return Response::html(View::render('pub/error', [
+                'title'   => '送信回数の上限に達しました',
+                'message' => '短時間に多くのお申し込みが送信されました。1分ほど待ってから、もう一度お試しください。',
+            ]), 429);
+        }
+
         Csrf::verify($request);
 
         // The session id travels in a hidden field; validate it like any input.
