@@ -233,8 +233,9 @@ final class BookingRepository
                     b.party_size, b.status, b.waitlist_seq, b.created_at, b.confirmed_at,
                     b.cancelled_at,
                     s.starts_at, s.ends_at,
-                    e.title AS event_title, e.venue,
-                    c.name AS company_name,
+                    e.id AS event_id, e.title AS event_title, e.venue,
+                    -- company_id is what Authz checks a write operation against.
+                    c.id AS company_id, c.name AS company_name,
                     (SELECT COUNT(*) FROM bookings w
                       WHERE w.session_id = b.session_id
                         AND w.status = 'waitlisted'

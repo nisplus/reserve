@@ -26,15 +26,18 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
 
 <form method="get" action="<?= url('/admin/bookings') ?>">
   <div class="filter-bar" style="margin-bottom:16px">
-    <div class="field">
-      <label for="company">会社</label>
-      <select id="company" name="company" onchange="this.form.submit()">
-        <option value="0">すべて</option>
-        <?php foreach ($options as $id => $name): ?>
-          <option value="<?= (int) $id ?>" <?= (int) $filters['company_id'] === (int) $id ? 'selected' : '' ?>><?= e($name) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
+    <?php /* Empty for a company account: the list is already confined. */ ?>
+    <?php if ($options !== []): ?>
+      <div class="field">
+        <label for="company">会社</label>
+        <select id="company" name="company" onchange="this.form.submit()">
+          <option value="0">すべて</option>
+          <?php foreach ($options as $id => $name): ?>
+            <option value="<?= (int) $id ?>" <?= (int) $filters['company_id'] === (int) $id ? 'selected' : '' ?>><?= e($name) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+    <?php endif; ?>
     <div class="field">
       <label for="event">イベント</label>
       <select id="event" name="event" onchange="this.form.submit()">

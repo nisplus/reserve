@@ -28,7 +28,11 @@ return static function (Router $router): void {
     $router->post('/manage/{token}/cancel',  [App\Http\Controller\Pub\ManageController::class, 'cancel']);
 
     // --- admin ---------------------------------------------------------------
-    $auth = ['auth' => true];
+    // 'auth' => any signed-in account; 'superadmin' => the event office only.
+    // Company accounts reach the rest, but Authz confines each screen to their
+    // own company - the route flag is the coarse gate, not the whole story.
+    $auth  = ['auth' => true];
+    $office = ['auth' => true, 'superadmin' => true];
 
     $router->get('/admin/login',   [App\Http\Controller\Admin\AuthController::class, 'showLogin']);
     $router->post('/admin/login',  [App\Http\Controller\Admin\AuthController::class, 'login']);
@@ -36,12 +40,20 @@ return static function (Router $router): void {
 
     $router->get('/admin', [App\Http\Controller\Admin\DashboardController::class, 'index'], $auth);
 
-    $router->get('/admin/companies',              [App\Http\Controller\Admin\CompanyController::class, 'index'], $auth);
-    $router->get('/admin/companies/new',          [App\Http\Controller\Admin\CompanyController::class, 'create'], $auth);
-    $router->post('/admin/companies',             [App\Http\Controller\Admin\CompanyController::class, 'store'], $auth);
-    $router->get('/admin/companies/{id}/edit',    [App\Http\Controller\Admin\CompanyController::class, 'edit'], $auth);
-    $router->post('/admin/companies/{id}',        [App\Http\Controller\Admin\CompanyController::class, 'update'], $auth);
-    $router->post('/admin/companies/{id}/delete', [App\Http\Controller\Admin\CompanyController::class, 'delete'], $auth);
+    $router->get('/admin/companies',              [App\Http\Controller\Admin\CompanyController::class, 'index'], $office);
+    $router->get('/admin/companies/new',          [App\Http\Controller\Admin\CompanyController::class, 'create'], $office);
+    $router->post('/admin/companies',             [App\Http\Controller\Admin\CompanyController::class, 'store'], $office);
+    $router->get('/admin/companies/{id}/edit',    [App\Http\Controller\Admin\CompanyController::class, 'edit'], $office);
+    $router->post('/admin/companies/{id}',        [App\Http\Controller\Admin\CompanyController::class, 'update'], $office);
+    $router->post('/admin/companies/{id}/delete', [App\Http\Controller\Admin\CompanyController::class, 'delete'], $office);
+
+    $router->get('/admin/users',                [App\Http\Controller\Admin\UserController::class, 'index'], $office);
+    $router->get('/admin/users/new',            [App\Http\Controller\Admin\UserController::class, 'create'], $office);
+    $router->post('/admin/users',               [App\Http\Controller\Admin\UserController::class, 'store'], $office);
+    $router->get('/admin/users/{id}/edit',      [App\Http\Controller\Admin\UserController::class, 'edit'], $office);
+    $router->post('/admin/users/{id}',          [App\Http\Controller\Admin\UserController::class, 'update'], $office);
+    $router->post('/admin/users/{id}/password', [App\Http\Controller\Admin\UserController::class, 'resetPassword'], $office);
+    $router->post('/admin/users/{id}/toggle',   [App\Http\Controller\Admin\UserController::class, 'toggleActive'], $office);
 
     $router->get('/admin/events',              [App\Http\Controller\Admin\EventController::class, 'index'], $auth);
     $router->get('/admin/events/new',          [App\Http\Controller\Admin\EventController::class, 'create'], $auth);
@@ -64,7 +76,7 @@ return static function (Router $router): void {
     $router->post('/admin/bookings/{id}/promote', [App\Http\Controller\Admin\BookingController::class, 'promote'], $auth);
     $router->post('/admin/bookings/{id}/cancel',  [App\Http\Controller\Admin\BookingController::class, 'cancel'], $auth);
 
-    $router->get('/admin/mail',               [App\Http\Controller\Admin\MailController::class, 'index'], $auth);
-    $router->post('/admin/mail/{id}/resend',  [App\Http\Controller\Admin\MailController::class, 'resend'], $auth);
-    $router->post('/admin/mail/send-pending', [App\Http\Controller\Admin\MailController::class, 'sendPending'], $auth);
+    $router->get('/admin/mail',               [App\Http\Controller\Admin\MailController::class, 'index'], $office);
+    $router->post('/admin/mail/{id}/resend',  [App\Http\Controller\Admin\MailController::class, 'resend'], $office);
+    $router->post('/admin/mail/send-pending', [App\Http\Controller\Admin\MailController::class, 'sendPending'], $office);
 };

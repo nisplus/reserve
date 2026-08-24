@@ -4,23 +4,23 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+use App\Domain\AdminRole;
 use App\Repository\AdminUserRepository;
 
 /**
- * Admin session handling: password check, lockout, idle and absolute timeouts.
+ * Admin session handling: password check, lockout, idle and absolute timeouts,
+ * and the role/company scope every admin screen authorises against.
  */
 final class Auth
 {
     private const KEY_ID       = '_admin_id';
-    private const KEY_NAME     = '_admin_name';
-    private const KEY_USERNAME = '_admin_username';
     private const KEY_LOGIN_AT = '_admin_login_at';
     private const KEY_SEEN_AT  = '_admin_seen_at';
 
     private const MAX_FAILED   = 10;
     private const LOCK_MINUTES = 15;
 
-    /** @var array<string, mixed>|null */
+    /** @var array<string, mixed>|null Per-request cache; not a cross-request store. */
     private static ?array $cached = null;
 
     public static function check(): bool
@@ -28,7 +28,18 @@ final class Auth
         return self::user() !== null;
     }
 
-    /** @return array<string, mixed>|null */
+    /**
+     * The signed-in account, or null.
+     *
+     * Only the id lives in the session; role, company and is_active are read
+     * from the database once per request. Caching privileges in the session
+     * would mean that revoking a role, moving someone to another company or
+     * deactivating an account had no effect until they happened to log out -
+     * which is exactly when it matters most. One primary-key lookup is a
+     * cheap price for that.
+     *
+     * @return array<string, mixed>|null
+     */
     public static function user(): ?array
     {
         if (self::$cached !== null) {
@@ -52,12 +63,20 @@ final class Auth
             return null;
         }
 
+        $row = (new AdminUserRepository())->find($id);
+        if ($row === null || (int) $row['is_active'] !== 1) {
+            self::logout();
+            return null;
+        }
+
         SessionManager::set(self::KEY_SEEN_AT, $now);
 
         self::$cached = [
-            'id'           => $id,
-            'username'     => (string) SessionManager::get(self::KEY_USERNAME, ''),
-            'display_name' => (string) SessionManager::get(self::KEY_NAME, ''),
+            'id'           => (int) $row['id'],
+            'username'     => (string) $row['username'],
+            'display_name' => (string) $row['display_name'],
+            'role'         => AdminRole::from((string) $row['role']),
+            'company_id'   => $row['company_id'] !== null ? (int) $row['company_id'] : null,
         ];
         return self::$cached;
     }
@@ -65,6 +84,26 @@ final class Auth
     public static function id(): int
     {
         return (int) (self::user()['id'] ?? 0);
+    }
+
+    public static function role(): ?AdminRole
+    {
+        return self::user()['role'] ?? null;
+    }
+
+    public static function isSuperadmin(): bool
+    {
+        return self::role() === AdminRole::Superadmin;
+    }
+
+    /**
+     * The company this account is confined to, or null for the office.
+     * Null means "no restriction", never "company 0" - callers must not
+     * silently turn it into an integer.
+     */
+    public static function companyId(): ?int
+    {
+        return self::user()['company_id'] ?? null;
     }
 
     /** "admin:<username>", used as the actor on booking_events rows. */
@@ -112,8 +151,6 @@ final class Auth
         Csrf::rotate();
 
         SessionManager::set(self::KEY_ID, (int) $user['id']);
-        SessionManager::set(self::KEY_USERNAME, (string) $user['username']);
-        SessionManager::set(self::KEY_NAME, (string) $user['display_name']);
         SessionManager::set(self::KEY_LOGIN_AT, time());
         SessionManager::set(self::KEY_SEEN_AT, time());
         self::$cached = null;
@@ -126,8 +163,6 @@ final class Auth
         self::$cached = null;
         SessionManager::start();
         SessionManager::forget(self::KEY_ID);
-        SessionManager::forget(self::KEY_USERNAME);
-        SessionManager::forget(self::KEY_NAME);
         SessionManager::forget(self::KEY_LOGIN_AT);
         SessionManager::forget(self::KEY_SEEN_AT);
         SessionManager::regenerate();

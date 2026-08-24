@@ -142,8 +142,11 @@ final class EventSessionRepository
      *
      * @return array<int, array<string, mixed>>
      */
-    public function withPromotableWaitlist(): array
+    public function withPromotableWaitlist(?int $companyId = null): array
     {
+        $scope  = $companyId !== null ? 'AND e.company_id = ?' : '';
+        $params = $companyId !== null ? [$companyId] : [];
+
         return Db::select(
             'SELECT ' . self::SELECT_LIST . ",
                     e.title AS event_title, c.name AS company_name,
@@ -155,7 +158,9 @@ final class EventSessionRepository
              WHERE s.confirmed_seats < s.capacity
                AND EXISTS (SELECT 1 FROM bookings b
                             WHERE b.session_id = s.id AND b.status = 'waitlisted')
-             ORDER BY s.starts_at, s.id"
+               {$scope}
+             ORDER BY s.starts_at, s.id",
+            $params
         );
     }
 }

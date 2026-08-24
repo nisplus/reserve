@@ -1,11 +1,16 @@
 <?php
 
 /**
- * @var array<string, int> $stats
+ * @var array<string, int>               $stats        Office-only keys absent for company accounts.
  * @var array<int, array<string, mixed>> $promotable
+ * @var bool                             $isSuperadmin
  */
 ?>
 <h1>ダッシュボード</h1>
+
+<?php if (!$isSuperadmin): ?>
+  <p class="muted">自社のイベントに関する情報のみが表示されます。</p>
+<?php endif; ?>
 
 <div class="stat-row">
   <div class="stat"><strong><?= $stats['confirmed'] ?></strong><span>確定申込</span></div>
@@ -15,12 +20,16 @@
 </div>
 
 <div class="stat-row">
-  <div class="stat"><strong><?= $stats['companies'] ?></strong><span>会社</span></div>
+  <?php if ($isSuperadmin): ?>
+    <div class="stat"><strong><?= $stats['companies'] ?></strong><span>会社</span></div>
+  <?php endif; ?>
   <div class="stat"><strong><?= $stats['events'] ?></strong><span>イベント</span></div>
   <div class="stat"><strong><?= $stats['sessions'] ?></strong><span>開催回</span></div>
-  <div class="stat">
-    <strong><?= $stats['mail_pending'] ?></strong><span>メール未送信<?= $stats['mail_failed'] > 0 ? '（失敗 ' . $stats['mail_failed'] . '）' : '' ?></span>
-  </div>
+  <?php if ($isSuperadmin): ?>
+    <div class="stat">
+      <strong><?= $stats['mail_pending'] ?></strong><span>メール未送信<?= $stats['mail_failed'] > 0 ? '（失敗 ' . $stats['mail_failed'] . '）' : '' ?></span>
+    </div>
+  <?php endif; ?>
 </div>
 
 <?php if ($promotable !== []): ?>
@@ -51,6 +60,10 @@
 
 <h2>管理</h2>
 <div class="form-actions">
-  <a class="btn" href="<?= url('/admin/companies') ?>">会社の管理</a>
   <a class="btn" href="<?= url('/admin/events') ?>">イベントと開催回の管理</a>
+  <a class="btn" href="<?= url('/admin/bookings') ?>">申込一覧</a>
+  <?php if ($isSuperadmin): ?>
+    <a class="btn btn--ghost" href="<?= url('/admin/companies') ?>">会社の管理</a>
+    <a class="btn btn--ghost" href="<?= url('/admin/users') ?>">アカウントの管理</a>
+  <?php endif; ?>
 </div>

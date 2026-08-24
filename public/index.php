@@ -25,6 +25,7 @@ if (PHP_SAPI === 'cli-server') {
 require dirname(__DIR__) . '/bootstrap.php';
 
 use App\Core\Auth;
+use App\Core\Authz;
 use App\Core\Csrf;
 use App\Core\Db;
 use App\Core\Flash;
@@ -53,6 +54,11 @@ try {
             Flash::error('ログインしてください。');
             Response::redirect('/admin/login')->send();
             return;
+        }
+        // Office-only screens. Throwing NotFound rather than a 403 keeps the
+        // existence of these URLs out of a company account's view.
+        if (($matched['options']['superadmin'] ?? false) === true) {
+            Authz::requireSuperadmin();
         }
     }
 

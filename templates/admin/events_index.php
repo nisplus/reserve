@@ -11,18 +11,21 @@ use App\Core\Csrf;
 <h1>イベントの管理</h1>
 
 <div class="filter-bar" style="margin-bottom:16px">
-  <form class="inline-form" method="get" action="<?= url('/admin/events') ?>">
-    <div class="field">
-      <label for="company">会社で絞り込み</label>
-      <select id="company" name="company" onchange="this.form.submit()">
-        <option value="0">すべての会社</option>
-        <?php foreach ($options as $id => $name): ?>
-          <option value="<?= (int) $id ?>" <?= $companyId === (int) $id ? 'selected' : '' ?>><?= e($name) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
-    <noscript><button type="submit" class="btn btn--small">絞り込む</button></noscript>
-  </form>
+  <?php /* A company account sees no filter: the list is already its own. */ ?>
+  <?php if (count($options) > 1): ?>
+    <form class="inline-form" method="get" action="<?= url('/admin/events') ?>">
+      <div class="field">
+        <label for="company">会社で絞り込み</label>
+        <select id="company" name="company" onchange="this.form.submit()">
+          <option value="0">すべての会社</option>
+          <?php foreach ($options as $id => $name): ?>
+            <option value="<?= (int) $id ?>" <?= $companyId === (int) $id ? 'selected' : '' ?>><?= e($name) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <noscript><button type="submit" class="btn btn--small">絞り込む</button></noscript>
+    </form>
+  <?php endif; ?>
   <a class="btn" href="<?= url('/admin/events/new') ?><?= $companyId > 0 ? '?company=' . $companyId : '' ?>">イベントを登録</a>
 </div>
 

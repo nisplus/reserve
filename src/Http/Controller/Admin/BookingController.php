@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controller\Admin;
 
 use App\Core\Auth;
+use App\Core\Authz;
 use App\Core\Csrf;
 use App\Core\Flash;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\View;
+use App\Exception\NotFoundException;
 use App\Exception\ValidationException;
 use App\Mail\MailDispatcher;
 use App\Repository\BookingRepository;
@@ -46,6 +48,13 @@ final class BookingController
             $sessions = (new EventSessionRepository())->forEvent((int) $filters['event_id']);
         }
 
+        $options = (new CompanyRepository())->options();
+        if (Auth::companyId() !== null) {
+            // No point offering a company filter with one entry the account
+            // cannot change; the list is already confined to it.
+            $options = [];
+        }
+
         return Response::html(View::render('admin/bookings_index', [
             'title'    => '申込一覧',
             'rows'     => $repo->searchForAdmin($filters, self::PER_PAGE, ($page - 1) * self::PER_PAGE),
@@ -53,7 +62,7 @@ final class BookingController
             'page'     => $page,
             'pages'    => $pages,
             'filters'  => $filters,
-            'options'  => (new CompanyRepository())->options(),
+            'options'  => $options,
             'events'   => (new EventRepository())->listForAdmin(
                 (int) $filters['company_id'] > 0 ? (int) $filters['company_id'] : null
             ),
@@ -98,6 +107,7 @@ final class BookingController
     public function promote(Request $request): Response
     {
         Csrf::verify($request);
+        $this->loadBooking($request->routeInt('id')); // 404s on another company's booking
 
         try {
             $booking = (new WaitlistService())->promote($request->routeInt('id'), Auth::actor());
@@ -115,6 +125,7 @@ final class BookingController
     public function cancel(Request $request): Response
     {
         Csrf::verify($request);
+        $this->loadBooking($request->routeInt('id')); // 404s on another company's booking
 
         $result = (new CancellationService())->cancelById($request->routeInt('id'), Auth::actor());
 
@@ -145,16 +156,41 @@ final class BookingController
         return Response::redirect('/admin/bookings' . ($query !== '' ? '?' . $query : ''));
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Filters for the list and the export.
+     *
+     * company_id is not a user preference for a company account - it is the
+     * boundary. Authz::scopeCompanyId overrides whatever ?company= asked for,
+     * so an event or session id belonging to someone else simply matches
+     * nothing rather than widening the result.
+     *
+     * @return array<string, mixed>
+     */
     private function filters(Request $request): array
     {
         $status = $request->query('status');
         return [
-            'company_id' => $request->queryInt('company'),
+            'company_id' => Authz::scopeCompanyId($request->queryInt('company')) ?? 0,
             'event_id'   => $request->queryInt('event'),
             'session_id' => $request->queryInt('session'),
             'status'     => in_array($status, self::STATUSES, true) ? $status : '',
             'email'      => mb_substr($request->query('email'), 0, 255),
         ];
+    }
+
+    /**
+     * Load a booking for a write operation, checking it belongs to this
+     * account's company. Returns the context row (which carries company_id).
+     *
+     * @return array<string, mixed>
+     */
+    private function loadBooking(int $id): array
+    {
+        $booking = (new BookingRepository())->findById($id);
+        if ($booking === null) {
+            throw new NotFoundException('お探しの申込は見つかりませんでした。');
+        }
+        Authz::assertCompany((int) $booking['company_id']);
+        return $booking;
     }
 }

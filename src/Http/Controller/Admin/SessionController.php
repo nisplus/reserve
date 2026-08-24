@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controller\Admin;
 
+use App\Core\Authz;
 use App\Core\Csrf;
 use App\Core\Flash;
 use App\Core\Request;
@@ -189,13 +190,19 @@ final class SessionController
         return Response::redirect('/admin/events/' . (int) $event['id'] . '/sessions');
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Every session screen reaches its data through here, so the ownership
+     * check on the parent event covers the sessions underneath it too.
+     *
+     * @return array<string, mixed>
+     */
     private function loadEvent(int $id): array
     {
         $event = (new EventRepository())->findWithCompany($id);
         if ($event === null) {
             throw new NotFoundException('お探しのイベントは見つかりませんでした。');
         }
+        Authz::assertCompany((int) $event['company_id']);
         return $event;
     }
 

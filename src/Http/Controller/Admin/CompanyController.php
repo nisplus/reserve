@@ -11,6 +11,7 @@ use App\Core\Response;
 use App\Core\Validator;
 use App\Core\View;
 use App\Exception\NotFoundException;
+use App\Repository\AdminUserRepository;
 use App\Repository\CompanyRepository;
 
 final class CompanyController
@@ -94,10 +95,16 @@ final class CompanyController
         $company = $this->load($request->routeInt('id'));
         $repo = new CompanyRepository();
 
-        // The FK is ON DELETE RESTRICT; explain instead of letting it explode.
+        // Both FKs are ON DELETE RESTRICT; explain instead of letting them explode.
         $events = $repo->eventCount((int) $company['id']);
         if ($events > 0) {
             Flash::error("「{$company['name']}」にはイベントが {$events} 件あるため削除できません。先にイベントを削除してください。");
+            return Response::redirect('/admin/companies');
+        }
+
+        $users = (new AdminUserRepository())->countForCompany((int) $company['id']);
+        if ($users > 0) {
+            Flash::error("「{$company['name']}」には担当者アカウントが {$users} 件あるため削除できません。先にアカウントを削除してください。");
             return Response::redirect('/admin/companies');
         }
 

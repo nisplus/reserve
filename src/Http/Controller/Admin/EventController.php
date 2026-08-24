@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controller\Admin;
 
+use App\Core\Auth;
+use App\Core\Authz;
 use App\Core\Csrf;
 use App\Core\Flash;
 use App\Core\Request;
@@ -19,13 +21,14 @@ final class EventController
     /** GET /admin/events?company=N */
     public function index(Request $request): Response
     {
-        $companyId = $request->queryInt('company');
+        // A company account gets its own id here whatever ?company= said.
+        $companyId = Authz::scopeCompanyId($request->queryInt('company'));
 
         return Response::html(View::render('admin/events_index', [
             'title'     => 'イベントの管理',
-            'events'    => (new EventRepository())->listForAdmin($companyId > 0 ? $companyId : null),
-            'options'   => (new CompanyRepository())->options(),
-            'companyId' => $companyId,
+            'events'    => (new EventRepository())->listForAdmin($companyId),
+            'options'   => $this->companyOptions(),
+            'companyId' => $companyId ?? 0,
         ], 'layouts/admin'));
     }
 
@@ -33,7 +36,7 @@ final class EventController
     public function create(Request $request): Response
     {
         return $this->renderForm(null, [], [
-            'company_id' => (string) $request->queryInt('company'),
+            'company_id' => (string) (Auth::companyId() ?? $request->queryInt('company')),
         ]);
     }
 
@@ -110,6 +113,7 @@ final class EventController
         return Response::redirect('/admin/events?company=' . (int) $event['company_id']);
     }
 
+    /** Fetch + ownership check in one place, so no screen can skip the check. */
     /** @return array<string, mixed> */
     private function load(int $id): array
     {
@@ -117,13 +121,32 @@ final class EventController
         if ($event === null) {
             throw new NotFoundException('お探しのイベントは見つかりませんでした。');
         }
+        Authz::assertCompany((int) $event['company_id']);
         return $event;
+    }
+
+    /**
+     * Companies this account may file an event under: all of them for the
+     * office, exactly one for a company account. The form's select is built
+     * from this, and so is the validator's whitelist - so a posted company_id
+     * outside it is rejected, not just hidden.
+     *
+     * @return array<int, string>
+     */
+    private function companyOptions(): array
+    {
+        $all = (new CompanyRepository())->options();
+        $own = Auth::companyId();
+        if ($own === null) {
+            return $all;
+        }
+        return isset($all[$own]) ? [$own => $all[$own]] : [];
     }
 
     /** @return array<string, mixed>|Response */
     private function validate(Request $request, ?int $exceptId): array|Response
     {
-        $options = (new CompanyRepository())->options();
+        $options = $this->companyOptions();
 
         $validator = new Validator();
         $validator->inList(
@@ -167,7 +190,7 @@ final class EventController
             'event'   => $event,
             'errors'  => $errors,
             'old'     => $old,
-            'options' => (new CompanyRepository())->options(),
+            'options' => $this->companyOptions(),
         ], 'layouts/admin'), $errors === [] ? 200 : 422);
     }
 }
