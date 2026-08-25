@@ -12,18 +12,22 @@ use App\Exception\ValidationException;
 use App\Repository\ApplicantRepository;
 use App\Repository\BookingRepository;
 use App\Repository\MailQueueRepository;
+use RuntimeException;
 
 /**
  * Self-service cancellation via the token from the confirmation e-mail.
  *
  * Takes the same locks in the same order as BookingService
  * (applicants -> event_sessions -> bookings); see docs/design.md section B.
+ * Holding to one order across every operation is what makes a deadlock cycle
+ * impossible to form, so the three lock steps below are numbered and must stay
+ * in that sequence.
+ *
  * The subtlety unique to this path: the row is found by token BEFORE any lock
  * is taken, so by the time the locks are held the booking may have changed -
- * another tab may have cancelled it already. Hence the re-read under lock, and
- * the idempotent early exit. Without it, two concurrent cancels would each
- * subtract party_size from confirmed_seats, and the unsigned column would wrap
- * to ~65000 instead of going negative.
+ * another tab may have cancelled it already. Hence the re-read under lock and
+ * the idempotent early exit; without them two concurrent cancels would each
+ * subtract party_size from confirmed_seats.
  */
 final class CancellationService
 {
@@ -81,19 +85,29 @@ final class CancellationService
         $bookingId   = (int) $found['id'];
 
         $result = Db::transaction(function () use ($applicantId, $sessionId, $bookingId, $found, $actor, $byAdmin): array {
-            // 1) Applicant gate - same first lock as booking, so a cancel and
-            //    a new application by the same person serialise cleanly.
-            $this->applicants->lock($applicantId);
+            // The lock order is the one BookingService uses, and the reason it
+            // is written out step by step here: applicants -> event_sessions
+            // -> bookings. Every operation touching these tables takes them in
+            // this order, which is what makes a cycle - and so a deadlock -
+            // impossible to construct. Do not reorder these three blocks.
 
-            // 2) Session row: seat accounting happens only under this lock.
+            // 1) applicants. Same first lock as booking, so a cancel and a new
+            //    application by the same person serialise against each other.
+            //    The FK from bookings is RESTRICT, so the row cannot really be
+            //    missing; checked anyway, exactly as BookingService does.
+            if (!$this->applicants->lock($applicantId)) {
+                throw new NotFoundException('申込者情報を取得できませんでした。もう一度お試しください。');
+            }
+
+            // 2) event_sessions. Seat accounting happens only under this lock.
             $session = Db::selectOne(
                 'SELECT capacity, confirmed_seats FROM event_sessions WHERE id = ? FOR UPDATE',
                 [$sessionId]
             );
 
-            // 3) The booking itself, re-read under lock. THIS is the check
-            //    that makes double-cancel safe; everything read before the
-            //    locks is stale by definition.
+            // 3) bookings. Re-read under lock: THIS is the check that makes
+            //    double-cancel safe, because everything read before the locks
+            //    is stale by definition.
             $booking = $this->bookings->lockForUpdate($bookingId);
             if ($booking === null || $session === null) {
                 throw new NotFoundException('お探しの予約は見つかりませんでした。');
@@ -110,14 +124,40 @@ final class CancellationService
                 return ['already_cancelled' => true, 'was' => $was];
             }
 
+            // The size to give back comes from the locked row, never from the
+            // pre-lock copy: it is the number the seat arithmetic must agree
+            // with, and the one the confirmation mail should quote.
+            $partySize = (int) $booking['party_size'];
+
             // 4) Seats go back only for a confirmed booking; a waitlisted one
             //    never held any. waitlist_seq is cleared either way - gaps in
             //    the sequence are fine, duplicates are not.
             if ($was === BookingStatus::Confirmed) {
-                Db::execute(
-                    'UPDATE event_sessions SET confirmed_seats = confirmed_seats - ? WHERE id = ?',
-                    [(int) $booking['party_size'], $sessionId]
+                // The predicate makes the decrement refuse rather than take the
+                // counter below zero. Under STRICT_TRANS_TABLES (which Db.php
+                // sets on every connection) an unsigned underflow is errno 1264
+                // and the value is left alone, so the data was never at risk -
+                // but a raw driver error hides what actually happened. Zero rows
+                // affected here means confirmed_seats had already drifted below
+                // what this booking holds, which is a broken invariant (1) and
+                // wants a diagnosable failure, not a silent 0.
+                $affected = Db::execute(
+                    'UPDATE event_sessions
+                     SET confirmed_seats = confirmed_seats - ?
+                     WHERE id = ? AND confirmed_seats >= ?',
+                    [$partySize, $sessionId, $partySize]
                 );
+                if ($affected !== 1) {
+                    throw new RuntimeException(sprintf(
+                        'Seat counter drift: session %d holds %d confirmed seats, '
+                        . 'less than the %d that booking %d is returning. '
+                        . 'Cancellation refused; run tests/test_invariants.php.',
+                        $sessionId,
+                        (int) $session['confirmed_seats'],
+                        $partySize,
+                        $bookingId
+                    ));
+                }
             }
             Db::execute(
                 "UPDATE bookings
@@ -126,14 +166,16 @@ final class CancellationService
                 [$bookingId]
             );
 
-            // 5) Audit trail + outbox, all inside the transaction.
+            // 5) Audit trail + outbox, all inside the transaction. Queued here
+            //    rather than after commit so a rollback takes the mail with it:
+            //    no "your booking is cancelled" for a cancellation that failed.
             $this->bookings->logEvent($bookingId, $was->value, BookingStatus::Cancelled->value, $actor);
-            $this->enqueueCancellationMail($found, $was, $byAdmin);
+            $this->enqueueCancellationMail($found, $was, $byAdmin, $partySize);
 
             // An admin cancelling already knows a seat came free; the vacancy
             // notice is for cancellations that happen without one watching.
             if ($was === BookingStatus::Confirmed && !$byAdmin) {
-                $this->notifyAdminOfVacancy($sessionId, $found, (int) $booking['party_size']);
+                $this->notifyAdminOfVacancy($sessionId, $found, $partySize);
             }
 
             return ['already_cancelled' => false, 'was' => $was];
@@ -153,8 +195,15 @@ final class CancellationService
         return $result;
     }
 
-    /** Confirmation to the applicant that the cancellation went through. */
-    private function enqueueCancellationMail(array $found, BookingStatus $was, bool $byAdmin): void
+    /**
+     * Confirmation to the applicant that the cancellation went through.
+     *
+     * @param array<string, mixed> $found     Display fields (names, times) - not
+     *                                        affected by the locks held here.
+     * @param int                  $partySize Taken from the locked row, so the
+     *                                        mail quotes the seats actually returned.
+     */
+    private function enqueueCancellationMail(array $found, BookingStatus $was, bool $byAdmin, int $partySize): void
     {
         $when = jp_datetime((string) $found['starts_at']) . '〜' . jp_time((string) $found['ends_at']);
         if ($byAdmin) {
@@ -175,7 +224,7 @@ final class CancellationService
         イベント　: {$found['event_title']}
         主催　　　: {$found['company_name']}
         日時　　　: {$when}
-        人数　　　: {$found['party_size']} 名
+        人数　　　: {$partySize} 名
         予約番号　: {$found['reference_code']}
         ────────────────────
 

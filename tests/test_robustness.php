@@ -23,6 +23,7 @@ use App\Exception\DuplicateBookingException;
 use App\Exception\ValidationException;
 use App\Repository\BookingRepository;
 use App\Service\BookingService;
+use App\Service\CancellationService;
 use App\Service\TokenService;
 
 if (PHP_SAPI !== 'cli') {
@@ -154,6 +155,68 @@ try {
         $translated = true;
     }
     $assert($translated, 'BookingService reports a repeat application as a duplicate');
+
+    // --- 4. cancellation: lock order and seat-counter safety -----------------
+    // The fixed order (applicants -> event_sessions -> bookings) is what keeps
+    // deadlocks impossible; that it holds under real contention is scenario 6
+    // in tests/test_concurrency.php. Here: the counter arithmetic around it.
+    $cancelSession = fixture_create_session($event, '2026-12-12 10:00:00', '2026-12-12 11:00:00', 4);
+    $held = $service->book($cancelSession, fixture_email('rb-cancel'), 'Cancel', 3);
+    $assert((int) Db::scalar('SELECT confirmed_seats FROM event_sessions WHERE id = ?', [$cancelSession]) === 3,
+        'three seats held before cancelling');
+
+    $cancels = new CancellationService();
+    $out = $cancels->cancelById((int) $held['booking_id'], 'test:robustness');
+    $assert($out['already_cancelled'] === false && $out['was'] === BookingStatus::Confirmed,
+        'cancel reports the previous status');
+    $assert((int) Db::scalar('SELECT confirmed_seats FROM event_sessions WHERE id = ?', [$cancelSession]) === 0,
+        'exactly party_size seats returned');
+
+    $row = Db::selectOne(
+        'SELECT status, cancelled_at, waitlist_seq FROM bookings WHERE id = ?',
+        [$held['booking_id']]
+    );
+    $assert($row['status'] === 'cancelled' && $row['cancelled_at'] !== null && $row['waitlist_seq'] === null,
+        'cancelled row is stamped and its queue number cleared');
+
+    $audit = Db::selectOne(
+        'SELECT from_status, to_status, actor FROM booking_events
+         WHERE booking_id = ? ORDER BY id DESC LIMIT 1',
+        [$held['booking_id']]
+    );
+    $assert($audit['from_status'] === 'confirmed' && $audit['to_status'] === 'cancelled'
+        && $audit['actor'] === 'test:robustness', 'audit row records the transition and the actor');
+
+    $mailed = (int) Db::scalar(
+        "SELECT COUNT(*) FROM mail_queue WHERE booking_id = ? AND subject LIKE '%キャンセル%'",
+        [$held['booking_id']]
+    );
+    $assert($mailed === 1, 'cancellation mail queued in the outbox');
+
+    // Idempotent: a second cancel neither errors nor gives the seats back twice.
+    $again = $cancels->cancelById((int) $held['booking_id'], 'test:robustness');
+    $assert($again['already_cancelled'] === true, 'a second cancel is a no-op');
+    $assert((int) Db::scalar('SELECT confirmed_seats FROM event_sessions WHERE id = ?', [$cancelSession]) === 0,
+        'seats not returned twice');
+
+    // Drifted counter: the guarded decrement must refuse instead of going
+    // below zero. Staged by writing the counter directly, which is exactly the
+    // kind of manual edit that causes drift in the first place.
+    $drift = fixture_create_session($event, '2026-12-13 10:00:00', '2026-12-13 11:00:00', 5);
+    $driftBooking = $service->book($drift, fixture_email('rb-drift'), 'Drift', 3);
+    Db::execute('UPDATE event_sessions SET confirmed_seats = 1 WHERE id = ?', [$drift]);
+
+    $refusedDrift = false;
+    try {
+        $cancels->cancelById((int) $driftBooking['booking_id'], 'test:robustness');
+    } catch (RuntimeException $e) {
+        $refusedDrift = str_contains($e->getMessage(), 'Seat counter drift');
+    }
+    $assert($refusedDrift, 'a drifted counter is reported, not decremented below zero');
+    $assert((int) Db::scalar('SELECT confirmed_seats FROM event_sessions WHERE id = ?', [$drift]) === 1,
+        'the drifted counter was left untouched');
+    $assert(Db::scalar('SELECT status FROM bookings WHERE id = ?', [$driftBooking['booking_id']]) === 'confirmed',
+        'the refused cancellation rolled back entirely');
 } finally {
     fixture_cleanup();
 }

@@ -232,7 +232,16 @@ SELECT status, party_size FROM bookings WHERE id = :booking_id FOR UPDATE;
 -- COMMIT
 ```
 
-**ステップ 3 の再検証を省略すると、同時キャンセル 2 件で `confirmed_seats` が 2 回減算されます。** `SMALLINT UNSIGNED` なのでアンダーフローして 65000 台の巨大な値になります。必ず入れてください。
+**ステップ 3 の再検証を省略すると、同時キャンセル 2 件で `confirmed_seats` が 2 回減算されます。** 必ず入れてください。
+
+減算が 0 を下回った場合の実測挙動（MariaDB 10.4 / この接続の `sql_mode`）:
+
+| 条件 | 結果 |
+|---|---|
+| `STRICT_TRANS_TABLES` あり（`Db.php` が毎接続で設定） | **errno 1264 でエラー**、値は変化しない |
+| strict mode なし | 0 にクランプ（警告のみ） |
+
+つまり `SMALLINT UNSIGNED` が 65000 台に化けることはありません。それでも生のドライバエラーでは原因が分からないため、`CancellationService` は `WHERE ... AND confirmed_seats >= ?` を付けて減算し、更新行数が 0 なら「カウンタが既に乖離している」＝不変条件(1) 違反として、診断可能な例外を投げます。
 
 ### 繰り上げ（管理者が手動実行）
 
@@ -444,7 +453,7 @@ wait
 | 3 | **同一メール**、時間帯が重なる 10 個の別セッションへ同時申込 | 成功**1 件のみ**、残り 9 件は重複エラー |
 | 4 | 同一メール・同一セッションへ 10 並列 | 成功 1 件。すり抜けた分は `uq_bookings_active` が SQLSTATE 23000 を返し、それが利用者向けメッセージに正しく変換される |
 | 5 | 確定 → キャンセル → 同じセッションへ再申込 | 成功する（`active_key` の NULL 化が機能） |
-| 6 | 同一予約へのキャンセル 2 並列 | `confirmed_seats` の減算が**ちょうど 1 回**。アンダーフローしない |
+| 6 | 同一予約へのキャンセル 2 並列 | `confirmed_seats` の減算が**ちょうど 1 回**。0 を下回らない |
 | 7 | 隣接枠（10:00–10:45 と 10:45–11:30）を同一メールで申込 | **両方成功**（`<` による境界処理の確認） |
 | 8 | キャンセル → 管理者繰り上げ 2 並列 | 二重昇格が起きず `confirmed_seats <= capacity` |
 
@@ -572,4 +581,4 @@ PHP で実装しているのは、PowerShell 5.1 に `<` 入力リダイレク�
 | [`db/migrations/001_init.sql`](../db/migrations/001_init.sql) | utf8mb4 指定、`active_key` 生成列 UNIQUE、座席カウンタ、CHECK 制約 |
 | [`src/Core/Db.php`](../src/Core/Db.php) | 接続時の `sql_mode` / `time_zone` / 分離レベル / ロックタイムアウト上書きと、リトライ付きトランザクション |
 | `bin/concurrency_test.php` | バリア同期付き競合ワーカー。`php -S` が逐次実行のため**競合検証はこれ以外の手段がない** |
-| `src/Service/CancellationService.php` | ロック後の状態再検証（省略すると `confirmed_seats` がアンダーフローする） |
+| `src/Service/CancellationService.php` | `applicants`→`event_sessions`→`bookings` の固定順ロックと、ロック後の状態再検証（省略すると `confirmed_seats` が二重に減算される） |
