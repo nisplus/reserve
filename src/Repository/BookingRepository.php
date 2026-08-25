@@ -55,6 +55,53 @@ final class BookingRepository
     }
 
     /**
+     * Live bookings that do NOT overlap [startsAt, endsAt) but come within
+     * $bufferMinutes of it on either side - the "can they physically get
+     * there" check. Gap boundaries are inclusive: a gap of exactly
+     * $bufferMinutes still matches ("15分以下"), which also means back-to-back
+     * slots (gap 0) match even though the overlap rule deliberately allows them.
+     *
+     * True overlaps are excluded here because they are a different answer:
+     * the caller reports those as duplicates, not as travel-time problems.
+     *
+     * Advisory on the confirmation screen; authoritative only when called
+     * inside the booking transaction under the applicant lock.
+     *
+     * @return array<string, mixed>|null The nearest such booking, with event context.
+     */
+    public function findWithinTravelBuffer(
+        int $applicantId,
+        string $startsAt,
+        string $endsAt,
+        int $bufferMinutes,
+        ?int $excludeBookingId = null,
+    ): ?array {
+        $exclude = $excludeBookingId !== null ? 'AND b.id <> ?' : '';
+        $params  = [$applicantId, $endsAt, $bufferMinutes, $startsAt, $bufferMinutes, $endsAt, $startsAt];
+        if ($excludeBookingId !== null) {
+            $params[] = $excludeBookingId;
+        }
+
+        return Db::selectOne(
+            "SELECT b.id, b.session_id, b.status, s.starts_at, s.ends_at,
+                    e.title AS event_title, c.name AS company_name
+             FROM bookings b
+             JOIN event_sessions s ON s.id = b.session_id
+             JOIN events e         ON e.id = s.event_id
+             JOIN companies c      ON c.id = e.company_id
+             WHERE b.applicant_id = ?
+               AND b.status IN ('confirmed', 'waitlisted')
+               AND s.starts_at <= DATE_ADD(?, INTERVAL ? MINUTE)
+               AND ? <= DATE_ADD(s.ends_at, INTERVAL ? MINUTE)
+               AND NOT (s.starts_at < ? AND ? < s.ends_at)
+               {$exclude}
+             ORDER BY s.starts_at
+             LIMIT 1",
+            $params
+        );
+    }
+
+    /**
      * Insert a new booking.
      *
      * Named parameters rather than an array: the previous shape carried a

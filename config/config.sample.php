@@ -42,6 +42,21 @@ return [
         ],
     ],
 
+    // Travel time between bookings. When the gap between one booking's end
+    // and the next one's start is `minutes` or less (0 disables the check),
+    // the applicant is told 移動時間を考慮すると、この予約は間に合いません.
+    //   block = false: warning popup on the confirmation screen; they may
+    //                  continue anyway.
+    //   block = true:  the application is refused outright (enforced inside
+    //                  the booking transaction, and promotion from the
+    //                  waitlist refuses such gaps too).
+    // Note: back-to-back slots (gap 0) fall under this check even though the
+    // overlap rule itself allows them.
+    'travel_buffer' => [
+        'minutes' => 15,
+        'block'   => false,
+    ],
+
     'waitlist' => [
         // Promote from the waitlist automatically when seats free up: oldest
         // candidate whose party fits the gap, repeated until nothing fits

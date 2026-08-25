@@ -11,6 +11,7 @@ use App\Domain\SessionStatus;
 use App\Exception\DuplicateBookingException;
 use App\Exception\NotFoundException;
 use App\Exception\SessionFullException;
+use App\Exception\TravelBufferException;
 use App\Exception\ValidationException;
 use App\Repository\ApplicantRepository;
 use App\Repository\BookingRepository;
@@ -123,6 +124,26 @@ final class BookingService
                         : DuplicateBookingException::overlapping($conflict);
                 }
 
+                // 3b) Travel buffer, same lock so the answer cannot go stale.
+                //     Only the blocking mode enforces here; in warn mode the
+                //     confirmation screen has already shown the popup and the
+                //     applicant chose to continue.
+                if (self::travelBufferBlocks()) {
+                    $near = $this->bookings->findWithinTravelBuffer(
+                        $applicantId,
+                        (string) $session['starts_at'],
+                        (string) $session['ends_at'],
+                        self::travelBufferMinutes()
+                    );
+                    if ($near !== null) {
+                        throw TravelBufferException::tooClose(
+                            $near,
+                            self::gapMinutes($near, (string) $session['starts_at'], (string) $session['ends_at']),
+                            self::travelBufferMinutes()
+                        );
+                    }
+                }
+
                 // 4) Seats or waitlist. Plain read-modify-write is safe here:
                 //    the session row is locked, so the counters cannot move.
                 $seatsLeft = (int) $session['capacity'] - (int) $session['confirmed_seats'];
@@ -207,6 +228,69 @@ final class BookingService
             }
             throw $e;
         }
+    }
+
+    // --- travel buffer ------------------------------------------------------
+
+    /** Configured gap (minutes) under which two bookings are "too close". 0 disables. */
+    public static function travelBufferMinutes(): int
+    {
+        return max(0, Config::int('travel_buffer.minutes', 15));
+    }
+
+    /** true: refuse such bookings outright; false: warn on the confirm screen only. */
+    public static function travelBufferBlocks(): bool
+    {
+        return self::travelBufferMinutes() > 0 && Config::bool('travel_buffer.block', false);
+    }
+
+    /**
+     * Advisory version for the confirmation screen: would this booking sit
+     * within the travel buffer of one this e-mail address already holds?
+     *
+     * Lock-free on purpose - it renders a warning, it does not decide. The
+     * deciding check (block mode) runs inside book() under the applicant
+     * lock. No applicant row yet means no bookings and no warning; the lookup
+     * deliberately does not create one.
+     *
+     * @param array<string, mixed> $session Row with starts_at / ends_at.
+     * @return array{conflict: array<string, mixed>, gap_minutes: int}|null
+     */
+    public function travelBufferWarning(string $email, array $session): ?array
+    {
+        $buffer = self::travelBufferMinutes();
+        if ($buffer <= 0) {
+            return null;
+        }
+
+        $applicantId = $this->applicants->findIdByEmail($email);
+        if ($applicantId === null) {
+            return null;
+        }
+
+        $near = $this->bookings->findWithinTravelBuffer(
+            $applicantId,
+            (string) $session['starts_at'],
+            (string) $session['ends_at'],
+            $buffer
+        );
+        if ($near === null) {
+            return null;
+        }
+
+        return [
+            'conflict'    => $near,
+            'gap_minutes' => self::gapMinutes($near, (string) $session['starts_at'], (string) $session['ends_at']),
+        ];
+    }
+
+    /** Minutes between the two bookings' facing edges; 0 for back-to-back. */
+    private static function gapMinutes(array $near, string $startsAt, string $endsAt): int
+    {
+        $gap = strtotime((string) $near['starts_at']) >= strtotime($endsAt)
+            ? strtotime((string) $near['starts_at']) - strtotime($endsAt)   // they follow us
+            : strtotime($startsAt) - strtotime((string) $near['ends_at']);  // they precede us
+        return max(0, intdiv($gap, 60));
     }
 
     private function enqueueConfirmationMail(

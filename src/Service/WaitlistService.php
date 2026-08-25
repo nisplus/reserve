@@ -94,6 +94,28 @@ final class WaitlistService
                 ));
             }
 
+            // Travel buffer, blocking mode only: promoting someone into a slot
+            // they cannot physically reach is the same mistake as booking it.
+            // In warn mode there is nobody to show a popup to (the applicant
+            // is not present), so promotion follows the applicant's original,
+            // warned-and-accepted choice.
+            if (BookingService::travelBufferBlocks()) {
+                $near = $this->bookings->findWithinTravelBuffer(
+                    $applicantId,
+                    (string) $session['starts_at'],
+                    (string) $session['ends_at'],
+                    BookingService::travelBufferMinutes(),
+                    $bookingId
+                );
+                if ($near !== null) {
+                    throw new ValidationException(sprintf(
+                        '繰り上げできません。移動時間を考慮すると間に合いません（%s「%s」との間隔が短すぎます）。',
+                        (string) $near['company_name'],
+                        (string) $near['event_title']
+                    ));
+                }
+            }
+
             Db::execute(
                 'UPDATE event_sessions SET confirmed_seats = confirmed_seats + ? WHERE id = ?',
                 [$partySize, $sessionId]

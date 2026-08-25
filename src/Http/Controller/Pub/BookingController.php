@@ -15,6 +15,7 @@ use App\Core\View;
 use App\Exception\DuplicateBookingException;
 use App\Exception\NotFoundException;
 use App\Exception\SessionFullException;
+use App\Exception\TravelBufferException;
 use App\Exception\ValidationException;
 use App\Mail\MailDispatcher;
 use App\Repository\BookingRepository;
@@ -58,10 +59,15 @@ final class BookingController
         }
 
         return Response::html(View::render('pub/booking_confirm', [
-            'title'    => '申し込み内容の確認',
-            'session'  => $session,
-            'input'    => $input,
-            'willWait' => (int) $session['seats_left'] < (int) $input['party_size'],
+            'title'       => '申し込み内容の確認',
+            'session'     => $session,
+            'input'       => $input,
+            'willWait'    => (int) $session['seats_left'] < (int) $input['party_size'],
+            // Travel-time proximity to a booking this address already holds.
+            // Advisory here (it drives the warning panel and the popup); the
+            // enforcing check runs inside the booking transaction.
+            'travelWarn'  => (new BookingService())->travelBufferWarning((string) $input['email'], $session),
+            'travelBlock' => BookingService::travelBufferBlocks(),
         ]));
     }
 
@@ -98,8 +104,8 @@ final class BookingController
                 (string) $input['name'],
                 (int) $input['party_size'],
             );
-        } catch (DuplicateBookingException | SessionFullException | ValidationException $e) {
-            // All three are user-correctable outcomes, not errors: show the
+        } catch (DuplicateBookingException | SessionFullException | TravelBufferException | ValidationException $e) {
+            // All of these are user-correctable outcomes, not errors: show the
             // form again with the reason on top and the input preserved.
             return $this->renderForm($session, ['_top' => $e->getMessage()], [
                 'email'      => (string) $input['email'],

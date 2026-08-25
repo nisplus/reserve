@@ -31,6 +31,17 @@ final class ApplicantRepository
     }
 
     /**
+     * Read-only lookup for advisory checks (the confirmation screen's travel
+     * warning). Unlike idForEmail this creates nothing: someone merely LOOKING
+     * at a form should not leave an applicant row behind.
+     */
+    public function findIdByEmail(string $email): ?int
+    {
+        $id = Db::scalar('SELECT id FROM applicants WHERE email = ?', [$email]);
+        return $id !== null ? (int) $id : null;
+    }
+
+    /**
      * The applicant gate: locking this row serialises every booking operation
      * by the same person. Overlap is a range comparison no UNIQUE index can
      * express, and rows that do not exist yet cannot be locked - this single

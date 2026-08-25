@@ -9,6 +9,7 @@
 - 会社ごとにグループ化したイベント一覧と、開催回（1 イベントあたり 1 日 5〜10 回）の選択
 - メールアドレス・氏名・参加人数での申込
 - **同一申込者が時間帯の重なる回に二重申込できない**（主催会社をまたいでも検出）
+- 前後の予約との間隔が短い（既定 15 分以下）場合は「移動時間を考慮すると間に合いません」と警告。分数と、警告のみ／申込拒否は `config.php` の `travel_buffer` で切替
 - 開催回ごとの定員管理（単位は人数）と、満席時のキャンセル待ち
 - トークン付き URL による本人での予約確認・キャンセル
 - 管理画面（会社／イベント／開催回の CRUD、申込一覧、繰り上げ、CSV 出力）
@@ -221,6 +222,7 @@ php.cmd tests/test_base_path.php       # サブディレクトリ設置時の UR
 php.cmd tests/test_authz.php           # 会社スコープ（他社データに触れないこと）
 php.cmd tests/test_robustness.php      # confirmed_at の導出・enum の安全読み・重複キー判定
 php.cmd tests/test_waitlist.php        # first-fit 繰り上げ（大人数の先頭を追い越す・順序保存・重なりスキップ）
+php.cmd tests/test_travel_buffer.php   # 移動時間バッファ（境界 0/15/16 分・warn/block・前後両方向）
 php.cmd tests/test_capacity.php        # 定員・キャンセル待ち・CHECK 制約（scratch データで完結）
 php.cmd tests/test_invariants.php      # E-4 の不変条件 5 本（現在の DB 全体）
 php.cmd tests/test_concurrency.php     # E-3 の競合 8 シナリオ（約 1 分、ワーカー 66 プロセス）
