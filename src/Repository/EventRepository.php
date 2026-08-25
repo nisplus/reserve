@@ -21,6 +21,7 @@ final class EventRepository
     {
         return Db::select(
             "SELECT e.id, e.title, e.description, e.venue, e.sort_order,
+                    e.booking_required, e.external_url,
                     c.id   AS company_id,
                     c.name AS company_name,
                     c.name_kana AS company_kana,
@@ -35,6 +36,7 @@ final class EventRepository
                     ON s.event_id = e.id AND s.status = 'open'
              WHERE e.is_published = 1 AND c.is_published = 1
              GROUP BY e.id, e.title, e.description, e.venue, e.sort_order,
+                      e.booking_required, e.external_url,
                       c.id, c.name, c.name_kana
              ORDER BY c.sort_order, c.id, e.sort_order, e.id"
         );
@@ -100,22 +102,57 @@ final class EventRepository
         return Db::select($sql, $params);
     }
 
-    public function create(int $companyId, string $title, ?string $description, ?string $venue, int $sortOrder, bool $published): int
-    {
+    public function create(
+        int $companyId,
+        string $title,
+        ?string $description,
+        ?string $venue,
+        int $sortOrder,
+        bool $published,
+        bool $bookingRequired = true,
+        ?string $externalUrl = null,
+    ): int {
         Db::execute(
-            'INSERT INTO events (company_id, title, description, venue, sort_order, is_published)
-             VALUES (?, ?, ?, ?, ?, ?)',
-            [$companyId, $title, $description, $venue, $sortOrder, $published ? 1 : 0]
+            'INSERT INTO events
+               (company_id, title, description, venue, sort_order, is_published,
+                booking_required, external_url)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                $companyId, $title, $description, $venue, $sortOrder,
+                $published ? 1 : 0, $bookingRequired ? 1 : 0, $externalUrl,
+            ]
         );
         return Db::lastInsertId();
     }
 
-    public function update(int $id, int $companyId, string $title, ?string $description, ?string $venue, int $sortOrder, bool $published): void
-    {
+    /**
+     * Full replacement of the editable fields.
+     *
+     * bookingRequired and externalUrl are required rather than defaulted: an
+     * update that omitted them would quietly reset the flag and erase the
+     * link, and "forgot to pass it" should be a TypeError, not silent data
+     * loss. create() may default them because a new event has nothing to lose.
+     */
+    public function update(
+        int $id,
+        int $companyId,
+        string $title,
+        ?string $description,
+        ?string $venue,
+        int $sortOrder,
+        bool $published,
+        bool $bookingRequired,
+        ?string $externalUrl,
+    ): void {
         Db::execute(
-            'UPDATE events SET company_id = ?, title = ?, description = ?, venue = ?, sort_order = ?, is_published = ?
+            'UPDATE events
+             SET company_id = ?, title = ?, description = ?, venue = ?, sort_order = ?,
+                 is_published = ?, booking_required = ?, external_url = ?
              WHERE id = ?',
-            [$companyId, $title, $description, $venue, $sortOrder, $published ? 1 : 0, $id]
+            [
+                $companyId, $title, $description, $venue, $sortOrder,
+                $published ? 1 : 0, $bookingRequired ? 1 : 0, $externalUrl, $id,
+            ]
         );
     }
 

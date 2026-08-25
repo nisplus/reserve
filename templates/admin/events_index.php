@@ -49,12 +49,21 @@ use App\Core\Csrf;
           <?php else: ?>
             <span class="badge badge--muted">非公開</span>
           <?php endif; ?>
+          <?php if ((int) $event['booking_required'] !== 1): ?>
+            <span class="badge badge--muted">予約不要</span>
+          <?php endif; ?>
         </td>
         <td>
-          <a href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions"><?= (int) $event['session_count'] ?> 件</a>
+          <?php if ((int) $event['booking_required'] !== 1): ?>
+            <span class="muted">—</span>
+          <?php else: ?>
+            <a href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions"><?= (int) $event['session_count'] ?> 件</a>
+          <?php endif; ?>
         </td>
         <td>
-          <a class="btn btn--ghost btn--small" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions">開催回</a>
+          <?php if ((int) $event['booking_required'] === 1): ?>
+            <a class="btn btn--ghost btn--small" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions">開催回</a>
+          <?php endif; ?>
           <a class="btn btn--ghost btn--small" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/edit">編集</a>
           <?php if ((int) $event['session_count'] === 0): ?>
             <form class="inline-form" method="post" action="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/delete"

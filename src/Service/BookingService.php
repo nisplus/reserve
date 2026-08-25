@@ -100,6 +100,19 @@ final class BookingService
                 if ($session === null) {
                     throw new NotFoundException('お探しの開催回は見つかりませんでした。');
                 }
+
+                // The 予約不要 flag lives on the parent event, so it needs its
+                // own read - kept out of the locking SELECT above, which must
+                // stay a single-row lock on event_sessions. The controller
+                // already refuses these; this closes the CLI and service paths
+                // and any screen added later.
+                $bookingRequired = Db::scalar(
+                    'SELECT booking_required FROM events WHERE id = ?',
+                    [(int) $session['event_id']]
+                );
+                if ((int) $bookingRequired !== 1) {
+                    throw new ValidationException('このイベントはお申し込み不要です。');
+                }
                 // tryFrom, not from: an ENUM value this build of the code does
                 // not know about (a migration deployed ahead of the code, say)
                 // would otherwise raise \ValueError and surface as a 500. A

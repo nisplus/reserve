@@ -4,6 +4,8 @@
  * @var array<int, array{date:string, sessions:array<int, array<string,mixed>>}> $days
  * @var int $total
  */
+$needsBooking = (int) $event['booking_required'] === 1;
+$externalUrl  = (string) ($event['external_url'] ?? '');
 ?>
 <p class="breadcrumb"><a href="<?= url('/') ?>">イベント一覧</a> ／ <?= e($event['company_name']) ?></p>
 
@@ -21,11 +23,27 @@
   <?php endif; ?>
 </div>
 
-<h2>開催時間を選ぶ</h2>
+<?php if (!$needsBooking): ?>
+  <?php /* 予約不要: no slot list at all - not even an empty one, because
+           "受付中の開催回はありません" would read as a temporary state rather
+           than the point. The external link, when set, is the call to action. */ ?>
+  <h2>ご参加について</h2>
+  <p class="lead">このイベントは<strong>お申し込み不要</strong>です。当日、直接会場までお越しください。</p>
 
-<?php if ($total === 0): ?>
+  <?php if ($externalUrl !== ''): ?>
+    <p class="form-actions">
+      <a class="btn" href="<?= e($externalUrl) ?>" target="_blank" rel="noopener noreferrer">
+        詳細を見る（外部サイト）
+      </a>
+    </p>
+    <p class="muted">リンク先は主催会社のサイトです。新しいタブで開きます。</p>
+  <?php endif; ?>
+
+<?php elseif ($total === 0): ?>
+  <h2>開催時間を選ぶ</h2>
   <p class="empty">現在受付中の開催回はありません。</p>
 <?php else: ?>
+  <h2>開催時間を選ぶ</h2>
   <p class="muted">
     残席は表示時点のものです。お申し込みの確定時に改めて確認しますので、
     表示と異なる結果になる場合があります。

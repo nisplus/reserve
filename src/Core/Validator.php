@@ -89,6 +89,38 @@ final class Validator
         return $this;
     }
 
+    /**
+     * Optional external link. Empty is fine; anything present must be an
+     * absolute http/https URL.
+     *
+     * The scheme whitelist is the point, not a formality: this value ends up
+     * in an href, and `javascript:alert(1)` passes FILTER_VALIDATE_URL. e()
+     * would not save us there - escaping protects the attribute, not the
+     * scheme the browser then executes.
+     */
+    public function url(string $field, string $label, string $value, int $max = 500): self
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            $this->values[$field] = null;
+            return $this;
+        }
+        if (mb_strlen($trimmed) > $max) {
+            return $this->fail($field, "{$label}は{$max}文字以内で入力してください。");
+        }
+
+        $scheme = strtolower((string) parse_url($trimmed, PHP_URL_SCHEME));
+        if (!in_array($scheme, ['http', 'https'], true)) {
+            return $this->fail($field, "{$label}は http:// または https:// で始まるURLを入力してください。");
+        }
+        if (!filter_var($trimmed, FILTER_VALIDATE_URL)) {
+            return $this->fail($field, "{$label}の形式が正しくありません。");
+        }
+
+        $this->values[$field] = $trimmed;
+        return $this;
+    }
+
     /** @param array<int, string> $allowed */
     public function inList(string $field, string $label, string $value, array $allowed): self
     {

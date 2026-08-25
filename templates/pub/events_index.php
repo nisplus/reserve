@@ -23,6 +23,10 @@
       <?php
         $sessionCount = (int) $event['session_count'];
         $seatsLeft    = (int) $event['seats_left'];
+        // 予約不要: nothing to reserve, so seats and slot counts say nothing
+        // useful. The card carries the badge and sends people to the detail
+        // page for whatever the host wants to tell them.
+        $needsBooking = (int) $event['booking_required'] === 1;
       ?>
       <article class="card">
         <h3><a href="<?= url('/events/') ?><?= (int) $event['id'] ?>"><?= e($event['title']) ?></a></h3>
@@ -31,7 +35,9 @@
           <p class="card-meta">会場: <?= e($event['venue']) ?></p>
         <?php endif; ?>
 
-        <?php if ($sessionCount > 0): ?>
+        <?php if (!$needsBooking): ?>
+          <p class="card-meta">お申し込みなしでご参加いただけます。</p>
+        <?php elseif ($sessionCount > 0): ?>
           <p class="card-meta">
             <?= e(jp_date((string) $event['first_starts_at'])) ?>
             ／ 全 <?= $sessionCount ?> 回
@@ -42,14 +48,18 @@
         <?php endif; ?>
 
         <p class="card-foot">
-          <?php if ($sessionCount === 0): ?>
+          <?php if (!$needsBooking): ?>
+            <span class="badge badge--muted">予約不要</span>
+          <?php elseif ($sessionCount === 0): ?>
             <span class="badge badge--muted">受付前</span>
           <?php elseif ($seatsLeft === 0): ?>
             <span class="badge badge--bad">全回満席</span>
           <?php else: ?>
             <span class="badge badge--ok">空き <?= $seatsLeft ?> 名分</span>
           <?php endif; ?>
-          <a class="btn btn--small btn--ghost" href="<?= url('/events/') ?><?= (int) $event['id'] ?>">開催時間を見る</a>
+          <a class="btn btn--small btn--ghost" href="<?= url('/events/') ?><?= (int) $event['id'] ?>">
+            <?= $needsBooking ? '開催時間を見る' : '詳細を見る' ?>
+          </a>
         </p>
       </article>
     <?php endforeach; ?>

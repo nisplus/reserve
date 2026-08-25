@@ -13,6 +13,11 @@ $selectedCompany = (int) ($old['company_id'] ?? ($event['company_id'] ?? 0));
 $published = $old !== []
     ? ($old['is_published'] ?? '') === '1'
     : ($event === null || (int) $event['is_published'] === 1);
+// The form speaks 予約不要; the column stores booking_required. New events
+// default to requiring a booking, so the box starts unchecked.
+$noBooking = $old !== []
+    ? ($old['no_booking'] ?? '') === '1'
+    : ($event !== null && (int) $event['booking_required'] !== 1);
 ?>
 <p class="breadcrumb"><a href="<?= url('/admin/events') ?>">イベントの管理</a> ／ <?= $event === null ? '登録' : '編集' ?></p>
 
@@ -71,6 +76,30 @@ $published = $old !== []
         <input type="checkbox" name="is_published" value="1" <?= $published ? 'checked' : '' ?>>
         公開する（会社も公開のとき一覧に表示）
       </label>
+    </div>
+
+    <div class="field">
+      <label>
+        <input type="checkbox" name="no_booking" value="1" <?= $noBooking ? 'checked' : '' ?>>
+        <strong>予約不要</strong>（申し込みを受け付けない）
+      </label>
+      <p class="hint">
+        チェックすると公開側で開催回が表示されなくなり、一覧のボタンが「詳細を見る」に変わります。
+        既存の開催回は削除されませんが、申し込みは受け付けなくなります。
+      </p>
+    </div>
+
+    <div class="field">
+      <label for="external_url">外部リンクURL</label>
+      <input type="url" id="external_url" name="external_url" maxlength="500"
+             placeholder="https://example.com/event"
+             value="<?= e($old['external_url'] ?? (string) ($event['external_url'] ?? '')) ?>"
+             <?= isset($errors['external_url']) ? 'aria-invalid="true"' : '' ?>>
+      <p class="hint">
+        予約不要のイベントで、詳細ページに「詳細を見る（外部サイト）」ボタンとして表示します。
+        新しいタブで開きます。http:// または https:// から入力してください。
+      </p>
+      <?php if (isset($errors['external_url'])): ?><p class="error"><?= e($errors['external_url']) ?></p><?php endif; ?>
     </div>
 
     <div class="form-actions">

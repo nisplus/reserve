@@ -50,16 +50,24 @@ final class EventController
             return $input;
         }
 
+        // The form asks 予約不要 (the exception); the column stores
+        // booking_required (the norm). Inverted once, here.
+        $bookingRequired = !$request->has('no_booking');
+
         (new EventRepository())->create(
             (int) $input['company_id'],
             (string) $input['title'],
             $input['description'] !== null ? (string) $input['description'] : null,
             $input['venue'] !== null ? (string) $input['venue'] : null,
             (int) $input['sort_order'],
-            $request->has('is_published')
+            $request->has('is_published'),
+            $bookingRequired,
+            $input['external_url'] !== null ? (string) $input['external_url'] : null,
         );
 
-        Flash::success('イベントを登録しました。続けて開催回を登録してください。');
+        Flash::success($bookingRequired
+            ? 'イベントを登録しました。続けて開催回を登録してください。'
+            : 'イベントを登録しました（予約不要のため開催回は不要です）。');
         return Response::redirect('/admin/events?company=' . (int) $input['company_id']);
     }
 
@@ -80,6 +88,8 @@ final class EventController
             return $input;
         }
 
+        $bookingRequired = !$request->has('no_booking');
+
         (new EventRepository())->update(
             (int) $event['id'],
             (int) $input['company_id'],
@@ -87,8 +97,18 @@ final class EventController
             $input['description'] !== null ? (string) $input['description'] : null,
             $input['venue'] !== null ? (string) $input['venue'] : null,
             (int) $input['sort_order'],
-            $request->has('is_published')
+            $request->has('is_published'),
+            $bookingRequired,
+            $input['external_url'] !== null ? (string) $input['external_url'] : null,
         );
+
+        // Existing sessions are left alone rather than deleted: the flag may
+        // be a mistake, and bookings on them are history either way. They stop
+        // being reachable, which is enough.
+        $liveSessions = (new EventRepository())->sessionCount((int) $event['id']);
+        if (!$bookingRequired && $liveSessions > 0) {
+            Flash::info("このイベントは予約不要になりました。既存の開催回 {$liveSessions} 件は公開側に表示されず、新規申込も受け付けません（データは残っています）。");
+        }
 
         Flash::success('イベントを更新しました。');
         return Response::redirect('/admin/events?company=' . (int) $input['company_id']);
@@ -160,6 +180,7 @@ final class EventController
         $validator->optional('description', $request->post('description'), 5000);
         $validator->optional('venue', $request->post('venue'), 200);
         $validator->intRange('sort_order', '表示順', $request->post('sort_order', '0'), 0, 9999);
+        $validator->url('external_url', '外部リンクURL', $request->post('external_url'), 500);
 
         if (!$validator->hasErrors()) {
             $values = $validator->values();
@@ -175,6 +196,8 @@ final class EventController
             'venue'        => $request->post('venue'),
             'sort_order'   => $request->post('sort_order'),
             'is_published' => $request->has('is_published') ? '1' : '',
+            'no_booking'   => $request->has('no_booking') ? '1' : '',
+            'external_url' => $request->post('external_url'),
         ]);
     }
 

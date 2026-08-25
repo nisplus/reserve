@@ -149,6 +149,12 @@ final class BookingController
         if ($session === null || (string) $session['status'] !== 'open') {
             throw new NotFoundException('この開催回は現在お申し込みを受け付けていません。');
         }
+        // 予約不要 events take no applications. Sessions created before the
+        // flag was set still exist, so a bookmarked or guessed apply URL has
+        // to be refused here rather than relying on the links being gone.
+        if ((int) $session['booking_required'] !== 1) {
+            throw new NotFoundException('このイベントはお申し込み不要です。イベントページをご覧ください。');
+        }
         return $session;
     }
 
