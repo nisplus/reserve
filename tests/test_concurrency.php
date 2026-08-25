@@ -3,7 +3,8 @@
 declare(strict_types=1);
 
 /**
- * The eight concurrency scenarios from docs/design.md E-3, run for real.
+ * The eight concurrency scenarios from docs/design.md E-3, run for real,
+ * plus a ninth for first-fit waitlist promotion racing a cancellation.
  *
  * Parallel cases spawn bin/concurrency_test.php workers (barrier-synchronised
  * CLI processes, because `php -S` serialises requests on Windows and can never
@@ -197,6 +198,36 @@ try {
     $assert($b8status['status'] === 'confirmed' && $b8status['waitlist_seq'] === null,
         'promoted booking is confirmed with waitlist_seq cleared');
 
+    // --- 9: a cancellation racing several first-fit promotions ---------------
+    // Not part of the original E-3 list; added with promoteNextFitting. Groups
+    // of different sizes make the arithmetic honest: cap 5 is freed all at
+    // once while three workers each try to promote whoever fits. However the
+    // timing falls, seats must never oversell and no booking may be promoted
+    // twice; the deterministic packing is asserted after a serial drain.
+    echo "[9] cancel racing 3 first-fit promotions (grouped parties)\n";
+    $s9 = fixture_create_session($eventId, '2026-11-09 10:00:00', '2026-11-09 11:00:00', 5);
+    $x9 = $service->book($s9, fixture_email('s9-x'), 'X', 5);
+    $b9 = $service->book($s9, fixture_email('s9-b'), 'B', 3);
+    $c9 = $service->book($s9, fixture_email('s9-c'), 'C', 2);
+    $d9 = $service->book($s9, fixture_email('s9-d'), 'D', 2);
+    $out = run_workers([
+        ['--action=cancel', '--booking=' . $x9['booking_id']],
+        ['--action=promote-next', '--session=' . $s9],
+        ['--action=promote-next', '--session=' . $s9],
+        ['--action=promote-next', '--session=' . $s9],
+    ]);
+    $assert(count_prefix($out, 'CANCELLED') === 1, 'the cancellation went through');
+    $assert(count_prefix($out, 'ERROR') === 0, 'no worker died (' . implode(' / ', $out) . ')');
+
+    (new \App\Service\WaitlistService())->autoPromote($s9); // drain whatever the race left
+    $statuses = [];
+    foreach (['b' => $b9, 'c' => $c9, 'd' => $d9] as $key => $row) {
+        $statuses[$key] = (string) Db::scalar('SELECT status FROM bookings WHERE id = ?', [$row['booking_id']]);
+    }
+    $assert($statuses['b'] === 'confirmed' && $statuses['c'] === 'confirmed' && $statuses['d'] === 'waitlisted',
+        'first-fit packing: B(3) + C(2) confirmed, D(2) still waiting');
+    $assert($seats($s9) === 5, 'confirmed_seats = 5, exactly capacity');
+
     // --- E-4 invariants over the whole database ------------------------------
     echo "[E-4] invariants\n";
     [$code, $output] = run_php([__DIR__ . '/test_invariants.php']);
@@ -206,5 +237,5 @@ try {
     fixture_cleanup();
 }
 
-echo $failures === 0 ? "\nconcurrency: ALL 8 SCENARIOS GREEN\n" : "\nconcurrency: {$failures} FAILURE(S)\n";
+echo $failures === 0 ? "\nconcurrency: ALL 9 SCENARIOS GREEN\n" : "\nconcurrency: {$failures} FAILURE(S)\n";
 exit($failures === 0 ? 0 : 1);

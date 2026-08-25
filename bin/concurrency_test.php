@@ -17,9 +17,10 @@ declare(strict_types=1);
  * within microseconds of each other.
  *
  * Usage:
- *   php bin/concurrency_test.php --action=book    --email=u1@x.test --session=3 --party=1 [--no-waitlist] [--start-at=T]
- *   php bin/concurrency_test.php --action=cancel  --booking=45 [--start-at=T]
- *   php bin/concurrency_test.php --action=promote --booking=45 [--start-at=T]
+ *   php bin/concurrency_test.php --action=book         --email=u1@x.test --session=3 --party=1 [--no-waitlist] [--start-at=T]
+ *   php bin/concurrency_test.php --action=cancel       --booking=45 [--start-at=T]
+ *   php bin/concurrency_test.php --action=promote      --booking=45 [--start-at=T]
+ *   php bin/concurrency_test.php --action=promote-next --session=3 [--start-at=T]
  *
  * --start-at is a unix timestamp (float ok). Output is one machine-parseable
  * line; see the constants below. Exit code 0 for an expected outcome
@@ -88,6 +89,14 @@ try {
         case 'promote':
             (new WaitlistService())->promote((int) ($options['booking'] ?? 0), 'test:concurrency');
             echo "PROMOTED\n";
+            break;
+
+        case 'promote-next':
+            $promoted = (new WaitlistService())->promoteNextFitting(
+                (int) ($options['session'] ?? 0),
+                'test:concurrency'
+            );
+            echo $promoted !== null ? "PROMOTED {$promoted['reference_code']}\n" : "NONE\n";
             break;
 
         default:

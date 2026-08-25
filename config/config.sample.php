@@ -43,9 +43,11 @@ return [
     ],
 
     'waitlist' => [
-        // Promote the head of the waitlist automatically when a seat frees up.
-        // Off by default: an admin decides, because the head of the queue may
-        // need more seats than were released.
+        // Promote from the waitlist automatically when seats free up: oldest
+        // candidate whose party fits the gap, repeated until nothing fits
+        // (first-fit; a too-large group at the head is passed over, order is
+        // otherwise preserved). Off by default so an operator can keep that
+        // pass-over decision, and cancellations in general, under human review.
         'auto_promote' => false,
     ],
 

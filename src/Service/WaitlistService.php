@@ -120,33 +120,80 @@ final class WaitlistService
     }
 
     /**
-     * Head-first automatic promotion, run after a cancellation when
-     * waitlist.auto_promote is on. Strictly in queue order: it stops at the
-     * first candidate that cannot be seated rather than skipping ahead -
-     * jumping the queue automatically is the unfairness the manual default
-     * exists to avoid. A skipped-over queue is the admin's call.
+     * Promote the best-fitting waitlisted booking on a session: the OLDEST
+     * (lowest waitlist_seq) whose party_size fits the free seats. A group too
+     * large for the gap is passed over rather than blocking everyone behind it.
+     *
+     * The selection here is deliberately made WITHOUT locks. The fixed lock
+     * order starts at applicants, and which applicant to lock is only known
+     * once a candidate is chosen - locking event_sessions first to read the
+     * free seats and then applicants would run the order backwards and
+     * reintroduce the deadlock the ordering exists to prevent. So this method
+     * nominates a candidate from an unlocked read, and promote() re-verifies
+     * everything under the properly ordered locks: still waitlisted, still
+     * fits the seats as they are NOW, no overlapping booking acquired while
+     * waiting. If the world changed in between, the candidate is excluded and
+     * selection runs again; each pass either promotes or permanently excludes
+     * one candidate, so the loop is bounded by the queue length.
+     *
+     * @return array<string, mixed>|null The promoted booking, or null when
+     *                                   nobody in the queue fits the free seats.
+     */
+    public function promoteNextFitting(int $sessionId, string $actor): ?array
+    {
+        $excluded = [];
+
+        while (true) {
+            // Advisory reads: promote() is the authority, under locks.
+            $free = (int) Db::scalar(
+                'SELECT CAST(capacity AS SIGNED) - CAST(confirmed_seats AS SIGNED)
+                 FROM event_sessions WHERE id = ?',
+                [$sessionId]
+            );
+            if ($free <= 0) {
+                return null;
+            }
+
+            $notIn  = $excluded === [] ? '' : 'AND id NOT IN (' . implode(',', array_fill(0, count($excluded), '?')) . ')';
+            $params = array_merge([$sessionId, $free], $excluded);
+            $candidate = Db::selectOne(
+                "SELECT id FROM bookings
+                 WHERE session_id = ? AND status = 'waitlisted' AND party_size <= ?
+                 {$notIn}
+                 ORDER BY waitlist_seq
+                 LIMIT 1",
+                $params
+            );
+            if ($candidate === null) {
+                return null;
+            }
+
+            try {
+                return $this->promote((int) $candidate['id'], $actor);
+            } catch (ValidationException) {
+                // Lost a race (someone else took the seats or the booking) or
+                // the candidate now holds an overlapping booking. Either way
+                // this candidate is out; the next pass re-reads the seats and
+                // tries the next-oldest fit.
+                $excluded[] = (int) $candidate['id'];
+            }
+        }
+    }
+
+    /**
+     * Automatic promotion, run after a cancellation when waitlist.auto_promote
+     * is on: repeat the first-fit selection until the remaining gap fits
+     * nobody. Oldest-first among those who fit - a large group at the head
+     * does not block a smaller, older-than-everyone-else party behind it,
+     * but nobody younger jumps a candidate who would also have fit.
      */
     public function autoPromote(int $sessionId): int
     {
         $promoted = 0;
-        while (true) {
-            $head = Db::selectOne(
-                "SELECT id FROM bookings
-                 WHERE session_id = ? AND status = 'waitlisted'
-                 ORDER BY waitlist_seq
-                 LIMIT 1",
-                [$sessionId]
-            );
-            if ($head === null) {
-                return $promoted;
-            }
-            try {
-                $this->promote((int) $head['id'], 'system:auto_promote');
-                $promoted++;
-            } catch (ValidationException) {
-                return $promoted; // head does not fit (or now conflicts); stop, do not skip
-            }
+        while ($this->promoteNextFitting($sessionId, 'system:auto_promote') !== null) {
+            $promoted++;
         }
+        return $promoted;
     }
 
     /** @param array<string, mixed> $found Context row of the promoted booking. */
