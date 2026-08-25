@@ -175,6 +175,49 @@ final class Db
         return ($e->errorInfo[1] ?? null) === 1062;
     }
 
+    /**
+     * Did this duplicate-key error come from one particular index?
+     *
+     * A table can have several unique keys, and "which one" decides whether
+     * the failure is the user's problem or ours. The driver only names the
+     * index inside the message text, so some parsing is unavoidable - but the
+     * parsing here is deliberately structural rather than textual:
+     *
+     *   - errno 1062 is checked first, so the message is only consulted for
+     *     errors already known to be duplicate-key ones;
+     *   - the index name is read out of the quoted tokens in errorInfo[2]
+     *     rather than by matching English words, because the sentence around
+     *     them changes with the server's lc_messages;
+     *   - MySQL 8 qualifies the name as `table.index` while MariaDB and MySQL
+     *     5.7 print it bare, so the table part is stripped before comparing.
+     *
+     * The value that collided is also quoted in the message, so in principle a
+     * value equal to an index name could match. On the tables this is used
+     * with, every unique column holds generated data (tokens, reference codes,
+     * a numeric composite), so no caller-supplied value can reach a unique
+     * index and impersonate one.
+     */
+    public static function isDuplicateKeyFor(PDOException $e, string $indexName): bool
+    {
+        if (!self::isDuplicateKey($e)) {
+            return false;
+        }
+
+        $driverMessage = (string) ($e->errorInfo[2] ?? '');
+        if (!preg_match_all("/'([^']*)'/", $driverMessage, $matches)) {
+            return false;
+        }
+
+        foreach ($matches[1] as $token) {
+            $position = strrpos($token, '.');
+            $bare = $position === false ? $token : substr($token, $position + 1);
+            if (strcasecmp($bare, $indexName) === 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** CHECK constraint violation (MariaDB 4025, MySQL 8 uses 3819). */
     public static function isCheckViolation(PDOException $e): bool
     {

@@ -8,6 +8,7 @@ use App\Core\Config;
 use App\Core\Db;
 use App\Domain\BookingStatus;
 use App\Exception\NotFoundException;
+use App\Exception\ValidationException;
 use App\Repository\ApplicantRepository;
 use App\Repository\BookingRepository;
 use App\Repository\MailQueueRepository;
@@ -98,7 +99,13 @@ final class CancellationService
                 throw new NotFoundException('お探しの予約は見つかりませんでした。');
             }
 
-            $was = BookingStatus::from((string) $booking['status']);
+            // tryFrom: an unreadable status must not become a \ValueError 500,
+            // and must not be cancelled either - returning seats for a state we
+            // cannot interpret is how confirmed_seats drifts.
+            $was = BookingStatus::tryFrom((string) $booking['status']);
+            if ($was === null) {
+                throw new ValidationException('この申込の状態を判別できませんでした。事務局にお問い合わせください。');
+            }
             if ($was === BookingStatus::Cancelled) {
                 return ['already_cancelled' => true, 'was' => $was];
             }

@@ -219,6 +219,7 @@ php.cmd tests/test_autoload_case.php   # クラス名とファイル名の大文
 php.cmd tests/test_overlap.php         # 時間帯重なり判定（境界含む）
 php.cmd tests/test_base_path.php       # サブディレクトリ設置時の URL 解決
 php.cmd tests/test_authz.php           # 会社スコープ（他社データに触れないこと）
+php.cmd tests/test_robustness.php      # confirmed_at の導出・enum の安全読み・重複キー判定
 php.cmd tests/test_capacity.php        # 定員・キャンセル待ち・CHECK 制約（scratch データで完結）
 php.cmd tests/test_invariants.php      # E-4 の不変条件 5 本（現在の DB 全体）
 php.cmd tests/test_concurrency.php     # E-3 の競合 8 シナリオ（約 1 分、ワーカー 66 プロセス）

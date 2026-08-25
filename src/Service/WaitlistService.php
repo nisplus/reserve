@@ -63,7 +63,10 @@ final class WaitlistService
             }
 
             // Everything read before the locks is stale; re-verify under them.
-            if (BookingStatus::from((string) $booking['status']) !== BookingStatus::Waitlisted) {
+            // tryFrom so an unrecognised status is refused rather than raising
+            // \ValueError: promoting a booking whose state we cannot read would
+            // be the dangerous direction.
+            if (BookingStatus::tryFrom((string) $booking['status']) !== BookingStatus::Waitlisted) {
                 throw new ValidationException('この申込はキャンセル待ちではありません（既に処理済みの可能性があります）。');
             }
 

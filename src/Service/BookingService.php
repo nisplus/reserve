@@ -99,7 +99,12 @@ final class BookingService
                 if ($session === null) {
                     throw new NotFoundException('お探しの開催回は見つかりませんでした。');
                 }
-                if (SessionStatus::from((string) $session['status']) !== SessionStatus::Open) {
+                // tryFrom, not from: an ENUM value this build of the code does
+                // not know about (a migration deployed ahead of the code, say)
+                // would otherwise raise \ValueError and surface as a 500. A
+                // status we cannot interpret is treated as "not open", so the
+                // unknown case fails closed rather than selling seats.
+                if (SessionStatus::tryFrom((string) $session['status']) !== SessionStatus::Open) {
                     throw new ValidationException('この開催回は現在お申し込みを受け付けていません。');
                 }
 
@@ -147,18 +152,17 @@ final class BookingService
                 $token = TokenService::newCancelToken();
                 $referenceCode = TokenService::newReferenceCode();
 
-                $bookingId = $this->bookings->insert([
-                    'reference_code'    => $referenceCode,
-                    'session_id'        => $sessionId,
-                    'applicant_id'      => $applicantId,
-                    'email'             => $email,
-                    'name'              => $name,
-                    'party_size'        => $partySize,
-                    'status'            => $status->value,
-                    'waitlist_seq'      => $waitlistSeq,
-                    'cancel_token_hash' => $token['hash'],
-                    'confirmed'         => $status === BookingStatus::Confirmed,
-                ]);
+                $bookingId = $this->bookings->insert(
+                    referenceCode:   $referenceCode,
+                    sessionId:       $sessionId,
+                    applicantId:     $applicantId,
+                    email:           $email,
+                    name:            $name,
+                    partySize:       $partySize,
+                    status:          $status,
+                    waitlistSeq:     $waitlistSeq,
+                    cancelTokenHash: $token['hash'],
+                );
 
                 // 6) Audit trail.
                 $this->bookings->logEvent($bookingId, null, $status->value, 'applicant');
@@ -188,9 +192,17 @@ final class BookingService
             });
         } catch (PDOException $e) {
             // uq_bookings_active is the backstop for a same-session double
-            // apply that slipped past the overlap check. Translate it; any
-            // other constraint violation is a real bug and stays loud.
-            if (Db::isDuplicateKey($e) && str_contains($e->getMessage(), 'uq_bookings_active')) {
+            // apply that slipped past the overlap check: expected, and the
+            // applicant's to fix. The identification goes through errno 1062
+            // plus the index name parsed out of errorInfo, so it does not
+            // depend on the wording of the server's error message.
+            //
+            // The table's other unique keys are cancel_token_hash (256 bits)
+            // and reference_code (48 bits), both freshly generated per attempt.
+            // A collision there is a chance event rather than a user mistake,
+            // so it deliberately stays an error instead of being reported as a
+            // duplicate application; at these sizes it is not expected to occur.
+            if (Db::isDuplicateKeyFor($e, 'uq_bookings_active')) {
                 throw DuplicateBookingException::sameSession();
             }
             throw $e;

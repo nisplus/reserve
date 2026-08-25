@@ -64,7 +64,11 @@ final class Auth
         }
 
         $row = (new AdminUserRepository())->find($id);
-        if ($row === null || (int) $row['is_active'] !== 1) {
+        // tryFrom on the role: a value this build does not recognise would
+        // otherwise raise \ValueError on every admin page. An account whose
+        // privileges cannot be read is signed out rather than guessed at.
+        $role = $row !== null ? AdminRole::tryFrom((string) $row['role']) : null;
+        if ($row === null || $role === null || (int) $row['is_active'] !== 1) {
             self::logout();
             return null;
         }
@@ -75,7 +79,7 @@ final class Auth
             'id'           => (int) $row['id'],
             'username'     => (string) $row['username'],
             'display_name' => (string) $row['display_name'],
-            'role'         => AdminRole::from((string) $row['role']),
+            'role'         => $role,
             'company_id'   => $row['company_id'] !== null ? (int) $row['company_id'] : null,
         ];
         return self::$cached;

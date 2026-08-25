@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Core\Db;
+use App\Domain\BookingStatus;
 
 final class BookingRepository
 {
@@ -54,29 +55,49 @@ final class BookingRepository
     }
 
     /**
-     * @param array{
-     *   reference_code: string, session_id: int, applicant_id: int,
-     *   email: string, name: string, party_size: int, status: string,
-     *   waitlist_seq: int|null, cancel_token_hash: string, confirmed: bool,
-     * } $row
+     * Insert a new booking.
+     *
+     * Named parameters rather than an array: the previous shape carried a
+     * 'confirmed' key that looked like a column but was really an instruction
+     * about confirmed_at, which reads as a schema mismatch every time someone
+     * checks it against 001_init.sql. It also allowed the two to disagree -
+     * status 'confirmed' with confirmed_at NULL is a row that breaks
+     * invariant (5) in docs/design.md E-4.
+     *
+     * confirmed_at is now derived from $status here, so that pairing cannot be
+     * got wrong by a caller. Callers should pass arguments by name; several
+     * neighbouring parameters are strings and position is easy to muddle.
      */
-    public function insert(array $row): int
-    {
+    public function insert(
+        string $referenceCode,
+        int $sessionId,
+        int $applicantId,
+        string $email,
+        string $name,
+        int $partySize,
+        BookingStatus $status,
+        ?int $waitlistSeq,
+        string $cancelTokenHash,
+    ): int {
+        // NOW() is server-side and takes the session time zone (+09:00), which
+        // is what the DATETIME columns hold. It is a literal, not input.
+        $confirmedAt = $status === BookingStatus::Confirmed ? 'NOW()' : 'NULL';
+
         Db::execute(
             'INSERT INTO bookings
                (reference_code, session_id, applicant_id, email, name, party_size,
                 status, waitlist_seq, cancel_token_hash, confirmed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ' . ($row['confirmed'] ? 'NOW()' : 'NULL') . ')',
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ' . $confirmedAt . ')',
             [
-                $row['reference_code'],
-                $row['session_id'],
-                $row['applicant_id'],
-                $row['email'],
-                $row['name'],
-                $row['party_size'],
-                $row['status'],
-                $row['waitlist_seq'],
-                $row['cancel_token_hash'],
+                $referenceCode,
+                $sessionId,
+                $applicantId,
+                $email,
+                $name,
+                $partySize,
+                $status->value,
+                $waitlistSeq,
+                $cancelTokenHash,
             ]
         );
         return Db::lastInsertId();
