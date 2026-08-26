@@ -337,6 +337,33 @@ storage/         ログ・セッション・メール出力（対象外）
 
 リポジトリのルートにある `.htaccess` が、`config/` `src/` `storage/` などへのアクセスを拒否したうえで、リクエストを `public/` に転送します。**このファイルは必ずアップロードしてください** — FTP クライアントによっては `.` で始まるファイルを既定で転送しないため、これが抜けると設定ファイルが読める状態になります。
 
+### HTTPS を有効にしたら
+
+**`.htaccess` を有効にする設定は vhost ごとに独立しています。** `AllowOverride All` を :80 側だけに書いていると、HTTPS では `.htaccess` が無視されてフロントコントローラへの書き換えが効かず、**トップページは出るのに他の URL がすべて 404** になります（Debian/Ubuntu なら `default-ssl.conf`）。
+
+```apache
+<Directory /var/www/html/reserve/public>
+    AllowOverride All
+    Require all granted
+</Directory>
+```
+```bash
+apache2ctl configtest && systemctl reload apache2
+```
+
+**`config.php` の `base_url` も `https://` に変えてください。** ここはメールに載せるキャンセル URL の生成に使われ、そのトークンは予約を操作できる唯一の認証情報です。`http://` のままだと、:80 から :443 へリダイレクトしていても**ブラウザは最初に平文でトークン付き URL を送信**します。
+
+あわせて :80 は HTTPS へ寄せておきます。
+
+```apache
+<VirtualHost *:80>
+    ServerName ドメイン
+    Redirect permanent / https://ドメイン/
+</VirtualHost>
+```
+
+セッションクッキーの `Secure` 属性は `$_SERVER['HTTPS']` を見て自動で付きます（Apache が直接 TLS を終端する構成の場合）。nginx などが前段で TLS を終端し PHP へは HTTP で渡す構成では `$_SERVER['HTTPS']` が立たないため、`Secure` が付きません。その構成を採る場合は `SessionManager` を `X-Forwarded-Proto` にも対応させてください。
+
 ### サブディレクトリでも動きます
 
 `https://example.com/` 直下でも `https://example.com/booking/` でも、画面内のリンクは実行時に自動判定されます。ただし **`config.php` の `base_url` にはサブディレクトリまで含めてください**（メール本文の URL はリクエストが無いため設定値が頼りです）。
@@ -360,5 +387,7 @@ storage/         ログ・セッション・メール出力（対象外）
 |---|---|
 | 日本語の「ページが見つかりません」 | アプリまでは動いています。URL のパスがルート表と合っていません。`_diag` が開けるか確認してください |
 | 英語の「Not Found」 | PHP に届く前に Apache が返しています。`.htaccess` が未転送か、`AllowOverride None` で無効化されています |
+| **HTTP では動くが HTTPS だけ 404** | :443 の vhost に `AllowOverride All` がありません（[前述](#https-を有効にしたら)）。vhost ごとに独立した設定です |
+| メールのリンクが `http://` のまま | `config.php` の `base_url` が更新されていません |
 | CSS が当たらない | `.htaccess` の書き換えが効いていない可能性。B の構成なら `assets/` へのアクセスがルートの `.htaccess` を通っているか確認 |
 | 設定ファイルが見えてしまう | ルートの `.htaccess` が無効。至急 A の構成に変更するか、`AllowOverride All` を有効化してください |
