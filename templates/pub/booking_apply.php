@@ -77,12 +77,66 @@ $isFull    = $seatsLeft === 0;
 
   <div class="field">
     <label for="party_size">参加人数</label>
-    <input type="number" id="party_size" name="party_size" required min="1" max="20"
+    <input type="number" id="party_size" name="party_size" required min="1" max="<?= $maxParty ?>"
            value="<?= e($old['party_size'] ?? '1') ?>"
            <?= isset($errors['party_size']) ? 'aria-invalid="true"' : '' ?>>
-    <p class="hint">ご本人を含めた人数を入力してください。</p>
+    <p class="hint">
+      ご本人を含めた人数を入力してください。
+      <?php if ($maxParty < 20): ?>1回のお申し込みにつき <?= $maxParty ?> 名までです。<?php endif; ?>
+    </p>
     <?php if (isset($errors['party_size'])): ?><p class="error"><?= e($errors['party_size']) ?></p><?php endif; ?>
   </div>
+
+  <?php
+    /*
+     * Companion names, one per person beyond the applicant.
+     *
+     * Rendered server-side for the party size currently in hand, so the page
+     * works without JavaScript: pick 3, submit, and the redisplayed form comes
+     * back with the two extra fields and an error asking for them. The script
+     * below only removes that round trip.
+     */
+    $shownParty = max(1, min($maxParty, (int) ($old['party_size'] ?? 1)));
+  ?>
+  <div id="companions" data-max="<?= $maxParty ?>">
+    <?php for ($i = 2; $i <= $maxParty; $i++): ?>
+      <div class="field companion-field" data-no="<?= $i ?>"
+           <?= $i > $shownParty ? 'hidden' : '' ?>>
+        <label for="companion_<?= $i ?>"><?= $i ?>人目のお名前</label>
+        <input type="text" id="companion_<?= $i ?>" name="companion_<?= $i ?>" maxlength="100"
+               value="<?= e($old['companions'][$i] ?? '') ?>"
+               <?= isset($errors["companion_{$i}"]) ? 'aria-invalid="true"' : '' ?>>
+        <?php if (isset($errors["companion_{$i}"])): ?>
+          <p class="error"><?= e($errors["companion_{$i}"]) ?></p>
+        <?php endif; ?>
+      </div>
+    <?php endfor; ?>
+  </div>
+
+  <script>
+    // Show exactly as many name fields as there are extra people. Hidden
+    // fields still submit, so they are cleared on the way out - otherwise a
+    // name typed for a 4th person and then reduced to 2 would be posted and
+    // rejected by the server as more names than people.
+    (function () {
+      var size = document.getElementById('party_size');
+      var box = document.getElementById('companions');
+      if (!size || !box) { return; }
+      var fields = box.querySelectorAll('.companion-field');
+      function sync() {
+        var n = parseInt(size.value, 10) || 1;
+        fields.forEach(function (field) {
+          var show = parseInt(field.dataset.no, 10) <= n;
+          field.hidden = !show;
+          var input = field.querySelector('input');
+          input.required = show;
+          if (!show) { input.value = ''; }
+        });
+      }
+      size.addEventListener('input', sync);
+      sync();
+    })();
+  </script>
 
   <div class="form-actions">
     <button type="submit" class="btn"><?= $isFull ? 'キャンセル待ちで確認画面へ' : '確認画面へ進む' ?></button>

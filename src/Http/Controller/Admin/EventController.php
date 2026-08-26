@@ -63,6 +63,7 @@ final class EventController
             $request->has('is_published'),
             $bookingRequired,
             $input['external_url'] !== null ? (string) $input['external_url'] : null,
+            (int) $input['max_party_size'],
         );
 
         Flash::success($bookingRequired
@@ -100,6 +101,7 @@ final class EventController
             $request->has('is_published'),
             $bookingRequired,
             $input['external_url'] !== null ? (string) $input['external_url'] : null,
+            (int) $input['max_party_size'],
         );
 
         // Existing sessions are left alone rather than deleted: the flag may
@@ -181,6 +183,8 @@ final class EventController
         $validator->optional('venue', $request->post('venue'), 200);
         $validator->intRange('sort_order', '表示順', $request->post('sort_order', '0'), 0, 9999);
         $validator->url('external_url', '外部リンクURL', $request->post('external_url'), 500);
+        // 20 is the ceiling chk_bookings_party imposes on the column.
+        $validator->intRange('max_party_size', '1申込あたりの上限人数', $request->post('max_party_size', '20'), 1, 20);
 
         if (!$validator->hasErrors()) {
             $values = $validator->values();
@@ -198,6 +202,7 @@ final class EventController
             'is_published' => $request->has('is_published') ? '1' : '',
             'no_booking'   => $request->has('no_booking') ? '1' : '',
             'external_url' => $request->post('external_url'),
+            'max_party_size' => $request->post('max_party_size'),
         ]);
     }
 

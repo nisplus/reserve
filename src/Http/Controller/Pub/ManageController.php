@@ -11,6 +11,7 @@ use App\Core\Response;
 use App\Core\View;
 use App\Exception\NotFoundException;
 use App\Mail\MailDispatcher;
+use App\Repository\BookingAttendeeRepository;
 use App\Repository\BookingRepository;
 use App\Service\CancellationService;
 use App\Service\TokenService;
@@ -30,9 +31,10 @@ final class ManageController
         $booking = $this->loadBooking($request->route('token'));
 
         return Response::html(View::render('pub/manage_show', [
-            'title'   => '予約内容の確認',
-            'booking' => $booking,
-            'token'   => $request->route('token'),
+            'title'     => '予約内容の確認',
+            'booking'   => $booking,
+            'token'     => $request->route('token'),
+            'attendees' => (new BookingAttendeeRepository())->namesFor((int) $booking['id']),
         ]));
     }
 

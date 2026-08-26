@@ -18,6 +18,7 @@ use App\Exception\SessionFullException;
 use App\Exception\TravelBufferException;
 use App\Exception\ValidationException;
 use App\Mail\MailDispatcher;
+use App\Repository\BookingAttendeeRepository;
 use App\Repository\BookingRepository;
 use App\Repository\EventSessionRepository;
 use App\Service\BookingService;
@@ -40,10 +41,11 @@ final class BookingController
         $session = $this->loadSession($request->routeInt('id'));
 
         return Response::html(View::render('pub/booking_apply', [
-            'title'   => '申し込み：' . $session['event_title'],
-            'session' => $session,
-            'errors'  => [],
-            'old'     => [],
+            'title'    => '申し込み：' . $session['event_title'],
+            'session'  => $session,
+            'errors'   => [],
+            'old'      => [],
+            'maxParty' => min((int) $session['max_party_size'] ?: self::PARTY_MAX, self::PARTY_MAX),
         ]));
     }
 
@@ -53,7 +55,7 @@ final class BookingController
         Csrf::verify($request);
         $session = $this->loadSession($request->routeInt('id'));
 
-        $input = $this->validateInput($request);
+        $input = $this->validateInput($request, $session);
         if ($input instanceof Response) {
             return $input; // the re-rendered form
         }
@@ -92,7 +94,7 @@ final class BookingController
         // The session id travels in a hidden field; validate it like any input.
         $session = $this->loadSession($request->postInt('session_id'));
 
-        $input = $this->validateInput($request);
+        $input = $this->validateInput($request, $session);
         if ($input instanceof Response) {
             return $input;
         }
@@ -103,6 +105,7 @@ final class BookingController
                 (string) $input['email'],
                 (string) $input['name'],
                 (int) $input['party_size'],
+                companionNames: (array) $input['companions'],
             );
         } catch (DuplicateBookingException | SessionFullException | TravelBufferException | ValidationException $e) {
             // All of these are user-correctable outcomes, not errors: show the
@@ -111,6 +114,7 @@ final class BookingController
                 'email'      => (string) $input['email'],
                 'name'       => (string) $input['name'],
                 'party_size' => (string) $input['party_size'],
+                'companions' => $this->postedCompanions($request),
             ]);
         }
 
@@ -131,8 +135,9 @@ final class BookingController
         }
 
         return Response::html(View::render('pub/booking_done', [
-            'title'   => 'お申し込みを受け付けました',
-            'booking' => $booking,
+            'title'     => 'お申し込みを受け付けました',
+            'booking'   => $booking,
+            'attendees' => (new BookingAttendeeRepository())->namesFor((int) $booking['id']),
         ]));
     }
 
@@ -165,26 +170,73 @@ final class BookingController
      * @return array<string, mixed>|Response Values on success, or the
      *                                       re-rendered form on failure.
      */
-    private function validateInput(Request $request): array|Response
+    private function validateInput(Request $request, array $session): array|Response
     {
+        // The event's cap, never larger than what the column can hold.
+        $maxParty = min((int) $session['max_party_size'] ?: self::PARTY_MAX, self::PARTY_MAX);
+
         $validator = new Validator();
         $validator->email('email', 'メールアドレス', $request->post('email'));
         $validator->required('name', 'お名前', $request->post('name'))
                   ->maxLength('name', 'お名前', $request->post('name'), 100);
-        $validator->intRange('party_size', '参加人数', $request->post('party_size'), 1, self::PARTY_MAX);
+        $validator->intRange('party_size', '参加人数', $request->post('party_size'), 1, $maxParty);
 
+        // Companion names, one per extra person. Collected only once the
+        // party size itself is known to be sane, so a nonsense number does
+        // not also produce a wall of name errors.
+        $companions = [];
         if (!$validator->hasErrors()) {
-            return $validator->values();
+            $partySize = (int) $validator->value('party_size');
+            $posted = $this->postedCompanions($request);
+
+            for ($i = 2; $i <= $partySize; $i++) {
+                $field = "companion_{$i}";
+                $value = trim($posted[$i] ?? '');
+                if ($value === '') {
+                    $validator->fail($field, "{$i}人目のお名前を入力してください。");
+                    continue;
+                }
+                if (mb_strlen($value) > 100) {
+                    $validator->fail($field, "{$i}人目のお名前は100文字以内で入力してください。");
+                    continue;
+                }
+                $companions[] = $value;
+            }
         }
 
-        $session = $this->loadSession(
-            $request->postInt('session_id') ?: $request->routeInt('id')
-        );
+        if (!$validator->hasErrors()) {
+            $values = $validator->values();
+            $values['companions'] = $companions;
+            return $values;
+        }
+
         return $this->renderForm($session, $validator->errors(), [
             'email'      => $request->post('email'),
             'name'       => $request->post('name'),
             'party_size' => $request->post('party_size'),
+            'companions' => $this->postedCompanions($request),
         ]);
+    }
+
+    /**
+     * companion_2 .. companion_N from the request, keyed by their number.
+     *
+     * Read up to the column's hard limit rather than the posted party size,
+     * so a form redisplayed after an error keeps what was typed even if the
+     * number was the thing that was wrong.
+     *
+     * @return array<int, string>
+     */
+    private function postedCompanions(Request $request): array
+    {
+        $out = [];
+        for ($i = 2; $i <= self::PARTY_MAX; $i++) {
+            $value = $request->post("companion_{$i}");
+            if ($value !== '') {
+                $out[$i] = $value;
+            }
+        }
+        return $out;
     }
 
     /**
@@ -195,10 +247,11 @@ final class BookingController
     private function renderForm(array $session, array $errors, array $old): Response
     {
         return Response::html(View::render('pub/booking_apply', [
-            'title'   => '申し込み：' . $session['event_title'],
-            'session' => $session,
-            'errors'  => $errors,
-            'old'     => $old,
+            'title'    => '申し込み：' . $session['event_title'],
+            'session'  => $session,
+            'errors'   => $errors,
+            'old'      => $old,
+            'maxParty' => min((int) $session['max_party_size'] ?: self::PARTY_MAX, self::PARTY_MAX),
         ]), 422);
     }
 }

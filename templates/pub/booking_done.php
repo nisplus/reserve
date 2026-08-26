@@ -3,7 +3,9 @@
 use App\Domain\BookingStatus;
 
 /**
- * @var array<string, mixed> $booking findByReference row, with event context.
+ * @var array<string, mixed> $booking   findByReference row, with event context.
+ * @var array<int, string>   $attendees Names, applicant first. May be shorter
+ *                                      than party_size when not all were given.
  *
  * The cancel token is deliberately absent from this page: it goes into the
  * e-mail and nowhere else, so someone glancing at the screen cannot take over
@@ -38,6 +40,14 @@ $status = BookingStatus::from((string) $booking['status']);
     <?php endif; ?>
     <dt>お名前</dt><dd><?= e($booking['name']) ?></dd>
     <dt>参加人数</dt><dd><?= (int) $booking['party_size'] ?> 名</dd>
+    <?php if (count($attendees) > 1): ?>
+      <dt>ご参加者</dt>
+      <dd>
+        <ol style="margin:0;padding-left:1.4em">
+          <?php foreach ($attendees as $attendee): ?><li><?= e($attendee) ?></li><?php endforeach; ?>
+        </ol>
+      </dd>
+    <?php endif; ?>
   </dl>
 </div>
 

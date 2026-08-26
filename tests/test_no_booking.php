@@ -90,11 +90,13 @@ try {
     // Flip it back and the same session books again - the flag gates, it does
     // not destroy.
     $events->update($freeId, $company, 'drop-in exhibit', null, null, 0, true,
-        bookingRequired: true, externalUrl: $freeRow['external_url']);
+        bookingRequired: true, externalUrl: $freeRow['external_url'],
+        maxPartySize: (int) $freeRow['max_party_size']);
     $booked = (new BookingService())->book($session, fixture_email('nb-a'), 'A', 1);
     $assert($booked['booking_id'] > 0, 'clearing the flag makes the same session bookable again');
     $events->update($freeId, $company, 'drop-in exhibit', null, null, 0, true,
-        bookingRequired: false, externalUrl: $freeRow['external_url']);
+        bookingRequired: false, externalUrl: $freeRow['external_url'],
+        maxPartySize: (int) $freeRow['max_party_size']);
 
     // --- the catalogue query exposes what the templates branch on ----------
     $catalogue = $events->publishedCatalogue();

@@ -61,6 +61,17 @@ $travelPopup = $travelWarn !== null && !$travelBlock
     <dt>メールアドレス</dt><dd><?= e($input['email']) ?></dd>
     <dt>お名前</dt><dd><?= e($input['name']) ?></dd>
     <dt>参加人数</dt><dd><?= (int) $input['party_size'] ?> 名</dd>
+    <?php if (($input['companions'] ?? []) !== []): ?>
+      <dt>ご参加者</dt>
+      <dd>
+        <ol style="margin:0;padding-left:1.4em">
+          <li><?= e($input['name']) ?></li>
+          <?php foreach ($input['companions'] as $companion): ?>
+            <li><?= e($companion) ?></li>
+          <?php endforeach; ?>
+        </ol>
+      </dd>
+    <?php endif; ?>
   </dl>
 </div>
 
@@ -82,6 +93,11 @@ $travelPopup = $travelWarn !== null && !$travelBlock
     <input type="hidden" name="email" value="<?= e($input['email']) ?>">
     <input type="hidden" name="name" value="<?= e($input['name']) ?>">
     <input type="hidden" name="party_size" value="<?= (int) $input['party_size'] ?>">
+    <?php /* Carried forward and re-validated by store(); the confirm screen
+             is not trusted any more than the form was. */ ?>
+    <?php foreach ($input['companions'] ?? [] as $index => $companion): ?>
+      <input type="hidden" name="companion_<?= $index + 2 ?>" value="<?= e($companion) ?>">
+    <?php endforeach; ?>
 
     <div class="form-actions">
       <button type="submit" class="btn">

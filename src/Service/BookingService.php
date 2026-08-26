@@ -14,6 +14,7 @@ use App\Exception\SessionFullException;
 use App\Exception\TravelBufferException;
 use App\Exception\ValidationException;
 use App\Repository\ApplicantRepository;
+use App\Repository\BookingAttendeeRepository;
 use App\Repository\BookingRepository;
 use App\Repository\MailQueueRepository;
 use PDOException;
@@ -47,6 +48,7 @@ final class BookingService
         private readonly ApplicantRepository $applicants = new ApplicantRepository(),
         private readonly BookingRepository $bookings = new BookingRepository(),
         private readonly MailQueueRepository $mailQueue = new MailQueueRepository(),
+        private readonly BookingAttendeeRepository $attendees = new BookingAttendeeRepository(),
     ) {
     }
 
@@ -65,6 +67,12 @@ final class BookingService
      * @throws SessionFullException      full and the caller declined the waitlist
      * @throws NotFoundException         no such session
      * @throws ValidationException       session closed for applications
+     *
+     * @param array<int, string> $companionNames Names of the people brought
+     *        along, in order, for attendee_no 2..N. Optional: the web form
+     *        demands them, but CLI callers and the concurrency harness must
+     *        not have to invent people, so a short list simply records fewer
+     *        names. The applicant is always recorded as attendee_no 1.
      */
     public function book(
         int $sessionId,
@@ -72,6 +80,7 @@ final class BookingService
         string $name,
         int $partySize,
         bool $allowWaitlist = true,
+        array $companionNames = [],
     ): array {
         // Step 0, outside the transaction: make sure the applicant row exists.
         // Doing this first keeps the locked section from having to create it,
@@ -80,7 +89,7 @@ final class BookingService
 
         try {
             return Db::transaction(function () use (
-                $sessionId, $email, $name, $partySize, $allowWaitlist, $applicantId
+                $sessionId, $email, $name, $partySize, $allowWaitlist, $applicantId, $companionNames
             ): array {
                 // 1) Applicant gate. From here to commit, this person's
                 //    bookings cannot change under us.
@@ -106,12 +115,22 @@ final class BookingService
                 // stay a single-row lock on event_sessions. The controller
                 // already refuses these; this closes the CLI and service paths
                 // and any screen added later.
-                $bookingRequired = Db::scalar(
-                    'SELECT booking_required FROM events WHERE id = ?',
+                $event = Db::selectOne(
+                    'SELECT booking_required, max_party_size FROM events WHERE id = ?',
                     [(int) $session['event_id']]
-                );
-                if ((int) $bookingRequired !== 1) {
+                ) ?? [];
+                if ((int) ($event['booking_required'] ?? 0) !== 1) {
                     throw new ValidationException('このイベントはお申し込み不要です。');
+                }
+
+                // The per-application cap. Checked here as well as in the
+                // form so a hand-made POST cannot exceed it, and re-read
+                // under the transaction so a cap lowered a moment ago wins.
+                $maxParty = (int) ($event['max_party_size'] ?? 0);
+                if ($maxParty > 0 && $partySize > $maxParty) {
+                    throw new ValidationException(
+                        "このイベントは1回のお申し込みにつき {$maxParty} 名までです。"
+                    );
                 }
                 // tryFrom, not from: an ENUM value this build of the code does
                 // not know about (a migration deployed ahead of the code, say)
@@ -198,10 +217,18 @@ final class BookingService
                     cancelTokenHash: $token['hash'],
                 );
 
-                // 6) Audit trail.
+                // 6) Who is coming. attendee_no 1 is the applicant; the rest
+                //    follow in the order they were entered. Inside the
+                //    transaction, so a rollback takes them with it.
+                $this->attendees->replaceFor(
+                    $bookingId,
+                    array_merge([$name], array_slice($companionNames, 0, max(0, $partySize - 1)))
+                );
+
+                // 7) Audit trail.
                 $this->bookings->logEvent($bookingId, null, $status->value, 'applicant');
 
-                // 7) Outbox. Queued in-transaction: a rollback takes the mail
+                // 8) Outbox. Queued in-transaction: a rollback takes the mail
                 //    with it. The raw token exists only inside this body.
                 $this->enqueueConfirmationMail(
                     $email,
@@ -214,7 +241,8 @@ final class BookingService
                     (string) $session['starts_at'],
                     (string) $session['ends_at'],
                     $token['raw'],
-                    $bookingId
+                    $bookingId,
+                    $this->attendees->namesFor($bookingId)
                 );
 
                 return [
@@ -318,6 +346,7 @@ final class BookingService
         string $endsAt,
         string $rawToken,
         int $bookingId,
+        array $attendeeNames = [],
     ): void {
         // Display names only; no lock needed and no harm if they change later.
         $context = Db::selectOne(
@@ -345,6 +374,16 @@ final class BookingService
             ? "会場　　　: {$context['venue']}\n"
             : '';
 
+        // Only worth listing when there is more than the applicant. The list
+        // may be shorter than party_size when names were not collected.
+        $attendeeLines = '';
+        if (count($attendeeNames) > 1) {
+            $attendeeLines = "ご参加者　:\n";
+            foreach ($attendeeNames as $index => $attendee) {
+                $attendeeLines .= sprintf("            %d. %s\n", $index + 1, $attendee);
+            }
+        }
+
         $body = <<<TEXT
         {$name} 様
 
@@ -355,7 +394,7 @@ final class BookingService
         主催　　　: {$context['company_name']}
         日時　　　: {$when}
         {$venueLine}人数　　　: {$partySize} 名
-        予約番号　: {$referenceCode}
+        {$attendeeLines}予約番号　: {$referenceCode}
         ────────────────────
 
         ▼ お申し込み内容の確認・キャンセルはこちら

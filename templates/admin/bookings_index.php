@@ -5,6 +5,7 @@ use App\Domain\BookingStatus;
 
 /**
  * @var array<int, array<string, mixed>> $rows
+ * @var array<int, array<int, string>>   $attendees booking id => names
  * @var int                              $total
  * @var int                              $page
  * @var int                              $pages
@@ -108,7 +109,15 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
           <?= e($row['event_title']) ?>
         </td>
         <td><?= e(jp_datetime((string) $row['starts_at'])) ?>〜<?= e(jp_time((string) $row['ends_at'])) ?></td>
-        <td><?= e($row['name']) ?></td>
+        <td>
+          <?= e($row['name']) ?>
+          <?php $names = $attendees[(int) $row['id']] ?? []; ?>
+          <?php if (count($names) > 1): ?>
+            <br><span class="muted" style="font-size:12px">
+              同行: <?= e(implode('、', array_slice($names, 1))) ?>
+            </span>
+          <?php endif; ?>
+        </td>
         <td class="muted"><?= e($row['email']) ?></td>
         <td><?= (int) $row['party_size'] ?></td>
         <td>

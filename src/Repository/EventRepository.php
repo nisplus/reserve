@@ -111,15 +111,16 @@ final class EventRepository
         bool $published,
         bool $bookingRequired = true,
         ?string $externalUrl = null,
+        int $maxPartySize = 20,
     ): int {
         Db::execute(
             'INSERT INTO events
                (company_id, title, description, venue, sort_order, is_published,
-                booking_required, external_url)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                booking_required, external_url, max_party_size)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $companyId, $title, $description, $venue, $sortOrder,
-                $published ? 1 : 0, $bookingRequired ? 1 : 0, $externalUrl,
+                $published ? 1 : 0, $bookingRequired ? 1 : 0, $externalUrl, $maxPartySize,
             ]
         );
         return Db::lastInsertId();
@@ -143,15 +144,16 @@ final class EventRepository
         bool $published,
         bool $bookingRequired,
         ?string $externalUrl,
+        int $maxPartySize,
     ): void {
         Db::execute(
             'UPDATE events
              SET company_id = ?, title = ?, description = ?, venue = ?, sort_order = ?,
-                 is_published = ?, booking_required = ?, external_url = ?
+                 is_published = ?, booking_required = ?, external_url = ?, max_party_size = ?
              WHERE id = ?',
             [
                 $companyId, $title, $description, $venue, $sortOrder,
-                $published ? 1 : 0, $bookingRequired ? 1 : 0, $externalUrl, $id,
+                $published ? 1 : 0, $bookingRequired ? 1 : 0, $externalUrl, $maxPartySize, $id,
             ]
         );
     }

@@ -79,6 +79,18 @@ $noBooking = $old !== []
     </div>
 
     <div class="field">
+      <label for="max_party_size">1申込あたりの上限人数</label>
+      <input type="number" id="max_party_size" name="max_party_size" required min="1" max="20"
+             value="<?= e($old['max_party_size'] ?? (string) ($event['max_party_size'] ?? '20')) ?>"
+             <?= isset($errors['max_party_size']) ? 'aria-invalid="true"' : '' ?>>
+      <p class="hint">
+        1回のお申し込みで受け付ける人数の上限です（1〜20）。
+        2名以上の申込では、申込フォームで人数分のお名前を入力していただきます。
+      </p>
+      <?php if (isset($errors['max_party_size'])): ?><p class="error"><?= e($errors['max_party_size']) ?></p><?php endif; ?>
+    </div>
+
+    <div class="field">
       <label>
         <input type="checkbox" name="no_booking" value="1" <?= $noBooking ? 'checked' : '' ?>>
         <strong>予約不要</strong>（申し込みを受け付けない）

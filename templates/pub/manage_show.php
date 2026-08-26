@@ -6,6 +6,7 @@ use App\Domain\BookingStatus;
 /**
  * @var array<string, mixed> $booking findByTokenHash row, with event context.
  * @var string               $token   Raw token, needed to build the cancel URL.
+ * @var array<int, string>   $attendees Names, applicant first.
  *
  * The token appears only inside form actions on this page (the visitor already
  * has it - it is the URL they are on). It is never rendered as visible text.
@@ -38,6 +39,14 @@ $status = BookingStatus::from((string) $booking['status']);
     <dt>お名前</dt><dd><?= e($booking['name']) ?></dd>
     <dt>メールアドレス</dt><dd><?= e($booking['email']) ?></dd>
     <dt>参加人数</dt><dd><?= (int) $booking['party_size'] ?> 名</dd>
+    <?php if (count($attendees) > 1): ?>
+      <dt>ご参加者</dt>
+      <dd>
+        <ol style="margin:0;padding-left:1.4em">
+          <?php foreach ($attendees as $attendee): ?><li><?= e($attendee) ?></li><?php endforeach; ?>
+        </ol>
+      </dd>
+    <?php endif; ?>
     <?php if ($status === BookingStatus::Cancelled && $booking['cancelled_at'] !== null): ?>
       <dt>キャンセル日時</dt><dd><?= e(jp_datetime((string) $booking['cancelled_at'])) ?></dd>
     <?php endif; ?>

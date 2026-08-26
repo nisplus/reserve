@@ -14,6 +14,7 @@ use App\Core\View;
 use App\Exception\NotFoundException;
 use App\Exception\ValidationException;
 use App\Mail\MailDispatcher;
+use App\Repository\BookingAttendeeRepository;
 use App\Repository\BookingRepository;
 use App\Repository\CompanyRepository;
 use App\Repository\EventRepository;
@@ -42,6 +43,7 @@ final class BookingController
         $total = $repo->countForAdmin($filters);
         $pages = max(1, (int) ceil($total / self::PER_PAGE));
         $page  = min(max($request->queryInt('page', 1), 1), $pages);
+        $rows  = $repo->searchForAdmin($filters, self::PER_PAGE, ($page - 1) * self::PER_PAGE);
 
         $sessions = [];
         if ((int) $filters['event_id'] > 0) {
@@ -56,8 +58,11 @@ final class BookingController
         }
 
         return Response::html(View::render('admin/bookings_index', [
-            'title'    => '申込一覧',
-            'rows'     => $repo->searchForAdmin($filters, self::PER_PAGE, ($page - 1) * self::PER_PAGE),
+            'title'     => '申込一覧',
+            'rows'      => $rows,
+            'attendees' => (new BookingAttendeeRepository())->namesForMany(
+                array_map(static fn (array $row): int => (int) $row['id'], $rows)
+            ),
             'total'    => $total,
             'page'     => $page,
             'pages'    => $pages,
@@ -77,8 +82,13 @@ final class BookingController
         $rows = (new BookingRepository())->searchForAdmin($filters, self::EXPORT_MAX, 0);
 
         $header = ['予約番号', '状態', '会社', 'イベント', '開催日時', '氏名', 'メールアドレス',
-                   '人数', 'キャンセル待ち順', '申込日時', 'キャンセル日時'];
+                   '人数', '参加者', 'キャンセル待ち順', '申込日時', 'キャンセル日時'];
         $statusLabels = ['confirmed' => '確定', 'waitlisted' => 'キャンセル待ち', 'cancelled' => 'キャンセル済み'];
+
+        // One query for every row's attendees rather than one per row.
+        $attendees = (new BookingAttendeeRepository())->namesForMany(
+            array_map(static fn (array $row): int => (int) $row['id'], $rows)
+        );
 
         $lines = [];
         foreach ($rows as $row) {
@@ -91,6 +101,7 @@ final class BookingController
                 $row['name'],
                 $row['email'],
                 $row['party_size'],
+                implode(' / ', $attendees[(int) $row['id']] ?? []),
                 $row['waitlist_seq'],
                 $row['created_at'],
                 $row['cancelled_at'],

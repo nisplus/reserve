@@ -67,7 +67,7 @@ final class EventSessionRepository
         return Db::selectOne(
             'SELECT ' . self::SELECT_LIST . ",
                     e.id AS event_id, e.title AS event_title, e.venue, e.description,
-                    e.booking_required,
+                    e.booking_required, e.max_party_size,
                     c.id AS company_id, c.name AS company_name
              FROM event_sessions s
              JOIN events e    ON e.id = s.event_id
