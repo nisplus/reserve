@@ -19,6 +19,7 @@ use App\Core\Authz;
 use App\Core\Db;
 use App\Domain\AdminRole;
 use App\Exception\NotFoundException;
+use App\Repository\AdminUserRepository;
 use App\Repository\BookingRepository;
 use App\Repository\EventRepository;
 use App\Service\BookingService;
@@ -132,6 +133,50 @@ try {
     // A session id from another company must not leak through the filter.
     $crossed = $bookings->searchForAdmin(['company_id' => $companyA, 'session_id' => $sessionB], 100, 0);
     $assert($crossed === [], 'another company\'s session id matches nothing under the scope');
+
+    // --- the role/company pairing ------------------------------------------
+    // This was a CHECK constraint until MariaDB 11.8 refused it (errno 1901),
+    // so AdminUserRepository carries the rule now. The database no longer
+    // catches a bad pair, which makes these assertions the guarantee rather
+    // than a second opinion on it.
+    $accounts = new AdminUserRepository();
+    $refused = static function (callable $fn): bool {
+        try {
+            $fn();
+            return false;
+        } catch (InvalidArgumentException) {
+            return true;
+        }
+    };
+
+    $assert($refused(static fn () => $accounts->create(
+        'ct-bad-1', 'x', 'bad', AdminRole::Company->value, null
+    )), 'a company account without a company is refused');
+
+    $assert($refused(static fn () => $accounts->create(
+        'ct-bad-2', 'x', 'bad', AdminRole::Superadmin->value, $companyA
+    )), 'an office account with a company is refused');
+
+    $assert($refused(static fn () => $accounts->create(
+        'ct-bad-3', 'x', 'bad', 'auditor', $companyA
+    )), 'an unknown role is refused');
+
+    $assert((int) Db::scalar("SELECT COUNT(*) FROM admin_users WHERE username LIKE 'ct-bad-%'") === 0,
+        'none of the refused accounts reached the table');
+
+    // updateProfile guards the same way - the admin edit screen goes through it.
+    $goodId = $accounts->create('ct-good', 'x', 'good', AdminRole::Company->value, $companyA);
+    $assert($refused(static fn () => $accounts->updateProfile(
+        $goodId, 'good', AdminRole::Company->value, null
+    )), 'updating a company account to have no company is refused');
+    $assert((int) Db::scalar('SELECT company_id FROM admin_users WHERE id = ?', [$goodId]) === $companyA,
+        'the refused update changed nothing');
+
+    // The valid transitions still work.
+    $accounts->updateProfile($goodId, 'good', AdminRole::Superadmin->value, null);
+    $assert(Db::scalar('SELECT company_id FROM admin_users WHERE id = ?', [$goodId]) === null,
+        'promoting to office clears the company');
+    Db::execute('DELETE FROM admin_users WHERE id = ?', [$goodId]);
 } finally {
     fixture_cleanup();
 }

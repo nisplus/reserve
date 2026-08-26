@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Core\Db;
+use App\Domain\AdminRole;
+use InvalidArgumentException;
 
 final class AdminUserRepository
 {
@@ -21,9 +23,38 @@ final class AdminUserRepository
     }
 
     /**
+     * The role/company_id pairing, enforced for every write.
+     *
+     * This was a CHECK constraint until MariaDB 11.8 refused to accept it
+     * (errno 1901; see db/migrations/002_admin_roles.sql). It lives here
+     * instead because this class is the only way rows are written - the admin
+     * screens and bin/create_admin.php both come through create() and
+     * updateProfile() - so the rule holds wherever accounts are made.
+     *
+     * A superadmin with a company would be silently confined by Authz; a
+     * company account without one would have no scope at all and
+     * Authz::assertCompany() would have to guess. Neither is recoverable from
+     * by the caller, so this is an InvalidArgumentException (a programming
+     * error) rather than a validation message.
+     *
+     * @throws InvalidArgumentException
+     */
+    private static function assertScope(string $role, ?int $companyId): void
+    {
+        if ($role === AdminRole::Superadmin->value && $companyId !== null) {
+            throw new InvalidArgumentException('事務局アカウントに所属会社は設定できません。');
+        }
+        if ($role === AdminRole::Company->value && $companyId === null) {
+            throw new InvalidArgumentException('会社担当者アカウントには所属会社が必要です。');
+        }
+        if (AdminRole::tryFrom($role) === null) {
+            throw new InvalidArgumentException("未知のアカウント種別です: {$role}");
+        }
+    }
+
+    /**
      * @param string   $role      'superadmin' or 'company'
-     * @param int|null $companyId Required for 'company', must be null otherwise
-     *                            (chk_admin_users_scope enforces the pairing).
+     * @param int|null $companyId Required for 'company', must be null otherwise.
      */
     public function create(
         string $username,
@@ -32,6 +63,8 @@ final class AdminUserRepository
         string $role = 'superadmin',
         ?int $companyId = null,
     ): int {
+        self::assertScope($role, $companyId);
+
         Db::execute(
             'INSERT INTO admin_users (username, password_hash, display_name, role, company_id)
              VALUES (?, ?, ?, ?, ?)',
@@ -66,6 +99,8 @@ final class AdminUserRepository
 
     public function updateProfile(int $id, string $displayName, string $role, ?int $companyId): void
     {
+        self::assertScope($role, $companyId);
+
         Db::execute(
             'UPDATE admin_users SET display_name = ?, role = ?, company_id = ? WHERE id = ?',
             [$displayName, $role, $companyId, $id]

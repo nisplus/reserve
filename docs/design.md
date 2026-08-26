@@ -557,7 +557,8 @@ PHP で実装しているのは、PowerShell 5.1 に `<` 入力リダイレク�
 - **`SKIP LOCKED` は 10.6 以降。** `FOR UPDATE WAIT n` / `NOWAIT` は 10.3 以降なので使える
 - **EXCLUDE 制約・部分インデックス・フィルタ付き UNIQUE が無い。** だから `active_key` 生成列トリックとアプリ側の重なりチェックが必要
 - **CHECK 制約は 10.2 以降で実際に強制される。** 定員の引き下げが失敗し得る点に注意（[前述](#chk_sessions_seats-の副作用)）
-- **`ALTER TABLE` で追加した列を、同じ文の `CHECK` から参照しない。** ビルドによっては `Function or expression 'col' cannot be used in the CHECK clause`（errno 1901）で失敗します。CHECK 式は文の実行前のテーブル定義に対して解決されるためです。10.4 は受け付けてしまうので**開発機では気づけません**（実際 `002_admin_roles.sql` がこれで本番だけ落ちました）。列の追加と、それを参照する制約は必ず別の `ALTER TABLE` に分けること
+- **`CHECK` 制約はバージョン間の移植性が低い。** MariaDB 11.8 は、既存の列に対して単独の `ALTER TABLE ... ADD CONSTRAINT ... CHECK (...)` を実行しても `Function or expression 'col' cannot be used in the CHECK clause`（errno 1901）で拒否します。10.4 は同じ DDL を受け付けるため、**開発機では通り本番だけ落ちます**（`002_admin_roles.sql` の role/company_id 対応がこれに当たり、CHECK を諦めてアプリ層に移しました）。列を追加した直後の `ALTER` で同じ列を参照する形は、さらに広い範囲のビルドで失敗します
+- **不変条件を CHECK だけに頼らない。** 上記のとおり本番で消える可能性があります。`chk_sessions_seats`（売り越し防止）のようにアプリ側でも同じ条件を検査し、CHECK は「最後の防壁」として扱うこと。逆に CHECK が唯一の防御になっている箇所は、移植時に静かに保証を失います
 - **MySQL 8 でも動くように書く。** 生成列は `STORED`（`PERSISTENT` は MariaDB 方言）。分離レベルの確認は `@@transaction_isolation` を先に試す（MySQL 8 は `tx_isolation` を削除、MariaDB は 11.1 まで新名称なし）。CHECK 違反のエラー番号は MariaDB 4025 / MySQL 8 は 3819（`Db::isCheckViolation` は両対応）。CHECK の強制は MySQL では 8.0.16 以降
 
 ### Linux 本番への移植
