@@ -175,14 +175,31 @@ try {
     $assert($seats($s6) === 0, 'seats decremented exactly once (no unsigned wrap)');
 
     // --- 7: back-to-back slots, same person, in parallel --------------------
+    // The half-open boundary means 10:00-10:45 and 10:45-11:30 do not overlap,
+    // so one person may hold both - across DIFFERENT events. Within a single
+    // event the one-booking-per-event rule takes precedence, which is the
+    // second half of this scenario.
     echo "[7] adjacent slots booked in parallel by one person\n";
-    $s7a = fixture_create_session($eventId, '2026-11-07 10:00:00', '2026-11-07 10:45:00', 5);
-    $s7b = fixture_create_session($eventId, '2026-11-07 10:45:00', '2026-11-07 11:30:00', 5);
+    $s7a = fixture_create_session(fixture_create_event($company, 'adjacent A'),
+        '2026-11-07 10:00:00', '2026-11-07 10:45:00', 5);
+    $s7b = fixture_create_session(fixture_create_event($company, 'adjacent B'),
+        '2026-11-07 10:45:00', '2026-11-07 11:30:00', 5);
     $out = run_workers([
         ['--action=book', '--session=' . $s7a, '--party=1', '--email=' . fixture_email('s7')],
         ['--action=book', '--session=' . $s7b, '--party=1', '--email=' . fixture_email('s7')],
     ]);
-    $assert(count_prefix($out, 'CONFIRMED') === 2, 'both adjacent slots accepted (half-open boundary)');
+    $assert(count_prefix($out, 'CONFIRMED') === 2,
+        'adjacent slots of different events both accepted (half-open boundary)');
+
+    $s7same = fixture_create_event($company, 'adjacent same event');
+    $s7c = fixture_create_session($s7same, '2026-11-07 13:00:00', '2026-11-07 13:45:00', 5);
+    $s7d = fixture_create_session($s7same, '2026-11-07 13:45:00', '2026-11-07 14:30:00', 5);
+    $out = run_workers([
+        ['--action=book', '--session=' . $s7c, '--party=1', '--email=' . fixture_email('s7-same')],
+        ['--action=book', '--session=' . $s7d, '--party=1', '--email=' . fixture_email('s7-same')],
+    ]);
+    $assert(count_prefix($out, 'CONFIRMED') === 1 && count_prefix($out, 'DUPLICATE') === 1,
+        'adjacent slots of the SAME event: exactly one wins the race');
 
     // --- 8: cancel frees a seat, two parallel promotions of the same booking -
     echo "[8] 2 parallel promotions after a cancellation\n";

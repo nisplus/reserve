@@ -13,7 +13,7 @@ final class CompanyRepository
     {
         $where = $publishedOnly ? 'WHERE is_published = 1' : '';
         return Db::select(
-            "SELECT id, name, name_kana, sort_order, is_published, created_at, updated_at
+            "SELECT id, name, name_kana, area, sort_order, is_published, created_at, updated_at
              FROM companies {$where}
              ORDER BY sort_order, id"
         );
@@ -35,20 +35,21 @@ final class CompanyRepository
         return $options;
     }
 
-    public function create(string $name, ?string $kana, int $sortOrder, bool $published): int
+    public function create(string $name, ?string $kana, int $sortOrder, bool $published, ?string $area = null): int
     {
         Db::execute(
-            'INSERT INTO companies (name, name_kana, sort_order, is_published) VALUES (?, ?, ?, ?)',
-            [$name, $kana, $sortOrder, $published ? 1 : 0]
+            'INSERT INTO companies (name, name_kana, area, sort_order, is_published) VALUES (?, ?, ?, ?, ?)',
+            [$name, $kana, $area, $sortOrder, $published ? 1 : 0]
         );
         return Db::lastInsertId();
     }
 
-    public function update(int $id, string $name, ?string $kana, int $sortOrder, bool $published): void
+    /** $area is required rather than defaulted, so an update cannot silently clear it. */
+    public function update(int $id, string $name, ?string $kana, int $sortOrder, bool $published, ?string $area): void
     {
         Db::execute(
-            'UPDATE companies SET name = ?, name_kana = ?, sort_order = ?, is_published = ? WHERE id = ?',
-            [$name, $kana, $sortOrder, $published ? 1 : 0, $id]
+            'UPDATE companies SET name = ?, name_kana = ?, area = ?, sort_order = ?, is_published = ? WHERE id = ?',
+            [$name, $kana, $area, $sortOrder, $published ? 1 : 0, $id]
         );
     }
 

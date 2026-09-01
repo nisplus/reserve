@@ -13,7 +13,7 @@ use App\Core\Csrf;
 <div class="table-scroll">
   <table class="table">
     <thead>
-      <tr><th>表示順</th><th>会社名</th><th>かな</th><th>公開</th><th>イベント</th><th></th></tr>
+      <tr><th>表示順</th><th>会社名</th><th>かな</th><th>エリア</th><th>公開</th><th>イベント</th><th></th></tr>
     </thead>
     <tbody>
     <?php foreach ($companies as $company): ?>
@@ -21,6 +21,13 @@ use App\Core\Csrf;
         <td><?= (int) $company['sort_order'] ?></td>
         <td><?= e($company['name']) ?></td>
         <td class="muted"><?= e($company['name_kana']) ?></td>
+        <td>
+          <?php if ($company['area'] !== null): ?>
+            <span class="badge badge--muted"><?= e(App\Domain\Area::labelFor($company['area'])) ?></span>
+          <?php else: ?>
+            <span class="muted">未設定</span>
+          <?php endif; ?>
+        </td>
         <td>
           <?php if ((int) $company['is_published'] === 1): ?>
             <span class="badge badge--ok">公開</span>

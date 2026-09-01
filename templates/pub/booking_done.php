@@ -14,7 +14,7 @@ use App\Domain\BookingStatus;
 $status = BookingStatus::from((string) $booking['status']);
 ?>
 <h1>
-  <?= $status === BookingStatus::Waitlisted ? 'キャンセル待ちで受け付けました' : 'お申し込みを受け付けました' ?>
+  <?= $status === BookingStatus::Waitlisted ? 'キャンセル待ちで受け付けました' : 'ご予約を受け付けました' ?>
 </h1>
 
 <?php if ($status === BookingStatus::Waitlisted): ?>
@@ -38,13 +38,15 @@ $status = BookingStatus::from((string) $booking['status']);
     <?php if (($booking['venue'] ?? '') !== '' && $booking['venue'] !== null): ?>
       <dt>会場</dt><dd><?= e($booking['venue']) ?></dd>
     <?php endif; ?>
-    <dt>お名前</dt><dd><?= e($booking['name']) ?></dd>
+    <dt>電話番号</dt><dd><?= e($booking['phone']) ?></dd>
     <dt>参加人数</dt><dd><?= (int) $booking['party_size'] ?> 名</dd>
-    <?php if (count($attendees) > 1): ?>
+    <?php if ($attendees !== []): ?>
       <dt>ご参加者</dt>
       <dd>
         <ol style="margin:0;padding-left:1.4em">
-          <?php foreach ($attendees as $attendee): ?><li><?= e($attendee) ?></li><?php endforeach; ?>
+          <?php foreach ($attendees as $attendee): ?>
+            <li><?= e($attendee['name']) ?><?php if ($attendee['age'] !== null): ?>（<?= $attendee['age'] ?> 歳）<?php endif; ?></li>
+          <?php endforeach; ?>
         </ol>
       </dd>
     <?php endif; ?>
@@ -53,7 +55,7 @@ $status = BookingStatus::from((string) $booking['status']);
 
 <p>
   <strong><?= e($booking['email']) ?></strong> 宛に確認メールをお送りしました。
-  お申し込み内容の確認とキャンセルは、メールに記載のURLから行えます。
+  予約内容の確認とキャンセルは、メールに記載のURLから行えます。
   メールが届かない場合は、迷惑メールフォルダもご確認ください。
 </p>
 

@@ -55,6 +55,47 @@ final class BookingRepository
     }
 
     /**
+     * A live booking this applicant already holds for the same EVENT, on any
+     * of its sessions.
+     *
+     * Distinct from findOverlapping, which only sees clashing clock times: two
+     * sessions of one event never overlap each other, so without this an
+     * applicant could take the 10:00 tour and the 14:00 tour of the same event.
+     * One booking per person per event is the rule; a party brings people
+     * along through party_size, not through a second booking.
+     *
+     * Only meaningful inside the transaction while holding the applicant lock.
+     *
+     * @param int|null $excludeBookingId Skip this row - used by promotion,
+     *                                   where the candidate is its own match.
+     * @return array<string, mixed>|null
+     */
+    public function findSameEvent(int $applicantId, int $eventId, ?int $excludeBookingId = null): ?array
+    {
+        $exclude = $excludeBookingId !== null ? 'AND b.id <> ?' : '';
+        $params  = [$applicantId, $eventId];
+        if ($excludeBookingId !== null) {
+            $params[] = $excludeBookingId;
+        }
+
+        return Db::selectOne(
+            "SELECT b.id, b.session_id, b.status, s.starts_at, s.ends_at,
+                    e.title AS event_title, c.name AS company_name
+             FROM bookings b
+             JOIN event_sessions s ON s.id = b.session_id
+             JOIN events e         ON e.id = s.event_id
+             JOIN companies c      ON c.id = e.company_id
+             WHERE b.applicant_id = ?
+               AND s.event_id = ?
+               AND b.status IN ('confirmed', 'waitlisted')
+               {$exclude}
+             ORDER BY s.starts_at
+             LIMIT 1",
+            $params
+        );
+    }
+
+    /**
      * Live bookings that do NOT overlap [startsAt, endsAt) but come within
      * $bufferMinutes of it on either side - the "can they physically get
      * there" check. Gap boundaries are inclusive: a gap of exactly
@@ -125,6 +166,7 @@ final class BookingRepository
         BookingStatus $status,
         ?int $waitlistSeq,
         string $cancelTokenHash,
+        ?string $phone = null,
     ): int {
         // NOW() is server-side and takes the session time zone (+09:00), which
         // is what the DATETIME columns hold. It is a literal, not input.
@@ -132,14 +174,15 @@ final class BookingRepository
 
         Db::execute(
             'INSERT INTO bookings
-               (reference_code, session_id, applicant_id, email, name, party_size,
+               (reference_code, session_id, applicant_id, email, phone, name, party_size,
                 status, waitlist_seq, cancel_token_hash, confirmed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ' . $confirmedAt . ')',
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' . $confirmedAt . ')',
             [
                 $referenceCode,
                 $sessionId,
                 $applicantId,
                 $email,
+                $phone,
                 $name,
                 $partySize,
                 $status->value,
@@ -297,9 +340,9 @@ final class BookingRepository
     private function findWithContext(string $where, string $param): ?array
     {
         return Db::selectOne(
-            "SELECT b.id, b.reference_code, b.session_id, b.applicant_id, b.email, b.name,
-                    b.party_size, b.status, b.waitlist_seq, b.created_at, b.confirmed_at,
-                    b.cancelled_at,
+            "SELECT b.id, b.reference_code, b.session_id, b.applicant_id, b.email, b.phone,
+                    b.name, b.party_size, b.status, b.waitlist_seq, b.created_at,
+                    b.confirmed_at, b.cancelled_at,
                     s.starts_at, s.ends_at,
                     e.id AS event_id, e.title AS event_title, e.venue,
                     -- company_id is what Authz checks a write operation against.

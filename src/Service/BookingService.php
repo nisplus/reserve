@@ -73,6 +73,9 @@ final class BookingService
      *        demands them, but CLI callers and the concurrency harness must
      *        not have to invent people, so a short list simply records fewer
      *        names. The applicant is always recorded as attendee_no 1.
+     * @param array<int, int|null> $ages Ages for attendee_no 1..N, in the same
+     *        order (index 0 is the applicant). Optional, same reasoning.
+     * @param string|null $phone A number to reach the party on the day.
      */
     public function book(
         int $sessionId,
@@ -81,6 +84,8 @@ final class BookingService
         int $partySize,
         bool $allowWaitlist = true,
         array $companionNames = [],
+        array $ages = [],
+        ?string $phone = null,
     ): array {
         // Step 0, outside the transaction: make sure the applicant row exists.
         // Doing this first keeps the locked section from having to create it,
@@ -89,12 +94,13 @@ final class BookingService
 
         try {
             return Db::transaction(function () use (
-                $sessionId, $email, $name, $partySize, $allowWaitlist, $applicantId, $companionNames
+                $sessionId, $email, $name, $partySize, $allowWaitlist, $applicantId,
+                $companionNames, $ages, $phone
             ): array {
                 // 1) Applicant gate. From here to commit, this person's
                 //    bookings cannot change under us.
                 if (!$this->applicants->lock($applicantId)) {
-                    throw new NotFoundException('申込者情報を取得できませんでした。もう一度お試しください。');
+                    throw new NotFoundException('予約者情報を取得できませんでした。もう一度お試しください。');
                 }
 
                 // 2) Session row lock: seat accounting is serialised on this
@@ -120,7 +126,7 @@ final class BookingService
                     [(int) $session['event_id']]
                 ) ?? [];
                 if ((int) ($event['booking_required'] ?? 0) !== 1) {
-                    throw new ValidationException('このイベントはお申し込み不要です。');
+                    throw new ValidationException('このイベントは予約不要です。');
                 }
 
                 // The per-application cap. Checked here as well as in the
@@ -129,7 +135,7 @@ final class BookingService
                 $maxParty = (int) ($event['max_party_size'] ?? 0);
                 if ($maxParty > 0 && $partySize > $maxParty) {
                     throw new ValidationException(
-                        "このイベントは1回のお申し込みにつき {$maxParty} 名までです。"
+                        "このイベントは1回のご予約につき {$maxParty} 名までです。"
                     );
                 }
                 // tryFrom, not from: an ENUM value this build of the code does
@@ -138,7 +144,7 @@ final class BookingService
                 // status we cannot interpret is treated as "not open", so the
                 // unknown case fails closed rather than selling seats.
                 if (SessionStatus::tryFrom((string) $session['status']) !== SessionStatus::Open) {
-                    throw new ValidationException('この開催回は現在お申し込みを受け付けていません。');
+                    throw new ValidationException('この開催回は現在ご予約を受け付けていません。');
                 }
 
                 // 3) Overlap check, inside the applicant lock so nothing can
@@ -154,6 +160,15 @@ final class BookingService
                     throw (int) $conflict['session_id'] === $sessionId
                         ? DuplicateBookingException::sameSession()
                         : DuplicateBookingException::overlapping($conflict);
+                }
+
+                // 3a) One booking per person per event. Two sessions of the
+                //     same event never overlap each other, so the check above
+                //     would let someone take the 10:00 tour and the 14:00 one.
+                //     Same lock, so the answer cannot go stale.
+                $sameEvent = $this->bookings->findSameEvent($applicantId, (int) $session['event_id']);
+                if ($sameEvent !== null) {
+                    throw DuplicateBookingException::sameEvent($sameEvent);
                 }
 
                 // 3b) Travel buffer, same lock so the answer cannot go stale.
@@ -215,6 +230,7 @@ final class BookingService
                     status:          $status,
                     waitlistSeq:     $waitlistSeq,
                     cancelTokenHash: $token['hash'],
+                    phone:           $phone,
                 );
 
                 // 6) Who is coming. attendee_no 1 is the applicant; the rest
@@ -222,7 +238,8 @@ final class BookingService
                 //    transaction, so a rollback takes them with it.
                 $this->attendees->replaceFor(
                     $bookingId,
-                    array_merge([$name], array_slice($companionNames, 0, max(0, $partySize - 1)))
+                    array_merge([$name], array_slice($companionNames, 0, max(0, $partySize - 1))),
+                    array_slice($ages, 0, $partySize)
                 );
 
                 // 7) Audit trail.
@@ -362,8 +379,8 @@ final class BookingService
         $manageUrl = Config::url('/manage/' . $rawToken);
 
         if ($status === BookingStatus::Confirmed) {
-            $subject = "【イベント予約】お申し込みが確定しました：{$context['event_title']}";
-            $headline = 'お申し込みを受け付け、参加が確定しました。';
+            $subject = "【イベント予約】ご予約が確定しました：{$context['event_title']}";
+            $headline = 'ご予約を受け付け、参加が確定しました。';
         } else {
             $subject = "【イベント予約】キャンセル待ちで受け付けました：{$context['event_title']}";
             $headline = "満席のため、キャンセル待ち（受付順 {$waitlistSeq} 番）で受け付けました。\n"
@@ -389,7 +406,7 @@ final class BookingService
 
         {$headline}
 
-        ── お申し込み内容 ──────────────
+        ── 予約内容 ──────────────
         イベント　: {$context['event_title']}
         主催　　　: {$context['company_name']}
         日時　　　: {$when}
@@ -397,10 +414,10 @@ final class BookingService
         {$attendeeLines}予約番号　: {$referenceCode}
         ────────────────────
 
-        ▼ お申し込み内容の確認・キャンセルはこちら
+        ▼ 予約内容の確認・キャンセルはこちら
         {$manageUrl}
 
-        このURLはお申し込みされたご本人だけのものです。他の方に知られないようご注意ください。
+        このURLはご予約されたご本人だけのものです。他の方に知られないようご注意ください。
         心当たりのないメールの場合は、そのまま破棄してください。
         TEXT;
 

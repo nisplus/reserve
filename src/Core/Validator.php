@@ -121,6 +121,35 @@ final class Validator
         return $this;
     }
 
+    /**
+     * A phone number to reach someone on. Deliberately permissive about
+     * shape - digits, spaces, hyphens, parentheses and a leading + cover
+     * domestic and international forms, and rejecting anything more exotic
+     * would turn a contact field into a puzzle. Only the character set is
+     * checked; whether the number rings is not knowable here.
+     */
+    public function phone(string $field, string $label, string $value, int $max = 30): self
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return $this->fail($field, "{$label}を入力してください。");
+        }
+        if (mb_strlen($trimmed) > $max) {
+            return $this->fail($field, "{$label}は{$max}文字以内で入力してください。");
+        }
+        // Opening character may be a digit, a country-code +, or the bracket
+        // of an area code - (052)123-4567 is how plenty of people write it.
+        // At least one digit has to be in there somewhere.
+        if (!preg_match('/^[+0-9０-９(（][0-9０-９\s\-()（）]*$/u', $trimmed)
+            || !preg_match('/[0-9０-９]/u', $trimmed)
+        ) {
+            return $this->fail($field, "{$label}は数字とハイフンで入力してください。");
+        }
+        // Fold full-width digits so the stored value is dialable as-is.
+        $this->values[$field] = mb_convert_kana($trimmed, 'n', 'UTF-8');
+        return $this;
+    }
+
     /** @param array<int, string> $allowed */
     public function inList(string $field, string $label, string $value, array $allowed): self
     {
@@ -138,6 +167,17 @@ final class Validator
             return $this->fail($field, "{$max}文字以内で入力してください。");
         }
         $this->values[$field] = $trimmed === '' ? null : $trimmed;
+        return $this;
+    }
+
+    /**
+     * Record a value that needed no checking - an optional field the caller
+     * has already decided is absent, for instance. Keeps values() complete so
+     * callers can read every field from one place.
+     */
+    public function set(string $field, mixed $value): self
+    {
+        $this->values[$field] = $value;
         return $this;
     }
 

@@ -17,7 +17,7 @@ class SessionFullException extends RuntimeException
         string $message = '',
     ) {
         parent::__construct($message !== '' ? $message : sprintf(
-            'この開催回は満席です（残り %d 名分）。キャンセル待ちでのお申し込みをご検討ください。',
+            'この開催回は満席です（残り %d 名分）。キャンセル待ちでのご予約をご検討ください。',
             $remaining
         ));
     }

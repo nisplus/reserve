@@ -10,6 +10,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Validator;
 use App\Core\View;
+use App\Domain\Area;
 use App\Exception\NotFoundException;
 use App\Repository\AdminUserRepository;
 use App\Repository\CompanyRepository;
@@ -52,7 +53,8 @@ final class CompanyController
             (string) $input['name'],
             $input['name_kana'] !== null ? (string) $input['name_kana'] : null,
             (int) $input['sort_order'],
-            $request->has('is_published')
+            $request->has('is_published'),
+            $input['area'] !== null ? (string) $input['area'] : null,
         );
 
         Flash::success('会社を登録しました。');
@@ -81,7 +83,8 @@ final class CompanyController
             (string) $input['name'],
             $input['name_kana'] !== null ? (string) $input['name_kana'] : null,
             (int) $input['sort_order'],
-            $request->has('is_published')
+            $request->has('is_published'),
+            $input['area'] !== null ? (string) $input['area'] : null,
         );
 
         Flash::success('会社を更新しました。');
@@ -132,6 +135,16 @@ final class CompanyController
         $validator->optional('name_kana', $request->post('name_kana'), 120);
         $validator->intRange('sort_order', '表示順', $request->post('sort_order', '0'), 0, 9999);
 
+        // Area is optional: blank stores NULL (unassigned). Anything else has
+        // to be one of the known values - the select offers no others, but the
+        // POST is client input either way.
+        $area = trim($request->post('area'));
+        if ($area === '') {
+            $validator->set('area', null);
+        } else {
+            $validator->inList('area', 'エリア', $area, array_keys(Area::options()));
+        }
+
         if (!$validator->hasErrors()
             && (new CompanyRepository())->nameExists((string) $validator->value('name'), $exceptId)
         ) {
@@ -146,6 +159,7 @@ final class CompanyController
         return $this->renderForm($company, $validator->errors(), [
             'name'         => $request->post('name'),
             'name_kana'    => $request->post('name_kana'),
+            'area'         => $request->post('area'),
             'sort_order'   => $request->post('sort_order'),
             'is_published' => $request->has('is_published') ? '1' : '',
         ]);
@@ -163,6 +177,7 @@ final class CompanyController
             'company' => $company,
             'errors'  => $errors,
             'old'     => $old,
+            'areas'   => Area::options(),
         ], 'layouts/admin'), $errors === [] ? 200 : 422);
     }
 }

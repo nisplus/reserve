@@ -35,13 +35,17 @@ final class BookingController
 {
     private const PARTY_MAX = 20; // chk_bookings_party mirrors this
 
+    // Wide enough not to argue with anyone; 0 would be a typo, not a baby.
+    private const AGE_MIN = 0;
+    private const AGE_MAX = 120;
+
     /** GET /sessions/{id}/apply - the application form. */
     public function apply(Request $request): Response
     {
         $session = $this->loadSession($request->routeInt('id'));
 
         return Response::html(View::render('pub/booking_apply', [
-            'title'    => '申し込み：' . $session['event_title'],
+            'title'    => '予約：' . $session['event_title'],
             'session'  => $session,
             'errors'   => [],
             'old'      => [],
@@ -61,7 +65,7 @@ final class BookingController
         }
 
         return Response::html(View::render('pub/booking_confirm', [
-            'title'       => '申し込み内容の確認',
+            'title'       => '予約内容の確認',
             'session'     => $session,
             'input'       => $input,
             'willWait'    => (int) $session['seats_left'] < (int) $input['party_size'],
@@ -85,7 +89,7 @@ final class BookingController
         )) {
             return Response::html(View::render('pub/error', [
                 'title'   => '送信回数の上限に達しました',
-                'message' => '短時間に多くのお申し込みが送信されました。1分ほど待ってから、もう一度お試しください。',
+                'message' => '短時間に多くのご予約が送信されました。1分ほど待ってから、もう一度お試しください。',
             ]), 429);
         }
 
@@ -106,15 +110,19 @@ final class BookingController
                 (string) $input['name'],
                 (int) $input['party_size'],
                 companionNames: (array) $input['companions'],
+                ages: (array) $input['ages'],
+                phone: (string) $input['phone'],
             );
         } catch (DuplicateBookingException | SessionFullException | TravelBufferException | ValidationException $e) {
             // All of these are user-correctable outcomes, not errors: show the
             // form again with the reason on top and the input preserved.
             return $this->renderForm($session, ['_top' => $e->getMessage()], [
                 'email'      => (string) $input['email'],
+                'phone'      => (string) $input['phone'],
                 'name'       => (string) $input['name'],
                 'party_size' => (string) $input['party_size'],
                 'companions' => $this->postedCompanions($request),
+                'ages'       => $this->postedAges($request) + [1 => $request->post('age_1')],
             ]);
         }
 
@@ -122,7 +130,7 @@ final class BookingController
         // next CLI run. Best effort - failure leaves it queued.
         MailDispatcher::tryProcessPending();
 
-        Flash::success('お申し込みを受け付けました。確認メールをお送りしています。');
+        Flash::success('ご予約を受け付けました。確認メールをお送りしています。');
         return Response::redirect('/bookings/done/' . $result['reference_code']);
     }
 
@@ -135,9 +143,9 @@ final class BookingController
         }
 
         return Response::html(View::render('pub/booking_done', [
-            'title'     => 'お申し込みを受け付けました',
+            'title'     => 'ご予約を受け付けました',
             'booking'   => $booking,
-            'attendees' => (new BookingAttendeeRepository())->namesFor((int) $booking['id']),
+            'attendees' => (new BookingAttendeeRepository())->listFor((int) $booking['id']),
         ]));
     }
 
@@ -152,13 +160,13 @@ final class BookingController
     {
         $session = (new EventSessionRepository())->findWithContext($sessionId, true);
         if ($session === null || (string) $session['status'] !== 'open') {
-            throw new NotFoundException('この開催回は現在お申し込みを受け付けていません。');
+            throw new NotFoundException('この開催回は現在ご予約を受け付けていません。');
         }
         // 予約不要 events take no applications. Sessions created before the
         // flag was set still exist, so a bookmarked or guessed apply URL has
         // to be refused here rather than relying on the links being gone.
         if ((int) $session['booking_required'] !== 1) {
-            throw new NotFoundException('このイベントはお申し込み不要です。イベントページをご覧ください。');
+            throw new NotFoundException('このイベントは予約不要です。イベントページをご覧ください。');
         }
         return $session;
     }
@@ -177,45 +185,82 @@ final class BookingController
 
         $validator = new Validator();
         $validator->email('email', 'メールアドレス', $request->post('email'));
+        $validator->phone('phone', '当日連絡が取れる電話番号', $request->post('phone'));
         $validator->required('name', 'お名前', $request->post('name'))
                   ->maxLength('name', 'お名前', $request->post('name'), 100);
+        $validator->intRange('age_1', '年齢', $request->post('age_1'), self::AGE_MIN, self::AGE_MAX);
         $validator->intRange('party_size', '参加人数', $request->post('party_size'), 1, $maxParty);
 
-        // Companion names, one per extra person. Collected only once the
-        // party size itself is known to be sane, so a nonsense number does
-        // not also produce a wall of name errors.
+        // Names and ages for the rest of the party, one pair per extra person.
+        // Collected only once the party size itself is known to be sane, so a
+        // nonsense number does not also produce a wall of per-person errors.
         $companions = [];
+        $ages = [];
         if (!$validator->hasErrors()) {
             $partySize = (int) $validator->value('party_size');
-            $posted = $this->postedCompanions($request);
+            $names = $this->postedCompanions($request);
+            $postedAges = $this->postedAges($request);
+            $ages[] = (int) $validator->value('age_1');
 
             for ($i = 2; $i <= $partySize; $i++) {
-                $field = "companion_{$i}";
-                $value = trim($posted[$i] ?? '');
+                $value = trim($names[$i] ?? '');
                 if ($value === '') {
-                    $validator->fail($field, "{$i}人目のお名前を入力してください。");
-                    continue;
+                    $validator->fail("companion_{$i}", "{$i}人目のお名前を入力してください。");
+                } elseif (mb_strlen($value) > 100) {
+                    $validator->fail("companion_{$i}", "{$i}人目のお名前は100文字以内で入力してください。");
+                } else {
+                    $companions[] = $value;
                 }
-                if (mb_strlen($value) > 100) {
-                    $validator->fail($field, "{$i}人目のお名前は100文字以内で入力してください。");
-                    continue;
+
+                $age = trim($postedAges[$i] ?? '');
+                if (!preg_match('/^\d+$/', $age)
+                    || (int) $age < self::AGE_MIN || (int) $age > self::AGE_MAX
+                ) {
+                    $validator->fail("age_{$i}", sprintf(
+                        '%d人目の年齢は%d〜%dの範囲で入力してください。',
+                        $i,
+                        self::AGE_MIN,
+                        self::AGE_MAX
+                    ));
+                } else {
+                    $ages[] = (int) $age;
                 }
-                $companions[] = $value;
             }
         }
 
         if (!$validator->hasErrors()) {
             $values = $validator->values();
             $values['companions'] = $companions;
+            $values['ages'] = $ages;
             return $values;
         }
 
         return $this->renderForm($session, $validator->errors(), [
             'email'      => $request->post('email'),
+            'phone'      => $request->post('phone'),
             'name'       => $request->post('name'),
             'party_size' => $request->post('party_size'),
             'companions' => $this->postedCompanions($request),
+            'ages'       => $this->postedAges($request) + [1 => $request->post('age_1')],
         ]);
+    }
+
+    /**
+     * age_2 .. age_N from the request, keyed by their number. age_1 is the
+     * applicant's and is validated as an ordinary field.
+     *
+     * @return array<int, string>
+     */
+    private function postedAges(Request $request): array
+    {
+        $out = [];
+        for ($i = 2; $i <= self::PARTY_MAX; $i++) {
+            $value = $request->post("age_{$i}");
+            if ($value !== '') {
+                $out[$i] = $value;
+            }
+        }
+        return $out;
     }
 
     /**
@@ -247,7 +292,7 @@ final class BookingController
     private function renderForm(array $session, array $errors, array $old): Response
     {
         return Response::html(View::render('pub/booking_apply', [
-            'title'    => '申し込み：' . $session['event_title'],
+            'title'    => '予約：' . $session['event_title'],
             'session'  => $session,
             'errors'   => $errors,
             'old'      => $old,

@@ -17,14 +17,28 @@ final class EventRepository
      *
      * @return array<int, array<string, mixed>>
      */
-    public function publishedCatalogue(): array
+    public function publishedCatalogue(?string $area = null, int $companyId = 0): array
     {
+        // Both filters are optional and independent; the caller has already
+        // reduced anything unrecognised to null / 0.
+        $conditions = '';
+        $params = [];
+        if ($area !== null) {
+            $conditions .= ' AND c.area = ?';
+            $params[] = $area;
+        }
+        if ($companyId > 0) {
+            $conditions .= ' AND c.id = ?';
+            $params[] = $companyId;
+        }
+
         return Db::select(
             "SELECT e.id, e.title, e.description, e.venue, e.sort_order,
                     e.booking_required, e.external_url,
                     c.id   AS company_id,
                     c.name AS company_name,
                     c.name_kana AS company_kana,
+                    c.area AS company_area,
                     COUNT(s.id)                                   AS session_count,
                     COALESCE(SUM(GREATEST(CAST(s.capacity AS SIGNED)
                                         - CAST(s.confirmed_seats AS SIGNED), 0)), 0) AS seats_left,
@@ -34,11 +48,41 @@ final class EventRepository
              JOIN companies c ON c.id = e.company_id
              LEFT JOIN event_sessions s
                     ON s.event_id = e.id AND s.status = 'open'
-             WHERE e.is_published = 1 AND c.is_published = 1
+             WHERE e.is_published = 1 AND c.is_published = 1 {$conditions}
              GROUP BY e.id, e.title, e.description, e.venue, e.sort_order,
                       e.booking_required, e.external_url,
-                      c.id, c.name, c.name_kana
-             ORDER BY c.sort_order, c.id, e.sort_order, e.id"
+                      c.id, c.name, c.name_kana, c.area
+             ORDER BY c.sort_order, c.id, e.sort_order, e.id",
+            $params
+        );
+    }
+
+    /**
+     * Companies that actually have something published, for the filter's
+     * select box - offering a company with nothing to show would produce an
+     * empty page and look broken.
+     *
+     * @return array<int, array{id:int, name:string, area:?string}>
+     */
+    public function publishedCompanies(?string $area = null): array
+    {
+        $conditions = $area !== null ? 'AND c.area = ?' : '';
+        $params = $area !== null ? [$area] : [];
+
+        return array_map(
+            static fn (array $row): array => [
+                'id'   => (int) $row['id'],
+                'name' => (string) $row['name'],
+                'area' => $row['area'] !== null ? (string) $row['area'] : null,
+            ],
+            Db::select(
+                "SELECT DISTINCT c.id, c.name, c.area, c.sort_order
+                 FROM companies c
+                 JOIN events e ON e.company_id = c.id AND e.is_published = 1
+                 WHERE c.is_published = 1 {$conditions}
+                 ORDER BY c.sort_order, c.id",
+                $params
+            )
         );
     }
 
@@ -58,6 +102,7 @@ final class EventRepository
                     'id'     => $companyId,
                     'name'   => (string) $row['company_name'],
                     'kana'   => $row['company_kana'] !== null ? (string) $row['company_kana'] : null,
+                    'area'   => ($row['company_area'] ?? null) !== null ? (string) $row['company_area'] : null,
                     'events' => [],
                 ];
             }

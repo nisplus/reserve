@@ -21,7 +21,7 @@ $status = BookingStatus::from((string) $booking['status']);
     お席をご用意できるようになりましたら、メールでご連絡します。
   </p>
 <?php elseif ($status === BookingStatus::Cancelled): ?>
-  <p class="lead">この予約はキャンセル済みです。再度のお申し込みはイベント一覧から行えます。</p>
+  <p class="lead">この予約はキャンセル済みです。再度のご予約はイベント一覧から行えます。</p>
 <?php endif; ?>
 
 <div class="panel">
@@ -36,14 +36,16 @@ $status = BookingStatus::from((string) $booking['status']);
     <?php if (($booking['venue'] ?? '') !== '' && $booking['venue'] !== null): ?>
       <dt>会場</dt><dd><?= e($booking['venue']) ?></dd>
     <?php endif; ?>
-    <dt>お名前</dt><dd><?= e($booking['name']) ?></dd>
     <dt>メールアドレス</dt><dd><?= e($booking['email']) ?></dd>
+    <dt>電話番号</dt><dd><?= e($booking['phone']) ?></dd>
     <dt>参加人数</dt><dd><?= (int) $booking['party_size'] ?> 名</dd>
-    <?php if (count($attendees) > 1): ?>
+    <?php if ($attendees !== []): ?>
       <dt>ご参加者</dt>
       <dd>
         <ol style="margin:0;padding-left:1.4em">
-          <?php foreach ($attendees as $attendee): ?><li><?= e($attendee) ?></li><?php endforeach; ?>
+          <?php foreach ($attendees as $attendee): ?>
+            <li><?= e($attendee['name']) ?><?php if ($attendee['age'] !== null): ?>（<?= $attendee['age'] ?> 歳）<?php endif; ?></li>
+          <?php endforeach; ?>
         </ol>
       </dd>
     <?php endif; ?>

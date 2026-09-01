@@ -79,7 +79,7 @@ try {
     try {
         (new BookingService())->book($session, fixture_email('nb-a'), 'A', 1);
     } catch (ValidationException $e) {
-        $refused = str_contains($e->getMessage(), 'お申し込み不要');
+        $refused = str_contains($e->getMessage(), '予約不要');
     }
     $assert($refused, 'BookingService refuses a session under a 予約不要 event');
     $assert((int) Db::scalar('SELECT COUNT(*) FROM bookings WHERE session_id = ?', [$session]) === 0,

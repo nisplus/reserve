@@ -58,7 +58,7 @@ final class BookingController
         }
 
         return Response::html(View::render('admin/bookings_index', [
-            'title'     => '申込一覧',
+            'title'     => '予約一覧',
             'rows'      => $rows,
             'attendees' => (new BookingAttendeeRepository())->namesForMany(
                 array_map(static fn (array $row): int => (int) $row['id'], $rows)
@@ -82,7 +82,7 @@ final class BookingController
         $rows = (new BookingRepository())->searchForAdmin($filters, self::EXPORT_MAX, 0);
 
         $header = ['予約番号', '状態', '会社', 'イベント', '開催日時', '氏名', 'メールアドレス',
-                   '人数', '参加者', 'キャンセル待ち順', '申込日時', 'キャンセル日時'];
+                   '人数', '参加者', 'キャンセル待ち順', '予約日時', 'キャンセル日時'];
         $statusLabels = ['confirmed' => '確定', 'waitlisted' => 'キャンセル待ち', 'cancelled' => 'キャンセル済み'];
 
         // One query for every row's attendees rather than one per row.
@@ -141,7 +141,7 @@ final class BookingController
         $result = (new CancellationService())->cancelById($request->routeInt('id'), Auth::actor());
 
         if ($result['already_cancelled']) {
-            Flash::info('この申込は既にキャンセル済みです。');
+            Flash::info('この予約は既にキャンセル済みです。');
         } else {
             MailDispatcher::tryProcessPending();
             $note = $result['auto_promoted'] > 0
@@ -199,7 +199,7 @@ final class BookingController
     {
         $booking = (new BookingRepository())->findById($id);
         if ($booking === null) {
-            throw new NotFoundException('お探しの申込は見つかりませんでした。');
+            throw new NotFoundException('お探しの予約は見つかりませんでした。');
         }
         Authz::assertCompany((int) $booking['company_id']);
         return $booking;

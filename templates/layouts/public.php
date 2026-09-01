@@ -27,7 +27,7 @@ $pageTitle = isset($title) && $title !== '' ? $title . ' | イベント予約' :
 
 <footer class="site-footer">
   <div class="wrap">
-    <p>お申し込み内容の確認・キャンセルは、申込完了メールに記載のURLから行えます。</p>
+    <p>予約内容の確認・キャンセルは、予約完了メールに記載のURLから行えます。</p>
   </div>
 </footer>
 </body>

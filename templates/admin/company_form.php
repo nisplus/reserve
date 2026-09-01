@@ -42,6 +42,19 @@ $published = $old !== []
     </div>
 
     <div class="field">
+      <label for="area">エリア</label>
+      <?php $selectedArea = $old['area'] ?? (string) ($company['area'] ?? ''); ?>
+      <select id="area" name="area" <?= isset($errors['area']) ? 'aria-invalid="true"' : '' ?>>
+        <option value="">未設定</option>
+        <?php foreach ($areas as $value => $label): ?>
+          <option value="<?= e($value) ?>" <?= $selectedArea === $value ? 'selected' : '' ?>><?= e($label) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <p class="hint">公開側のイベント一覧で、エリアによる絞り込みに使われます。未設定の会社はエリア絞り込みに現れません。</p>
+      <?php if (isset($errors['area'])): ?><p class="error"><?= e($errors['area']) ?></p><?php endif; ?>
+    </div>
+
+    <div class="field">
       <label for="sort_order">表示順</label>
       <input type="number" id="sort_order" name="sort_order" min="0" max="9999"
              value="<?= e($old['sort_order'] ?? (string) ($company['sort_order'] ?? '0')) ?>">

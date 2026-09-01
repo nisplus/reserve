@@ -54,17 +54,25 @@ $sessionRow = static fn (int $id): array => Db::selectOne(
 
 fixture_cleanup();
 $company = fixture_create_company('travel');
-$eventId = fixture_create_event($company, 'travel buffer');
+
+/**
+ * Each session gets its OWN event. Travel time is about moving between
+ * different events; two sessions of one event are refused outright by the
+ * one-booking-per-event rule, which would mask what is being tested here.
+ */
+$sessionUnderOwnEvent = static function (string $label, string $start, string $end) use ($company): int {
+    return fixture_create_session(fixture_create_event($company, $label), $start, $end, 5);
+};
 
 $service = new BookingService();
 
 try {
     // Base booking: 10:00-11:00. Neighbours at every interesting distance.
-    $base     = fixture_create_session($eventId, '2027-03-01 10:00:00', '2027-03-01 11:00:00', 5);
-    $adjacent = fixture_create_session($eventId, '2027-03-01 11:00:00', '2027-03-01 11:45:00', 5); // gap 0
-    $gap15    = fixture_create_session($eventId, '2027-03-01 11:15:00', '2027-03-01 12:00:00', 5); // gap 15
-    $gap16    = fixture_create_session($eventId, '2027-03-01 11:16:00', '2027-03-01 12:00:00', 5); // gap 16
-    $before15 = fixture_create_session($eventId, '2027-03-01 08:45:00', '2027-03-01 09:45:00', 5); // ends 15 before base
+    $base     = $sessionUnderOwnEvent('base',     '2027-03-01 10:00:00', '2027-03-01 11:00:00');
+    $adjacent = $sessionUnderOwnEvent('adjacent', '2027-03-01 11:00:00', '2027-03-01 11:45:00'); // gap 0
+    $gap15    = $sessionUnderOwnEvent('gap15',    '2027-03-01 11:15:00', '2027-03-01 12:00:00'); // gap 15
+    $gap16    = $sessionUnderOwnEvent('gap16',    '2027-03-01 11:16:00', '2027-03-01 12:00:00'); // gap 16
+    $before15 = $sessionUnderOwnEvent('before15', '2027-03-01 08:45:00', '2027-03-01 09:45:00'); // ends 15 before base
 
     $service->book($base, fixture_email('tb-p'), 'P', 1);
 
@@ -98,8 +106,8 @@ try {
     // --- buffer disabled ------------------------------------------------------
     // A fresh person with only a base booking, so the adjacent slot is clean
     // of overlaps and the only thing standing between them is the buffer.
-    $zBase = fixture_create_session($eventId, '2027-03-01 13:00:00', '2027-03-01 14:00:00', 5);
-    $zAdj  = fixture_create_session($eventId, '2027-03-01 14:00:00', '2027-03-01 14:45:00', 5);
+    $zBase = $sessionUnderOwnEvent('z-base', '2027-03-01 13:00:00', '2027-03-01 14:00:00');
+    $zAdj  = $sessionUnderOwnEvent('z-adj',  '2027-03-01 14:00:00', '2027-03-01 14:45:00');
     $service->book($zBase, fixture_email('tb-z'), 'Z', 1);
     $withBuffer(0, true, function () use ($assert, $service, $sessionRow, $zAdj) {
         $assert($service->travelBufferWarning(fixture_email('tb-z'), $sessionRow($zAdj)) === null,
@@ -109,9 +117,9 @@ try {
     });
 
     // --- block mode refuses inside the transaction ----------------------------
-    $blockBase = fixture_create_session($eventId, '2027-03-02 10:00:00', '2027-03-02 11:00:00', 5);
-    $blockNear = fixture_create_session($eventId, '2027-03-02 11:10:00', '2027-03-02 12:00:00', 5); // gap 10
-    $blockLap  = fixture_create_session($eventId, '2027-03-02 10:30:00', '2027-03-02 11:30:00', 5); // overlaps
+    $blockBase = $sessionUnderOwnEvent('block-base', '2027-03-02 10:00:00', '2027-03-02 11:00:00');
+    $blockNear = $sessionUnderOwnEvent('block-near', '2027-03-02 11:10:00', '2027-03-02 12:00:00'); // gap 10
+    $blockLap  = $sessionUnderOwnEvent('block-lap',  '2027-03-02 10:30:00', '2027-03-02 11:30:00'); // overlaps
     $service->book($blockBase, fixture_email('tb-q'), 'Q', 1);
 
     $withBuffer(15, true, function () use ($assert, $service, $blockNear, $blockLap) {
@@ -142,8 +150,9 @@ try {
     // T waits on a full session whose start is 10 minutes after T's other
     // confirmed booking ends. Warn mode promotes (the applicant accepted the
     // popup when they queued); block mode skips T.
-    $tight    = fixture_create_session($eventId, '2027-03-03 12:00:00', '2027-03-03 13:00:00', 1);
-    $tOther   = fixture_create_session($eventId, '2027-03-03 10:30:00', '2027-03-03 11:50:00', 5); // ends 10 before tight
+    $tightEvent = fixture_create_event($company, 'tight');
+    $tight    = fixture_create_session($tightEvent, '2027-03-03 12:00:00', '2027-03-03 13:00:00', 1);
+    $tOther   = $sessionUnderOwnEvent('t-other', '2027-03-03 10:30:00', '2027-03-03 11:50:00'); // ends 10 before tight
     $holder   = $service->book($tight, fixture_email('tb-r'), 'R', 1);
     $withBuffer(15, false, function () use ($service, $tight, $tOther) {
         $service->book($tOther, fixture_email('tb-t'), 'T', 1);   // confirmed

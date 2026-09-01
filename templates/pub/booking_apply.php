@@ -3,9 +3,10 @@
 use App\Core\Csrf;
 
 /**
- * @var array<string, mixed>  $session Session with event context (findWithContext).
- * @var array<string, string> $errors  Field errors; '_top' is a form-level message.
- * @var array<string, string> $old     Previous input to re-fill after an error.
+ * @var array<string, mixed>  $session  Session with event context (findWithContext).
+ * @var array<string, string> $errors   Field errors; '_top' is a form-level message.
+ * @var array<string, mixed>  $old      Previous input to re-fill after an error.
+ * @var int                   $maxParty Per-application cap for this event.
  */
 $seatsLeft = (int) $session['seats_left'];
 $isFull    = $seatsLeft === 0;
@@ -13,10 +14,10 @@ $isFull    = $seatsLeft === 0;
 <p class="breadcrumb">
   <a href="<?= url('/') ?>">イベント一覧</a> ／
   <a href="<?= url('/events/') ?><?= (int) $session['event_id'] ?>"><?= e($session['event_title']) ?></a> ／
-  申し込み
+  予約
 </p>
 
-<h1>お申し込み</h1>
+<h1>ご予約</h1>
 
 <div class="panel">
   <dl class="detail-list">
@@ -51,7 +52,7 @@ $isFull    = $seatsLeft === 0;
 <?php endif; ?>
 
 <p class="muted">
-  残席は表示時点のものです。お申し込みの確定時に改めて確認するため、
+  残席は表示時点のものです。ご予約の確定時に改めて確認するため、
   確定の時点で満席となった場合はキャンセル待ちでの受付になります。
 </p>
 
@@ -68,11 +69,13 @@ $isFull    = $seatsLeft === 0;
   </div>
 
   <div class="field">
-    <label for="name">お名前</label>
-    <input type="text" id="name" name="name" required maxlength="100"
-           value="<?= e($old['name'] ?? '') ?>"
-           <?= isset($errors['name']) ? 'aria-invalid="true"' : '' ?>>
-    <?php if (isset($errors['name'])): ?><p class="error"><?= e($errors['name']) ?></p><?php endif; ?>
+    <label for="phone">当日連絡が取れる電話番号</label>
+    <input type="tel" id="phone" name="phone" required maxlength="30"
+           placeholder="090-1234-5678"
+           value="<?= e($old['phone'] ?? '') ?>"
+           <?= isset($errors['phone']) ? 'aria-invalid="true"' : '' ?>>
+    <p class="hint">開催当日に連絡がつく番号をご入力ください。</p>
+    <?php if (isset($errors['phone'])): ?><p class="error"><?= e($errors['phone']) ?></p><?php endif; ?>
   </div>
 
   <div class="field">
@@ -82,55 +85,84 @@ $isFull    = $seatsLeft === 0;
            <?= isset($errors['party_size']) ? 'aria-invalid="true"' : '' ?>>
     <p class="hint">
       ご本人を含めた人数を入力してください。
-      <?php if ($maxParty < 20): ?>1回のお申し込みにつき <?= $maxParty ?> 名までです。<?php endif; ?>
+      <?php if ($maxParty < 20): ?>1回のご予約につき <?= $maxParty ?> 名までです。<?php endif; ?>
     </p>
     <?php if (isset($errors['party_size'])): ?><p class="error"><?= e($errors['party_size']) ?></p><?php endif; ?>
   </div>
 
+  <h2>ご参加者</h2>
+
+  <div class="field">
+    <label for="name">1人目のお名前（ご予約者）</label>
+    <input type="text" id="name" name="name" required maxlength="100"
+           value="<?= e($old['name'] ?? '') ?>"
+           <?= isset($errors['name']) ? 'aria-invalid="true"' : '' ?>>
+    <?php if (isset($errors['name'])): ?><p class="error"><?= e($errors['name']) ?></p><?php endif; ?>
+  </div>
+
+  <div class="field">
+    <label for="age_1">1人目の年齢</label>
+    <input type="number" id="age_1" name="age_1" required min="0" max="120"
+           value="<?= e((string) ($old['ages'][1] ?? '')) ?>"
+           <?= isset($errors['age_1']) ? 'aria-invalid="true"' : '' ?>>
+    <?php if (isset($errors['age_1'])): ?><p class="error"><?= e($errors['age_1']) ?></p><?php endif; ?>
+  </div>
+
   <?php
     /*
-     * Companion names, one per person beyond the applicant.
+     * Name and age for each person beyond the first.
      *
      * Rendered server-side for the party size currently in hand, so the page
      * works without JavaScript: pick 3, submit, and the redisplayed form comes
-     * back with the two extra fields and an error asking for them. The script
-     * below only removes that round trip.
+     * back with the extra fields and errors asking for them. The script below
+     * only removes that round trip.
      */
     $shownParty = max(1, min($maxParty, (int) ($old['party_size'] ?? 1)));
   ?>
   <div id="companions" data-max="<?= $maxParty ?>">
     <?php for ($i = 2; $i <= $maxParty; $i++): ?>
-      <div class="field companion-field" data-no="<?= $i ?>"
-           <?= $i > $shownParty ? 'hidden' : '' ?>>
-        <label for="companion_<?= $i ?>"><?= $i ?>人目のお名前</label>
-        <input type="text" id="companion_<?= $i ?>" name="companion_<?= $i ?>" maxlength="100"
-               value="<?= e($old['companions'][$i] ?? '') ?>"
-               <?= isset($errors["companion_{$i}"]) ? 'aria-invalid="true"' : '' ?>>
-        <?php if (isset($errors["companion_{$i}"])): ?>
-          <p class="error"><?= e($errors["companion_{$i}"]) ?></p>
-        <?php endif; ?>
+      <div class="companion-field" data-no="<?= $i ?>" <?= $i > $shownParty ? 'hidden' : '' ?>>
+        <div class="field">
+          <label for="companion_<?= $i ?>"><?= $i ?>人目のお名前</label>
+          <input type="text" id="companion_<?= $i ?>" name="companion_<?= $i ?>" maxlength="100"
+                 value="<?= e($old['companions'][$i] ?? '') ?>"
+                 <?= isset($errors["companion_{$i}"]) ? 'aria-invalid="true"' : '' ?>>
+          <?php if (isset($errors["companion_{$i}"])): ?>
+            <p class="error"><?= e($errors["companion_{$i}"]) ?></p>
+          <?php endif; ?>
+        </div>
+        <div class="field">
+          <label for="age_<?= $i ?>"><?= $i ?>人目の年齢</label>
+          <input type="number" id="age_<?= $i ?>" name="age_<?= $i ?>" min="0" max="120"
+                 value="<?= e((string) ($old['ages'][$i] ?? '')) ?>"
+                 <?= isset($errors["age_{$i}"]) ? 'aria-invalid="true"' : '' ?>>
+          <?php if (isset($errors["age_{$i}"])): ?>
+            <p class="error"><?= e($errors["age_{$i}"]) ?></p>
+          <?php endif; ?>
+        </div>
       </div>
     <?php endfor; ?>
   </div>
 
   <script>
-    // Show exactly as many name fields as there are extra people. Hidden
-    // fields still submit, so they are cleared on the way out - otherwise a
-    // name typed for a 4th person and then reduced to 2 would be posted and
-    // rejected by the server as more names than people.
+    // Show exactly as many people as the party size says. Hidden fields still
+    // submit, so they are cleared on the way out - otherwise a name typed for
+    // a 4th person and then reduced to 2 would be posted and rejected as more
+    // names than people.
     (function () {
       var size = document.getElementById('party_size');
       var box = document.getElementById('companions');
       if (!size || !box) { return; }
-      var fields = box.querySelectorAll('.companion-field');
+      var groups = box.querySelectorAll('.companion-field');
       function sync() {
         var n = parseInt(size.value, 10) || 1;
-        fields.forEach(function (field) {
-          var show = parseInt(field.dataset.no, 10) <= n;
-          field.hidden = !show;
-          var input = field.querySelector('input');
-          input.required = show;
-          if (!show) { input.value = ''; }
+        groups.forEach(function (group) {
+          var show = parseInt(group.dataset.no, 10) <= n;
+          group.hidden = !show;
+          group.querySelectorAll('input').forEach(function (input) {
+            input.required = show;
+            if (!show) { input.value = ''; }
+          });
         });
       }
       size.addEventListener('input', sync);

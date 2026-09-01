@@ -112,7 +112,7 @@ final class SessionController
         // Cancelled bookings block deletion too - they are audit history.
         // Closing the session is the way to retire it.
         if ($repo->hasAnyBookings((int) $session['id'])) {
-            Flash::error('この開催回には申込履歴があるため削除できません。受付を止めたい場合は「受付終了」に変更してください。');
+            Flash::error('この開催回には予約履歴があるため削除できません。受付を止めたい場合は「受付終了」に変更してください。');
             return Response::redirect('/admin/events/' . (int) $session['event_id'] . '/sessions');
         }
 

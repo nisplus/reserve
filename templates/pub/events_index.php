@@ -1,12 +1,78 @@
 <?php
-/** @var array<int, array{id:int, name:string, kana:?string, events:array<int, array<string,mixed>>}> $companies */
+
+use App\Domain\Area;
+
+/**
+ * @var array<int, array{id:int, name:string, kana:?string, events:array<int, array<string,mixed>>}> $companies
+ * @var array<string, string> $areas          area value => label
+ * @var array<int, array{id:int, name:string, area:?string}> $companyOptions
+ * @var string|null           $area           Current area filter.
+ * @var int                   $companyId      Current company filter (0 = none).
+ * @var bool                  $filtered       Whether any filter is active.
+ */
 ?>
 <h1>イベント一覧</h1>
 <p class="lead">主催会社ごとにイベントを掲載しています。参加したいイベントを選び、開催時間をお選びください。</p>
-<p class="muted">同じ時間帯に重なる複数のイベントにはお申し込みいただけません。</p>
+<p class="muted">同じ時間帯に重なる複数のイベントはご予約いただけません。</p>
+
+<?php /* GET, so filtering leaves the state in the address bar and the result
+         is a link anyone can be sent. */ ?>
+<form method="get" action="<?= url('/') ?>">
+  <div class="filter-bar" style="margin-bottom:16px">
+    <div class="field">
+      <label for="area">エリア</label>
+      <select id="area" name="area" onchange="this.form.submit()">
+        <option value="">すべてのエリア</option>
+        <?php foreach ($areas as $value => $label): ?>
+          <option value="<?= e($value) ?>" <?= $area === $value ? 'selected' : '' ?>><?= e($label) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="company">会社</label>
+      <select id="company" name="company" onchange="this.form.submit()">
+        <option value="0">すべての会社</option>
+        <?php foreach ($companyOptions as $option): ?>
+          <option value="<?= $option['id'] ?>" <?= $companyId === $option['id'] ? 'selected' : '' ?>>
+            <?= e($option['name']) ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+
+    <noscript><button type="submit" class="btn btn--small">絞り込む</button></noscript>
+    <?php if ($filtered): ?>
+      <a class="btn btn--ghost btn--small" href="<?= url('/') ?>">絞り込みを解除</a>
+    <?php endif; ?>
+  </div>
+</form>
+
+<?php if ($filtered): ?>
+  <p class="muted">
+    <?= $area !== null ? e(Area::labelFor($area)) : 'すべてのエリア' ?>
+    <?php if ($companyId > 0): ?>
+      ／
+      <?php
+        $selected = '';
+        foreach ($companyOptions as $option) {
+            if ($option['id'] === $companyId) {
+                $selected = $option['name'];
+            }
+        }
+      ?>
+      <?= $selected !== '' ? e($selected) : '該当なし' ?>
+    <?php endif; ?>
+    で絞り込み中。<strong>この画面のURLをそのまま共有できます。</strong>
+  </p>
+<?php endif; ?>
 
 <?php if ($companies === []): ?>
-  <p class="empty">現在公開中のイベントはありません。</p>
+  <p class="empty">
+    <?= $filtered
+        ? '条件に一致するイベントがありません。絞り込みを解除してご覧ください。'
+        : '現在公開中のイベントはありません。' ?>
+  </p>
 <?php endif; ?>
 
 <?php foreach ($companies as $company): ?>
@@ -15,6 +81,9 @@
       <?= e($company['name']) ?>
       <?php if ($company['kana'] !== null && $company['kana'] !== ''): ?>
         <small class="muted"><?= e($company['kana']) ?></small>
+      <?php endif; ?>
+      <?php if (($company['area'] ?? null) !== null): ?>
+        <span class="badge badge--muted"><?= e(Area::labelFor($company['area'])) ?></span>
       <?php endif; ?>
     </h2>
 
@@ -36,7 +105,7 @@
         <?php endif; ?>
 
         <?php if (!$needsBooking): ?>
-          <p class="card-meta">お申し込みなしでご参加いただけます。</p>
+          <p class="card-meta">ご予約なしでご参加いただけます。</p>
         <?php elseif ($sessionCount > 0): ?>
           <p class="card-meta">
             <?= e(jp_date((string) $event['first_starts_at'])) ?>

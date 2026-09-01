@@ -29,7 +29,7 @@ class DuplicateBookingException extends RuntimeException
             : '';
 
         return new self(sprintf(
-            '時間帯が重複する予約が既にあります（%s「%s」%s）。同じ時間帯の複数のイベントには申し込めません。',
+            '時間帯が重複する予約が既にあります（%s「%s」%s）。同じ時間帯の複数のイベントには予約できません。',
             (string) ($conflict['company_name'] ?? ''),
             (string) ($conflict['event_title'] ?? ''),
             $when
@@ -39,6 +39,27 @@ class DuplicateBookingException extends RuntimeException
     /** The applicant already holds a live booking for this very session. */
     public static function sameSession(): self
     {
-        return new self('この開催回には既にお申し込み済みです。予約内容の確認メールをご確認ください。');
+        return new self('この開催回は既にご予約済みです。予約内容の確認メールをご確認ください。');
+    }
+
+    /**
+     * The applicant already holds a booking on another session of the SAME
+     * event. Names the time they hold, since "you already booked this" is
+     * confusing when they are looking at a different time slot.
+     *
+     * @param array<string, mixed> $conflict
+     */
+    public static function sameEvent(array $conflict): self
+    {
+        $when = isset($conflict['starts_at'], $conflict['ends_at'])
+            ? sprintf('%s〜%s', jp_datetime((string) $conflict['starts_at']), jp_time((string) $conflict['ends_at']))
+            : '';
+
+        return new self(sprintf(
+            'このイベントは既にご予約済みです（%s の回）。'
+            . '同じイベントを複数の回でご予約いただくことはできません。'
+            . '回を変更される場合は、予約確認メールのURLから一度キャンセルしてください。',
+            $when
+        ), $conflict);
     }
 }

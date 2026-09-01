@@ -42,7 +42,7 @@ final class WaitlistService
     {
         $found = $this->bookings->findById($bookingId);
         if ($found === null) {
-            throw new NotFoundException('お探しの申込は見つかりませんでした。');
+            throw new NotFoundException('お探しの予約は見つかりませんでした。');
         }
 
         $applicantId = (int) $found['applicant_id'];
@@ -53,13 +53,13 @@ final class WaitlistService
             $this->applicants->lock($applicantId);
 
             $session = Db::selectOne(
-                'SELECT capacity, confirmed_seats, starts_at, ends_at
+                'SELECT event_id, capacity, confirmed_seats, starts_at, ends_at
                  FROM event_sessions WHERE id = ? FOR UPDATE',
                 [$sessionId]
             );
             $booking = $this->bookings->lockForUpdate($bookingId);
             if ($session === null || $booking === null) {
-                throw new NotFoundException('お探しの申込は見つかりませんでした。');
+                throw new NotFoundException('お探しの予約は見つかりませんでした。');
             }
 
             // Everything read before the locks is stale; re-verify under them.
@@ -67,14 +67,27 @@ final class WaitlistService
             // \ValueError: promoting a booking whose state we cannot read would
             // be the dangerous direction.
             if (BookingStatus::tryFrom((string) $booking['status']) !== BookingStatus::Waitlisted) {
-                throw new ValidationException('この申込はキャンセル待ちではありません（既に処理済みの可能性があります）。');
+                throw new ValidationException('この予約はキャンセル待ちではありません（既に処理済みの可能性があります）。');
             }
 
             $partySize = (int) $booking['party_size'];
             $seatsLeft = (int) $session['capacity'] - (int) $session['confirmed_seats'];
             if ($partySize > $seatsLeft) {
                 throw new ValidationException(
-                    "空席が足りません（この申込は {$partySize} 名、空きは {$seatsLeft} 名分）。"
+                    "空席が足りません（この予約は {$partySize} 名、空きは {$seatsLeft} 名分）。"
+                );
+            }
+
+            // While waiting, they may have taken another session of this same
+            // event - promoting them would leave them booked on it twice.
+            $sameEvent = $this->bookings->findSameEvent(
+                $applicantId,
+                (int) $session['event_id'],
+                $bookingId
+            );
+            if ($sameEvent !== null) {
+                throw new ValidationException(
+                    '繰り上げできません。この方は同じイベントの別の回を既にご予約済みです。'
                 );
             }
 
@@ -222,12 +235,12 @@ final class WaitlistService
     private function enqueuePromotionMail(array $found): void
     {
         $when = jp_datetime((string) $found['starts_at']) . '〜' . jp_time((string) $found['ends_at']);
-        $manageNote = 'お申し込み内容の確認・キャンセルは、申込時にお送りしたメールに記載のURLから行えます。';
+        $manageNote = '予約内容の確認・キャンセルは、予約時にお送りしたメールに記載のURLから行えます。';
 
         $body = <<<TEXT
         {$found['name']} 様
 
-        キャンセル待ちでお申し込みいただいていた以下の回に空きが出たため、
+        キャンセル待ちでご予約いただいていた以下の回に空きが出たため、
         ご参加が確定しました。
 
         ── 確定した内容 ────────────

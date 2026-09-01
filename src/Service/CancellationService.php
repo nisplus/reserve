@@ -63,7 +63,7 @@ final class CancellationService
     {
         $found = $this->bookings->findById($bookingId);
         if ($found === null) {
-            throw new NotFoundException('お探しの申込は見つかりませんでした。');
+            throw new NotFoundException('お探しの予約は見つかりませんでした。');
         }
         return $this->cancel($found, $actor, byAdmin: true);
     }
@@ -96,7 +96,7 @@ final class CancellationService
             //    The FK from bookings is RESTRICT, so the row cannot really be
             //    missing; checked anyway, exactly as BookingService does.
             if (!$this->applicants->lock($applicantId)) {
-                throw new NotFoundException('申込者情報を取得できませんでした。もう一度お試しください。');
+                throw new NotFoundException('予約者情報を取得できませんでした。もう一度お試しください。');
             }
 
             // 2) event_sessions. Seat accounting happens only under this lock.
@@ -118,7 +118,7 @@ final class CancellationService
             // cannot interpret is how confirmed_seats drifts.
             $was = BookingStatus::tryFrom((string) $booking['status']);
             if ($was === null) {
-                throw new ValidationException('この申込の状態を判別できませんでした。事務局にお問い合わせください。');
+                throw new ValidationException('この予約の状態を判別できませんでした。事務局にお問い合わせください。');
             }
             if ($was === BookingStatus::Cancelled) {
                 return ['already_cancelled' => true, 'was' => $was];
@@ -207,11 +207,11 @@ final class CancellationService
     {
         $when = jp_datetime((string) $found['starts_at']) . '〜' . jp_time((string) $found['ends_at']);
         if ($byAdmin) {
-            $line = '事務局にて以下のお申し込みをキャンセルしました。'
+            $line = '事務局にて以下のご予約をキャンセルしました。'
                   . "\nご不明な点は事務局までお問い合わせください。";
         } else {
             $line = $was === BookingStatus::Waitlisted
-                ? 'キャンセル待ちのお申し込みを取り消しました。'
+                ? 'キャンセル待ちのご予約を取り消しました。'
                 : 'ご予約をキャンセルしました。';
         }
 
@@ -228,7 +228,7 @@ final class CancellationService
         予約番号　: {$found['reference_code']}
         ────────────────────
 
-        またのお申し込みをお待ちしています。
+        またのご予約をお待ちしています。
         このメールに心当たりがない場合は、お手数ですが破棄してください。
         TEXT;
 

@@ -34,7 +34,7 @@ final class ManageController
             'title'     => '予約内容の確認',
             'booking'   => $booking,
             'token'     => $request->route('token'),
-            'attendees' => (new BookingAttendeeRepository())->namesFor((int) $booking['id']),
+            'attendees' => (new BookingAttendeeRepository())->listFor((int) $booking['id']),
         ]));
     }
 

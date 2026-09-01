@@ -26,22 +26,25 @@ final class BookingAttendeeRepository
      * Replace the attendee list for a booking. Called inside the booking
      * transaction, so a rolled-back booking takes its attendees with it.
      *
-     * @param array<int, string> $names Ordered from attendee_no 1.
+     * @param array<int, string>    $names Ordered from attendee_no 1.
+     * @param array<int, int|null>  $ages  Ages in the same order; a missing or
+     *                                     null entry stores NULL.
      */
-    public function replaceFor(int $bookingId, array $names): void
+    public function replaceFor(int $bookingId, array $names, array $ages = []): void
     {
         Db::execute('DELETE FROM booking_attendees WHERE booking_id = ?', [$bookingId]);
 
         $attendeeNo = 1;
-        foreach ($names as $name) {
+        foreach ($names as $index => $name) {
             $trimmed = trim($name);
             if ($trimmed === '') {
                 $attendeeNo++;
                 continue; // a blank slot is simply unknown, not an empty person
             }
+            $age = $ages[$index] ?? null;
             Db::execute(
-                'INSERT INTO booking_attendees (booking_id, attendee_no, name) VALUES (?, ?, ?)',
-                [$bookingId, $attendeeNo, mb_substr($trimmed, 0, 100)]
+                'INSERT INTO booking_attendees (booking_id, attendee_no, name, age) VALUES (?, ?, ?, ?)',
+                [$bookingId, $attendeeNo, mb_substr($trimmed, 0, 100), $age]
             );
             $attendeeNo++;
         }
@@ -54,6 +57,25 @@ final class BookingAttendeeRepository
             static fn (array $row): string => (string) $row['name'],
             Db::select(
                 'SELECT name FROM booking_attendees WHERE booking_id = ? ORDER BY attendee_no',
+                [$bookingId]
+            )
+        );
+    }
+
+    /**
+     * Names with ages, for the screens that show the party in full.
+     *
+     * @return array<int, array{name: string, age: int|null}>
+     */
+    public function listFor(int $bookingId): array
+    {
+        return array_map(
+            static fn (array $row): array => [
+                'name' => (string) $row['name'],
+                'age'  => $row['age'] !== null ? (int) $row['age'] : null,
+            ],
+            Db::select(
+                'SELECT name, age FROM booking_attendees WHERE booking_id = ? ORDER BY attendee_no',
                 [$bookingId]
             )
         );
@@ -75,12 +97,16 @@ final class BookingAttendeeRepository
 
         $grouped = [];
         foreach (Db::select(
-            "SELECT booking_id, name FROM booking_attendees
+            "SELECT booking_id, name, age FROM booking_attendees
              WHERE booking_id IN ({$placeholders})
              ORDER BY booking_id, attendee_no",
             $bookingIds
         ) as $row) {
-            $grouped[(int) $row['booking_id']][] = (string) $row['name'];
+            // "山田 太郎(42)" reads better in a table cell and a CSV column
+            // than two parallel lists.
+            $grouped[(int) $row['booking_id']][] = $row['age'] !== null
+                ? sprintf('%s(%d)', (string) $row['name'], (int) $row['age'])
+                : (string) $row['name'];
         }
         return $grouped;
     }

@@ -13,7 +13,7 @@
 <?php endif; ?>
 
 <div class="stat-row">
-  <div class="stat"><strong><?= $stats['confirmed'] ?></strong><span>確定申込</span></div>
+  <div class="stat"><strong><?= $stats['confirmed'] ?></strong><span>確定予約</span></div>
   <div class="stat"><strong><?= $stats['waitlisted'] ?></strong><span>キャンセル待ち</span></div>
   <div class="stat"><strong><?= $stats['sessions_full'] ?></strong><span>満席の開催回</span></div>
   <div class="stat"><strong><?= count($promotable) ?></strong><span>繰り上げ候補あり</span></div>
@@ -61,7 +61,7 @@
 <h2>管理</h2>
 <div class="form-actions">
   <a class="btn" href="<?= url('/admin/events') ?>">イベントと開催回の管理</a>
-  <a class="btn" href="<?= url('/admin/bookings') ?>">申込一覧</a>
+  <a class="btn" href="<?= url('/admin/bookings') ?>">予約一覧</a>
   <?php if ($isSuperadmin): ?>
     <a class="btn btn--ghost" href="<?= url('/admin/companies') ?>">会社の管理</a>
     <a class="btn btn--ghost" href="<?= url('/admin/users') ?>">アカウントの管理</a>

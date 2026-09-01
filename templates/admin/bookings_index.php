@@ -23,7 +23,7 @@ $query = http_build_query(array_filter([
 ]));
 $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query !== '' ? $query . '&' : '') . 'page=' . $p;
 ?>
-<h1>申込一覧</h1>
+<h1>予約一覧</h1>
 
 <form method="get" action="<?= url('/admin/bookings') ?>">
   <div class="filter-bar" style="margin-bottom:16px">
@@ -85,12 +85,12 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
 <p class="muted"><?= number_format($total) ?> 件<?= $pages > 1 ? "（{$page} / {$pages} ページ）" : '' ?></p>
 
 <?php if ($rows === []): ?>
-  <p class="empty">条件に一致する申込がありません。</p>
+  <p class="empty">条件に一致する予約がありません。</p>
 <?php else: ?>
 <div class="table-scroll">
   <table class="table">
     <thead>
-      <tr><th>申込日時</th><th>予約番号</th><th>状態</th><th>イベント</th><th>開催日時</th><th>氏名</th><th>メール</th><th>人数</th><th></th></tr>
+      <tr><th>予約日時</th><th>予約番号</th><th>状態</th><th>イベント</th><th>開催日時</th><th>氏名</th><th>メール</th><th>人数</th><th></th></tr>
     </thead>
     <tbody>
     <?php foreach ($rows as $row): ?>
@@ -124,7 +124,7 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
           <?php if ($status === BookingStatus::Waitlisted): ?>
             <?php $fits = ((int) $row['capacity'] - (int) $row['confirmed_seats']) >= (int) $row['party_size']; ?>
             <form class="inline-form" method="post" action="<?= url('/admin/bookings/') ?><?= (int) $row['id'] ?>/promote"
-                  onsubmit="return confirm('この申込を繰り上げて確定にします。よろしいですか？ご本人に確定メールが送られます。')">
+                  onsubmit="return confirm('この予約を繰り上げて確定にします。よろしいですか？ご本人に確定メールが送られます。')">
               <?= Csrf::field() ?>
               <input type="hidden" name="return_query" value="<?= e($query . ($query !== '' ? '&' : '') . 'page=' . $page) ?>">
               <button type="submit" class="btn btn--small <?= $fits ? '' : 'btn--ghost' ?>" <?= $fits ? '' : 'title="現在の空きでは足りません"' ?>>繰り上げ</button>
@@ -132,7 +132,7 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
           <?php endif; ?>
           <?php if ($status !== BookingStatus::Cancelled): ?>
             <form class="inline-form" method="post" action="<?= url('/admin/bookings/') ?><?= (int) $row['id'] ?>/cancel"
-                  onsubmit="return confirm('この申込をキャンセルします。よろしいですか？この操作は取り消せません。ご本人に通知メールが送られます。')">
+                  onsubmit="return confirm('この予約をキャンセルします。よろしいですか？この操作は取り消せません。ご本人に通知メールが送られます。')">
               <?= Csrf::field() ?>
               <input type="hidden" name="return_query" value="<?= e($query . ($query !== '' ? '&' : '') . 'page=' . $page) ?>">
               <button type="submit" class="btn btn--danger btn--small">キャンセル</button>

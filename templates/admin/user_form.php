@@ -59,7 +59,7 @@ $companyId = (int) ($old['company_id'] ?? ($user['company_id'] ?? 0));
       </select>
       <p class="hint">
         事務局はすべての会社と、会社・アカウント・メールキューの管理ができます。
-        会社担当者は所属会社のイベントと申込者のみです。
+        会社担当者は所属会社のイベントと予約者のみです。
       </p>
       <?php if (isset($errors['role'])): ?><p class="error"><?= e($errors['role']) ?></p><?php endif; ?>
     </div>

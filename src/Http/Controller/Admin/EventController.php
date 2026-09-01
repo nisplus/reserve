@@ -109,7 +109,7 @@ final class EventController
         // being reachable, which is enough.
         $liveSessions = (new EventRepository())->sessionCount((int) $event['id']);
         if (!$bookingRequired && $liveSessions > 0) {
-            Flash::info("このイベントは予約不要になりました。既存の開催回 {$liveSessions} 件は公開側に表示されず、新規申込も受け付けません（データは残っています）。");
+            Flash::info("このイベントは予約不要になりました。既存の開催回 {$liveSessions} 件は公開側に表示されず、新規予約も受け付けません（データは残っています）。");
         }
 
         Flash::success('イベントを更新しました。');
@@ -184,7 +184,7 @@ final class EventController
         $validator->intRange('sort_order', '表示順', $request->post('sort_order', '0'), 0, 9999);
         $validator->url('external_url', '外部リンクURL', $request->post('external_url'), 500);
         // 20 is the ceiling chk_bookings_party imposes on the column.
-        $validator->intRange('max_party_size', '1申込あたりの上限人数', $request->post('max_party_size', '20'), 1, 20);
+        $validator->intRange('max_party_size', '1予約あたりの上限人数', $request->post('max_party_size', '20'), 1, 20);
 
         if (!$validator->hasErrors()) {
             $values = $validator->values();

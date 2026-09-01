@@ -28,7 +28,7 @@ $user = Auth::user();
                Authz on every screen, not this menu. */ ?>
       <nav class="admin-nav">
         <a href="<?= url('/admin') ?>">ダッシュボード</a>
-        <a href="<?= url('/admin/bookings') ?>">申込一覧</a>
+        <a href="<?= url('/admin/bookings') ?>">予約一覧</a>
         <a href="<?= url('/admin/events') ?>">イベント</a>
         <?php if (Auth::isSuperadmin()): ?>
           <a href="<?= url('/admin/companies') ?>">会社</a>
