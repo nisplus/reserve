@@ -108,6 +108,11 @@ final class BookingRepository
      * Advisory on the confirmation screen; authoritative only when called
      * inside the booking transaction under the applicant lock.
      *
+     * @param int|null $exemptCompanyId Ignore bookings hosted by this company.
+     *        Passed the company of the session being booked, so back-to-back
+     *        events of one host never count as a travel problem - there is
+     *        nowhere to travel to. Without it a company running consecutive
+     *        sessions in the same building would warn about every pair.
      * @return array<string, mixed>|null The nearest such booking, with event context.
      */
     public function findWithinTravelBuffer(
@@ -116,11 +121,16 @@ final class BookingRepository
         string $endsAt,
         int $bufferMinutes,
         ?int $excludeBookingId = null,
+        ?int $exemptCompanyId = null,
     ): ?array {
         $exclude = $excludeBookingId !== null ? 'AND b.id <> ?' : '';
+        $sameHost = $exemptCompanyId !== null ? 'AND c.id <> ?' : '';
         $params  = [$applicantId, $endsAt, $bufferMinutes, $startsAt, $bufferMinutes, $endsAt, $startsAt];
         if ($excludeBookingId !== null) {
             $params[] = $excludeBookingId;
+        }
+        if ($exemptCompanyId !== null) {
+            $params[] = $exemptCompanyId;
         }
 
         return Db::selectOne(
@@ -136,6 +146,7 @@ final class BookingRepository
                AND ? <= DATE_ADD(s.ends_at, INTERVAL ? MINUTE)
                AND NOT (s.starts_at < ? AND ? < s.ends_at)
                {$exclude}
+               {$sameHost}
              ORDER BY s.starts_at
              LIMIT 1",
             $params

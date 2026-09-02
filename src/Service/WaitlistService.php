@@ -113,12 +113,19 @@ final class WaitlistService
             // is not present), so promotion follows the applicant's original,
             // warned-and-accepted choice.
             if (BookingService::travelBufferBlocks()) {
+                // Same host, no travel: consecutive events of one company are
+                // exempt here exactly as they are when booking directly.
+                $hostCompanyId = Db::scalar(
+                    'SELECT company_id FROM events WHERE id = ?',
+                    [(int) $session['event_id']]
+                );
                 $near = $this->bookings->findWithinTravelBuffer(
                     $applicantId,
                     (string) $session['starts_at'],
                     (string) $session['ends_at'],
                     BookingService::travelBufferMinutes(),
-                    $bookingId
+                    $bookingId,
+                    $hostCompanyId !== null ? (int) $hostCompanyId : null
                 );
                 if ($near !== null) {
                     throw new ValidationException(sprintf(

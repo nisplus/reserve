@@ -13,7 +13,7 @@
 - イベントに**外部リンクURL**を設定すると、予約画面とイベント詳細に「開催企業のサイトで見る」として表示されます（予約不要のイベントに限りません。未設定なら非表示）
 - **同一予約者が時間帯の重なる回に二重予約できない**（主催会社をまたいでも検出）。さらに**1人1イベント1予約** — 同じイベントの別の回を重ねて予約することもできません
 - 会社に**エリア**（東／南／北／テクノプラザ本館）を設定し、イベント一覧を**エリアと会社で絞り込み**。絞り込んだ状態の URL はそのまま共有できます
-- 前後の予約との間隔が短い（既定 15 分以下）場合は「移動時間を考慮すると間に合いません」と警告。分数と、警告のみ／申込拒否は `config.php` の `travel_buffer` で切替
+- 前後の予約との間隔が短い（既定 15 分以下）場合は「移動時間を考慮すると間に合いません」と警告。分数と、警告のみ／予約拒否は `config.php` の `travel_buffer` で切替。**同一の開催企業どうしは移動が発生しないため対象外**（間隔 0 分でも警告しません）
 - 開催回ごとの定員管理（単位は人数）と、満席時のキャンセル待ち
 - トークン付き URL による本人での予約確認・キャンセル
 - 管理画面（会社／イベント／開催回の CRUD、申込一覧、繰り上げ、CSV 出力）
@@ -226,7 +226,7 @@ php.cmd tests/test_base_path.php       # サブディレクトリ設置時の UR
 php.cmd tests/test_authz.php           # 会社スコープ（他社データに触れないこと）
 php.cmd tests/test_robustness.php      # confirmed_at の導出・enum の安全読み・重複キー判定
 php.cmd tests/test_waitlist.php        # first-fit 繰り上げ（大人数の先頭を追い越す・順序保存・重なりスキップ）
-php.cmd tests/test_travel_buffer.php   # 移動時間バッファ（境界 0/15/16 分・warn/block・前後両方向）
+php.cmd tests/test_travel_buffer.php   # 移動時間バッファ（境界 0/15/16 分・warn/block・同一企業の免除）
 php.cmd tests/test_no_booking.php      # 予約不要イベント（申込拒否・URLスキーム検証）
 php.cmd tests/test_party.php           # 1予約あたりの上限人数と参加者名の記録
 php.cmd tests/test_one_per_event.php   # 1人1イベント1予約・電話番号・参加者ごとの年齢

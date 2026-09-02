@@ -48,27 +48,41 @@ $withBuffer = static function (int $minutes, bool $block, callable $fn): void {
     }
 };
 
+// company_id included because that is what the real screens hand in, and the
+// same-host exemption keys off it.
 $sessionRow = static fn (int $id): array => Db::selectOne(
-    'SELECT id, starts_at, ends_at FROM event_sessions WHERE id = ?', [$id]
+    'SELECT s.id, s.starts_at, s.ends_at, e.company_id
+     FROM event_sessions s JOIN events e ON e.id = s.event_id
+     WHERE s.id = ?',
+    [$id]
 ) ?? [];
 
 fixture_cleanup();
-$company = fixture_create_company('travel');
 
 /**
- * Each session gets its OWN event. Travel time is about moving between
- * different events; two sessions of one event are refused outright by the
- * one-booking-per-event rule, which would mask what is being tested here.
+ * Travel time is about getting from one host to another, so the fixtures use
+ * two companies: the person's existing booking sits with $companyA and the
+ * sessions being considered belong to $companyB. Same-company pairs are
+ * exempt by design and are exercised separately at the end.
+ *
+ * Each session also gets its own event - two sessions of one event are
+ * refused outright by the one-booking-per-event rule, which would mask what
+ * is being measured here.
  */
-$sessionUnderOwnEvent = static function (string $label, string $start, string $end) use ($company): int {
-    return fixture_create_session(fixture_create_event($company, $label), $start, $end, 5);
+$companyA = fixture_create_company('travel-A');
+$companyB = fixture_create_company('travel-B');
+
+$sessionFor = static function (int $companyId, string $label, string $start, string $end): int {
+    return fixture_create_session(fixture_create_event($companyId, $label), $start, $end, 5);
 };
+$sessionUnderOwnEvent = static fn (string $label, string $start, string $end): int
+    => $sessionFor($companyB, $label, $start, $end);
 
 $service = new BookingService();
 
 try {
-    // Base booking: 10:00-11:00. Neighbours at every interesting distance.
-    $base     = $sessionUnderOwnEvent('base',     '2027-03-01 10:00:00', '2027-03-01 11:00:00');
+    // Base booking with company A: 10:00-11:00. Neighbours belong to B.
+    $base     = $sessionFor($companyA, 'base',    '2027-03-01 10:00:00', '2027-03-01 11:00:00');
     $adjacent = $sessionUnderOwnEvent('adjacent', '2027-03-01 11:00:00', '2027-03-01 11:45:00'); // gap 0
     $gap15    = $sessionUnderOwnEvent('gap15',    '2027-03-01 11:15:00', '2027-03-01 12:00:00'); // gap 15
     $gap16    = $sessionUnderOwnEvent('gap16',    '2027-03-01 11:16:00', '2027-03-01 12:00:00'); // gap 16
@@ -106,8 +120,8 @@ try {
     // --- buffer disabled ------------------------------------------------------
     // A fresh person with only a base booking, so the adjacent slot is clean
     // of overlaps and the only thing standing between them is the buffer.
-    $zBase = $sessionUnderOwnEvent('z-base', '2027-03-01 13:00:00', '2027-03-01 14:00:00');
-    $zAdj  = $sessionUnderOwnEvent('z-adj',  '2027-03-01 14:00:00', '2027-03-01 14:45:00');
+    $zBase = $sessionFor($companyA, 'z-base', '2027-03-01 13:00:00', '2027-03-01 14:00:00');
+    $zAdj  = $sessionFor($companyB, 'z-adj',  '2027-03-01 14:00:00', '2027-03-01 14:45:00');
     $service->book($zBase, fixture_email('tb-z'), 'Z', 1);
     $withBuffer(0, true, function () use ($assert, $service, $sessionRow, $zAdj) {
         $assert($service->travelBufferWarning(fixture_email('tb-z'), $sessionRow($zAdj)) === null,
@@ -117,9 +131,9 @@ try {
     });
 
     // --- block mode refuses inside the transaction ----------------------------
-    $blockBase = $sessionUnderOwnEvent('block-base', '2027-03-02 10:00:00', '2027-03-02 11:00:00');
-    $blockNear = $sessionUnderOwnEvent('block-near', '2027-03-02 11:10:00', '2027-03-02 12:00:00'); // gap 10
-    $blockLap  = $sessionUnderOwnEvent('block-lap',  '2027-03-02 10:30:00', '2027-03-02 11:30:00'); // overlaps
+    $blockBase = $sessionFor($companyA, 'block-base', '2027-03-02 10:00:00', '2027-03-02 11:00:00');
+    $blockNear = $sessionFor($companyB, 'block-near', '2027-03-02 11:10:00', '2027-03-02 12:00:00'); // gap 10
+    $blockLap  = $sessionFor($companyB, 'block-lap',  '2027-03-02 10:30:00', '2027-03-02 11:30:00'); // overlaps
     $service->book($blockBase, fixture_email('tb-q'), 'Q', 1);
 
     $withBuffer(15, true, function () use ($assert, $service, $blockNear, $blockLap) {
@@ -150,9 +164,9 @@ try {
     // T waits on a full session whose start is 10 minutes after T's other
     // confirmed booking ends. Warn mode promotes (the applicant accepted the
     // popup when they queued); block mode skips T.
-    $tightEvent = fixture_create_event($company, 'tight');
+    $tightEvent = fixture_create_event($companyB, 'tight');
     $tight    = fixture_create_session($tightEvent, '2027-03-03 12:00:00', '2027-03-03 13:00:00', 1);
-    $tOther   = $sessionUnderOwnEvent('t-other', '2027-03-03 10:30:00', '2027-03-03 11:50:00'); // ends 10 before tight
+    $tOther   = $sessionFor($companyA, 't-other', '2027-03-03 10:30:00', '2027-03-03 11:50:00'); // ends 10 before tight
     $holder   = $service->book($tight, fixture_email('tb-r'), 'R', 1);
     $withBuffer(15, false, function () use ($service, $tight, $tOther) {
         $service->book($tOther, fixture_email('tb-t'), 'T', 1);   // confirmed
@@ -169,6 +183,50 @@ try {
         $promoted = $waitlist->promoteNextFitting($tight, 'test:travel');
         $assert($promoted !== null, 'warn mode: promotion proceeds (the applicant accepted the gap when queueing)');
     });
+
+    // --- same host is exempt --------------------------------------------------
+    // Nothing to travel to when both events belong to one company, so
+    // consecutive sessions of theirs must neither warn nor block - not even
+    // when they abut exactly.
+    $sameA = $sessionFor($companyA, 'same-host-1', '2027-03-04 10:00:00', '2027-03-04 11:00:00');
+    $sameB = $sessionFor($companyA, 'same-host-2', '2027-03-04 11:00:00', '2027-03-04 12:00:00'); // gap 0
+    $sameC = $sessionFor($companyA, 'same-host-3', '2027-03-04 12:05:00', '2027-03-04 13:00:00'); // gap 5
+    $crossB = $sessionFor($companyB, 'cross-host', '2027-03-04 11:00:00', '2027-03-04 12:00:00'); // gap 0, other host
+
+    $service->book($sameA, fixture_email('tb-same'), 'Same', 1);
+
+    $withBuffer(15, false, function () use ($assert, $service, $sessionRow, $sameB, $sameC, $crossB) {
+        $email = fixture_email('tb-same');
+        $assert($service->travelBufferWarning($email, $sessionRow($sameB)) === null,
+            'same company, gap 0: no warning');
+        $assert($service->travelBufferWarning($email, $sessionRow($sameC)) === null,
+            'same company, gap 5: no warning either');
+        $assert($service->travelBufferWarning($email, $sessionRow($crossB)) !== null,
+            'a different company at the same gap still warns');
+    });
+
+    $withBuffer(15, true, function () use ($assert, $service, $sameB) {
+        $booked = $service->book($sameB, fixture_email('tb-same'), 'Same', 1);
+        $assert($booked['status'] === BookingStatus::Confirmed,
+            'same company, gap 0: block mode lets it through');
+    });
+
+    $assert((int) Db::scalar(
+        'SELECT COUNT(*) FROM bookings b JOIN applicants a ON a.id = b.applicant_id
+         WHERE a.email = ? AND b.session_id = ?',
+        [fixture_email('tb-same'), $sameB]
+    ) === 1, 'the same-host booking really was written');
+
+    // The exemption is about the host, not about the gap: an overlapping pair
+    // at one company is still a duplicate.
+    $sameOverlap = $sessionFor($companyA, 'same-host-lap', '2027-03-04 10:30:00', '2027-03-04 11:30:00');
+    $stillDuplicate = false;
+    try {
+        $service->book($sameOverlap, fixture_email('tb-same'), 'Same', 1);
+    } catch (DuplicateBookingException) {
+        $stillDuplicate = true;
+    }
+    $assert($stillDuplicate, 'overlapping events of the same company are still refused');
 } finally {
     fixture_cleanup();
 }

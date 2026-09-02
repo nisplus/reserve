@@ -51,7 +51,9 @@ return [
     //                  the booking transaction, and promotion from the
     //                  waitlist refuses such gaps too).
     // Note: back-to-back slots (gap 0) fall under this check even though the
-    // overlap rule itself allows them.
+    // overlap rule itself allows them - EXCEPT between two events of the same
+    // company, where there is nowhere to travel to and the buffer never
+    // applies at any gap.
     'travel_buffer' => [
         'minutes' => 15,
         'block'   => false,

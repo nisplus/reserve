@@ -124,7 +124,7 @@ final class BookingService
                 // already refuses these; this closes the CLI and service paths
                 // and any screen added later.
                 $event = Db::selectOne(
-                    'SELECT booking_required, max_party_size FROM events WHERE id = ?',
+                    'SELECT company_id, booking_required, max_party_size FROM events WHERE id = ?',
                     [(int) $session['event_id']]
                 ) ?? [];
                 if ((int) ($event['booking_required'] ?? 0) !== 1) {
@@ -182,7 +182,8 @@ final class BookingService
                         $applicantId,
                         (string) $session['starts_at'],
                         (string) $session['ends_at'],
-                        self::travelBufferMinutes()
+                        self::travelBufferMinutes(),
+                        exemptCompanyId: (int) ($event['company_id'] ?? 0) ?: null
                     );
                     if ($near !== null) {
                         throw TravelBufferException::tooClose(
@@ -334,7 +335,8 @@ final class BookingService
             $applicantId,
             (string) $session['starts_at'],
             (string) $session['ends_at'],
-            $buffer
+            $buffer,
+            exemptCompanyId: (int) ($session['company_id'] ?? 0) ?: null
         );
         if ($near === null) {
             return null;
