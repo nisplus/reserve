@@ -13,9 +13,22 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
 
 <div class="panel">
   <dl class="detail-list">
-    <dt>主催</dt><dd><?= e($event['company_name']) ?></dd>
+    <dt>開催企業</dt><dd><?= e($event['company_name']) ?></dd>
     <?php if ($event['venue'] !== null && $event['venue'] !== ''): ?>
       <dt>会場</dt><dd><?= e($event['venue']) ?></dd>
+    <?php endif; ?>
+    <?php /* For a bookable event the link is supplementary information and
+             belongs in this list. For a 予約不要 event it is the call to
+             action and appears as a button further down instead. Blank in
+             either case shows nothing. */ ?>
+    <?php if ($needsBooking && $externalUrl !== ''): ?>
+      <dt>詳細</dt>
+      <dd>
+        <a href="<?= e($externalUrl) ?>" target="_blank" rel="noopener noreferrer">
+          開催企業のサイトで見る
+        </a>
+        <span class="muted">（新しいタブで開きます）</span>
+      </dd>
     <?php endif; ?>
   </dl>
   <?php if ($event['description'] !== null && $event['description'] !== ''): ?>
@@ -36,7 +49,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
         詳細を見る（外部サイト）
       </a>
     </p>
-    <p class="muted">リンク先は主催会社のサイトです。新しいタブで開きます。</p>
+    <p class="muted">リンク先は開催企業のサイトです。新しいタブで開きます。</p>
   <?php endif; ?>
 
 <?php elseif ($total === 0): ?>

@@ -90,7 +90,7 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
 <div class="table-scroll">
   <table class="table">
     <thead>
-      <tr><th>予約日時</th><th>予約番号</th><th>状態</th><th>イベント</th><th>開催日時</th><th>氏名</th><th>メール</th><th>人数</th><th></th></tr>
+      <tr><th>予約日時</th><th>予約番号</th><th>状態</th><th>イベント</th><th>開催日時</th><th>氏名</th><th>連絡先</th><th>人数</th><th></th></tr>
     </thead>
     <tbody>
     <?php foreach ($rows as $row): ?>
@@ -117,8 +117,16 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
               同行: <?= e(implode('、', array_slice($names, 1))) ?>
             </span>
           <?php endif; ?>
+          <?php if (trim((string) ($row['message'] ?? '')) !== ''): ?>
+            <br><span style="font-size:12px" title="<?= e($row['message']) ?>">
+              💬 <?= e(mb_strimwidth((string) $row['message'], 0, 40, '…')) ?>
+            </span>
+          <?php endif; ?>
         </td>
-        <td class="muted"><?= e($row['email']) ?></td>
+        <td class="muted">
+          <?= e($row['email']) ?>
+          <?php if (($row['phone'] ?? '') !== ''): ?><br><?= e($row['phone']) ?><?php endif; ?>
+        </td>
         <td><?= (int) $row['party_size'] ?></td>
         <td>
           <?php if ($status === BookingStatus::Waitlisted): ?>

@@ -166,6 +166,49 @@ try {
         $validator->phone('phone', '電話番号', $bad);
         $assert($validator->hasErrors(), sprintf('phone %-22s rejected', $bad === '' ? "''" : $bad));
     }
+
+    // --- the message to the host company ------------------------------------
+    $withMessage = $service->book(
+        fixture_create_session(fixture_create_event($company, 'message event'),
+            '2027-07-05 10:00:00', '2027-07-05 11:00:00', 20),
+        fixture_email('one-msg'),
+        'Msg',
+        1,
+        ages: [30],
+        phone: '090-0000-1111',
+        message: "車椅子で伺います。\n入口を教えてください。",
+    );
+    $msgRow = $repo->findById((int) $withMessage['booking_id']);
+    $assert($msgRow['message'] === "車椅子で伺います。\n入口を教えてください。",
+        'the message is stored with its line breaks');
+
+    $mail = (string) Db::scalar(
+        'SELECT body FROM mail_queue WHERE booking_id = ? ORDER BY id LIMIT 1',
+        [$withMessage['booking_id']]
+    );
+    $assert(str_contains($mail, '開催企業へのメッセージ') && str_contains($mail, '車椅子で伺います'),
+        'the confirmation mail echoes the message back');
+    $assert(str_contains($mail, '開催企業　:') && !str_contains($mail, '主催'),
+        'the mail says 開催企業, not 主催');
+
+    // Optional: a booking without one stores NULL and the mail says nothing.
+    $noMessage = $service->book(
+        fixture_create_session(fixture_create_event($company, 'quiet event'),
+            '2027-07-06 10:00:00', '2027-07-06 11:00:00', 20),
+        fixture_email('one-quiet'),
+        'Quiet',
+        1,
+        ages: [30],
+        phone: '090-0000-2222',
+    );
+    $quietRow = $repo->findById((int) $noMessage['booking_id']);
+    $assert($quietRow['message'] === null, 'no message stores NULL rather than an empty string');
+    $quietMail = (string) Db::scalar(
+        'SELECT body FROM mail_queue WHERE booking_id = ? ORDER BY id LIMIT 1',
+        [$noMessage['booking_id']]
+    );
+    $assert(!str_contains($quietMail, '開催企業へのメッセージ'),
+        'the message block is absent when there is no message');
 } finally {
     fixture_cleanup();
 }

@@ -245,7 +245,7 @@ final class WaitlistService
 
         ── 確定した内容 ────────────
         イベント　: {$found['event_title']}
-        主催　　　: {$found['company_name']}
+        開催企業　: {$found['company_name']}
         日時　　　: {$when}
         人数　　　: {$found['party_size']} 名
         予約番号　: {$found['reference_code']}

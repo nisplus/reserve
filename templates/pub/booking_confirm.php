@@ -52,7 +52,7 @@ $travelPopup = $travelWarn !== null && !$travelBlock
 <div class="panel">
   <dl class="detail-list">
     <dt>イベント</dt><dd><?= e($session['event_title']) ?></dd>
-    <dt>主催</dt><dd><?= e($session['company_name']) ?></dd>
+    <dt>開催企業</dt><dd><?= e($session['company_name']) ?></dd>
     <dt>日時</dt>
     <dd><?= e(jp_datetime((string) $session['starts_at'])) ?>〜<?= e(jp_time((string) $session['ends_at'])) ?></dd>
     <?php if (($session['venue'] ?? '') !== '' && $session['venue'] !== null): ?>
@@ -70,6 +70,10 @@ $travelPopup = $travelWarn !== null && !$travelBlock
         <?php endforeach; ?>
       </ol>
     </dd>
+    <?php if (trim((string) ($input['message'] ?? '')) !== ''): ?>
+      <dt>開催企業へのメッセージ</dt>
+      <dd><?= enl($input['message']) ?></dd>
+    <?php endif; ?>
   </dl>
 </div>
 
@@ -91,6 +95,7 @@ $travelPopup = $travelWarn !== null && !$travelBlock
     <input type="hidden" name="email" value="<?= e($input['email']) ?>">
     <input type="hidden" name="phone" value="<?= e($input['phone']) ?>">
     <input type="hidden" name="name" value="<?= e($input['name']) ?>">
+    <input type="hidden" name="message" value="<?= e((string) ($input['message'] ?? '')) ?>">
     <input type="hidden" name="party_size" value="<?= (int) $input['party_size'] ?>">
     <?php /* Carried forward and re-validated by store(); the confirm screen
              is not trusted any more than the form was. */ ?>

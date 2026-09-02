@@ -12,7 +12,7 @@ use App\Domain\Area;
  */
 ?>
 <h1>イベント一覧</h1>
-<p class="lead">主催会社ごとにイベントを掲載しています。参加したいイベントを選び、開催時間をお選びください。</p>
+<p class="lead">開催企業ごとにイベントを掲載しています。参加したいイベントを選び、開催時間をお選びください。</p>
 <p class="muted">同じ時間帯に重なる複数のイベントはご予約いただけません。</p>
 
 <?php /* GET, so filtering leaves the state in the address bar and the result

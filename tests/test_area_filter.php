@@ -68,11 +68,16 @@ try {
         $assert(in_array($companyId, $all, true), "company {$companyId} appears unfiltered");
     }
 
+    // Membership, not equality: the real catalogue has companies of its own
+    // and the assertion must not depend on how they happen to be tagged.
     $eastOnly = $companyIds($events->publishedCatalogue(Area::East->value));
-    $assert($eastOnly === [$east], 'filtering by area returns only that area');
+    $assert(in_array($east, $eastOnly, true), 'the east fixture appears under east');
+    $assert(!in_array($north, $eastOnly, true) && !in_array($none, $eastOnly, true),
+        'filtering by area excludes other areas and the unassigned');
 
-    $assert($companyIds($events->publishedCatalogue(Area::South->value)) === [],
-        'an area with no companies returns nothing rather than everything');
+    $southern = $companyIds($events->publishedCatalogue(Area::South->value));
+    $assert(!in_array($east, $southern, true) && !in_array($north, $southern, true),
+        'neither fixture leaks into an area it does not belong to');
 
     $assert($companyIds($events->publishedCatalogue(null, $north)) === [$north],
         'filtering by company alone works');
@@ -89,7 +94,8 @@ try {
     // --- the select box only offers companies with something to show ---------
     $options = array_column($events->publishedCompanies(), 'id');
     $assert(in_array($east, $options, true), 'a company with a published event is offered');
-    $assert(array_column($events->publishedCompanies(Area::East->value), 'id') === [$east],
+    $eastOptions = array_column($events->publishedCompanies(Area::East->value), 'id');
+    $assert(in_array($east, $eastOptions, true) && !in_array($north, $eastOptions, true),
         'the company list narrows with the area');
 
     $empty = $companies->create(FIXTURE_PREFIX . 'empty co', null, 9903, true, Area::East->value);

@@ -8,8 +8,9 @@ use App\Core\Csrf;
  * @var array<string, mixed>  $old      Previous input to re-fill after an error.
  * @var int                   $maxParty Per-application cap for this event.
  */
-$seatsLeft = (int) $session['seats_left'];
-$isFull    = $seatsLeft === 0;
+$seatsLeft   = (int) $session['seats_left'];
+$isFull      = $seatsLeft === 0;
+$externalUrl = (string) ($session['external_url'] ?? '');
 ?>
 <p class="breadcrumb">
   <a href="<?= url('/') ?>">イベント一覧</a> ／
@@ -22,11 +23,23 @@ $isFull    = $seatsLeft === 0;
 <div class="panel">
   <dl class="detail-list">
     <dt>イベント</dt><dd><?= e($session['event_title']) ?></dd>
-    <dt>主催</dt><dd><?= e($session['company_name']) ?></dd>
+    <dt>開催企業</dt><dd><?= e($session['company_name']) ?></dd>
     <dt>日時</dt>
     <dd><?= e(jp_datetime((string) $session['starts_at'])) ?>〜<?= e(jp_time((string) $session['ends_at'])) ?></dd>
     <?php if (($session['venue'] ?? '') !== '' && $session['venue'] !== null): ?>
       <dt>会場</dt><dd><?= e($session['venue']) ?></dd>
+    <?php endif; ?>
+    <?php /* Shown whenever the event has one, regardless of whether booking
+             is required - it is the host's own page about this event, useful
+             to read before reserving. Hidden when blank. */ ?>
+    <?php if ($externalUrl !== ''): ?>
+      <dt>詳細</dt>
+      <dd>
+        <a href="<?= e($externalUrl) ?>" target="_blank" rel="noopener noreferrer">
+          開催企業のサイトで見る
+        </a>
+        <span class="muted">（新しいタブで開きます）</span>
+      </dd>
     <?php endif; ?>
     <dt>空き状況</dt>
     <dd>
@@ -169,6 +182,16 @@ $isFull    = $seatsLeft === 0;
       sync();
     })();
   </script>
+
+  <h2>開催企業へのメッセージ</h2>
+
+  <div class="field">
+    <label for="message">メッセージ（任意）</label>
+    <textarea id="message" name="message" maxlength="1000"
+              placeholder="ご質問、配慮が必要なこと、当日の予定など"><?= e($old['message'] ?? '') ?></textarea>
+    <p class="hint">開催企業に伝えたいことがあればご記入ください。1000文字以内・省略できます。</p>
+    <?php if (isset($errors['message'])): ?><p class="error"><?= e($errors['message']) ?></p><?php endif; ?>
+  </div>
 
   <div class="form-actions">
     <button type="submit" class="btn"><?= $isFull ? 'キャンセル待ちで確認画面へ' : '確認画面へ進む' ?></button>

@@ -76,6 +76,7 @@ final class BookingService
      * @param array<int, int|null> $ages Ages for attendee_no 1..N, in the same
      *        order (index 0 is the applicant). Optional, same reasoning.
      * @param string|null $phone A number to reach the party on the day.
+     * @param string|null $message Free text for the host company; optional.
      */
     public function book(
         int $sessionId,
@@ -86,6 +87,7 @@ final class BookingService
         array $companionNames = [],
         array $ages = [],
         ?string $phone = null,
+        ?string $message = null,
     ): array {
         // Step 0, outside the transaction: make sure the applicant row exists.
         // Doing this first keeps the locked section from having to create it,
@@ -95,7 +97,7 @@ final class BookingService
         try {
             return Db::transaction(function () use (
                 $sessionId, $email, $name, $partySize, $allowWaitlist, $applicantId,
-                $companionNames, $ages, $phone
+                $companionNames, $ages, $phone, $message
             ): array {
                 // 1) Applicant gate. From here to commit, this person's
                 //    bookings cannot change under us.
@@ -231,6 +233,7 @@ final class BookingService
                     waitlistSeq:     $waitlistSeq,
                     cancelTokenHash: $token['hash'],
                     phone:           $phone,
+                    message:         $message,
                 );
 
                 // 6) Who is coming. attendee_no 1 is the applicant; the rest
@@ -259,7 +262,8 @@ final class BookingService
                     (string) $session['ends_at'],
                     $token['raw'],
                     $bookingId,
-                    $this->attendees->namesFor($bookingId)
+                    $this->attendees->namesFor($bookingId),
+                    $message
                 );
 
                 return [
@@ -364,6 +368,7 @@ final class BookingService
         string $rawToken,
         int $bookingId,
         array $attendeeNames = [],
+        ?string $message = null,
     ): void {
         // Display names only; no lock needed and no harm if they change later.
         $context = Db::selectOne(
@@ -401,6 +406,14 @@ final class BookingService
             }
         }
 
+        // Echo the message back so the applicant has a record of what they
+        // sent, and can see it arrived rather than wondering.
+        $messageLines = '';
+        if ($message !== null && trim($message) !== '') {
+            $messageLines = "\n── 開催企業へのメッセージ ──────\n" . trim($message)
+                . "\n────────────────────\n";
+        }
+
         $body = <<<TEXT
         {$name} 様
 
@@ -408,11 +421,12 @@ final class BookingService
 
         ── 予約内容 ──────────────
         イベント　: {$context['event_title']}
-        主催　　　: {$context['company_name']}
+        開催企業　: {$context['company_name']}
         日時　　　: {$when}
         {$venueLine}人数　　　: {$partySize} 名
         {$attendeeLines}予約番号　: {$referenceCode}
         ────────────────────
+        {$messageLines}
 
         ▼ 予約内容の確認・キャンセルはこちら
         {$manageUrl}

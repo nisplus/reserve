@@ -32,7 +32,7 @@ $status = BookingStatus::from((string) $booking['status']);
     <dt>状態</dt>
     <dd><span class="badge <?= e($status->badgeClass()) ?>"><?= e($status->label()) ?></span></dd>
     <dt>イベント</dt><dd><?= e($booking['event_title']) ?></dd>
-    <dt>主催</dt><dd><?= e($booking['company_name']) ?></dd>
+    <dt>開催企業</dt><dd><?= e($booking['company_name']) ?></dd>
     <dt>日時</dt>
     <dd><?= e(jp_datetime((string) $booking['starts_at'])) ?>〜<?= e(jp_time((string) $booking['ends_at'])) ?></dd>
     <?php if (($booking['venue'] ?? '') !== '' && $booking['venue'] !== null): ?>
@@ -49,6 +49,10 @@ $status = BookingStatus::from((string) $booking['status']);
           <?php endforeach; ?>
         </ol>
       </dd>
+    <?php endif; ?>
+    <?php if (trim((string) ($booking['message'] ?? '')) !== ''): ?>
+      <dt>開催企業へのメッセージ</dt>
+      <dd><?= enl($booking['message']) ?></dd>
     <?php endif; ?>
   </dl>
 </div>

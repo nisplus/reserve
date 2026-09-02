@@ -39,6 +39,10 @@ final class BookingController
     private const AGE_MIN = 0;
     private const AGE_MAX = 120;
 
+    // Long enough for a real note, short enough to stay readable in the admin
+    // list and the CSV. The column itself is TEXT.
+    private const MESSAGE_MAX = 1000;
+
     /** GET /sessions/{id}/apply - the application form. */
     public function apply(Request $request): Response
     {
@@ -112,6 +116,7 @@ final class BookingController
                 companionNames: (array) $input['companions'],
                 ages: (array) $input['ages'],
                 phone: (string) $input['phone'],
+                message: $input['message'] !== null ? (string) $input['message'] : null,
             );
         } catch (DuplicateBookingException | SessionFullException | TravelBufferException | ValidationException $e) {
             // All of these are user-correctable outcomes, not errors: show the
@@ -120,6 +125,7 @@ final class BookingController
                 'email'      => (string) $input['email'],
                 'phone'      => (string) $input['phone'],
                 'name'       => (string) $input['name'],
+                'message'    => $request->post('message'),
                 'party_size' => (string) $input['party_size'],
                 'companions' => $this->postedCompanions($request),
                 'ages'       => $this->postedAges($request) + [1 => $request->post('age_1')],
@@ -190,6 +196,9 @@ final class BookingController
                   ->maxLength('name', 'お名前', $request->post('name'), 100);
         $validator->intRange('age_1', '年齢', $request->post('age_1'), self::AGE_MIN, self::AGE_MAX);
         $validator->intRange('party_size', '参加人数', $request->post('party_size'), 1, $maxParty);
+        // Optional: most bookings carry no message, and a required box would
+        // stand in the way of every reservation.
+        $validator->optional('message', $request->post('message'), self::MESSAGE_MAX);
 
         // Names and ages for the rest of the party, one pair per extra person.
         // Collected only once the party size itself is known to be sane, so a
@@ -239,6 +248,7 @@ final class BookingController
             'email'      => $request->post('email'),
             'phone'      => $request->post('phone'),
             'name'       => $request->post('name'),
+            'message'    => $request->post('message'),
             'party_size' => $request->post('party_size'),
             'companions' => $this->postedCompanions($request),
             'ages'       => $this->postedAges($request) + [1 => $request->post('age_1')],

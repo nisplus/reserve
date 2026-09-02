@@ -81,8 +81,9 @@ final class BookingController
         $filters = $this->filters($request);
         $rows = (new BookingRepository())->searchForAdmin($filters, self::EXPORT_MAX, 0);
 
-        $header = ['予約番号', '状態', '会社', 'イベント', '開催日時', '氏名', 'メールアドレス',
-                   '人数', '参加者', 'キャンセル待ち順', '予約日時', 'キャンセル日時'];
+        $header = ['予約番号', '状態', '開催企業', 'イベント', '開催日時', '氏名', 'メールアドレス',
+                   '電話番号', '人数', '参加者', '開催企業へのメッセージ',
+                   'キャンセル待ち順', '予約日時', 'キャンセル日時'];
         $statusLabels = ['confirmed' => '確定', 'waitlisted' => 'キャンセル待ち', 'cancelled' => 'キャンセル済み'];
 
         // One query for every row's attendees rather than one per row.
@@ -100,8 +101,10 @@ final class BookingController
                 jp_datetime((string) $row['starts_at']) . '〜' . jp_time((string) $row['ends_at']),
                 $row['name'],
                 $row['email'],
+                $row['phone'],
                 $row['party_size'],
                 implode(' / ', $attendees[(int) $row['id']] ?? []),
+                $row['message'],
                 $row['waitlist_seq'],
                 $row['created_at'],
                 $row['cancelled_at'],
