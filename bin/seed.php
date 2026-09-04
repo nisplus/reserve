@@ -101,8 +101,22 @@ $pdo = Db::pdo();
 
 if ($fresh) {
     echo "--fresh: clearing booking data\n";
+    // Every table this script or the booking flow writes, children first.
+    // FOREIGN_KEY_CHECKS is off, so ON DELETE CASCADE does NOT fire and each
+    // child has to be named: a table added by a later migration and forgotten
+    // here would survive the truncate and dangle. admin_users is deliberately
+    // absent - wiping the accounts would lock the office out of its own site.
     $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-    foreach (['booking_events', 'mail_queue', 'bookings', 'applicants', 'event_sessions', 'events', 'companies'] as $table) {
+    foreach ([
+        'booking_attendees',
+        'booking_events',
+        'mail_queue',
+        'bookings',
+        'applicants',
+        'event_sessions',
+        'events',
+        'companies',
+    ] as $table) {
         $pdo->exec("TRUNCATE TABLE {$table}");
     }
     $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');

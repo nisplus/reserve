@@ -213,7 +213,14 @@ php.cmd bin/migrate.php --status      # マイグレーションの適用状況
 php.cmd bin/request.php / --text      # サーバーを立てずにページを描画（動作確認用）
 php.cmd bin/request.php /events/1 --headers
 php.cmd bin/send_mail.php             # メールキューの送信（本番では cron 推奨）
+
+php.cmd bin/reset_bookings.php --dry-run   # 予約データだけ削除（イベントは残す）
+php.cmd bin/import_events.php --template   # イベント一括投入用の CSV ひな形
+php.cmd bin/schema_doc.php                 # docs/database.md を実スキーマから再生成
 ```
+
+**データの初期化とイベントの一括投入は [docs/operations.md](docs/operations.md) にまとめてあります。**
+テーブル定義は [docs/database.md](docs/database.md)（`bin/schema_doc.php` が生成）。
 
 `bin/request.php` はフロントコントローラを CLI から叩くスクリプトです。`--post key=value` で POST も再現できます。
 
@@ -324,6 +331,8 @@ config/          config.sample.php（コミット） / config.php（対象外）
 db/migrations/   スキーマ
 bin/             CLI スクリプト
 docs/design.md   設計判断の記録（排他制御・スキーマ・落とし穴）
+docs/database.md テーブル定義書（bin/schema_doc.php が生成・直接編集しない）
+docs/operations.md データ初期化と一括投入の手順
 storage/         ログ・セッション・メール出力（対象外）
 ```
 
