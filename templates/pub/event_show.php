@@ -46,7 +46,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
   <?php if ($externalUrl !== ''): ?>
     <p class="form-actions">
       <a class="btn" href="<?= e($externalUrl) ?>" target="_blank" rel="noopener noreferrer">
-        詳細を見る（外部サイト）
+        詳細を見る
       </a>
     </p>
     <p class="muted">リンク先は開催企業のサイトです。新しいタブで開きます。</p>

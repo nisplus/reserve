@@ -108,7 +108,7 @@ $noBooking = $old !== []
              value="<?= e($old['external_url'] ?? (string) ($event['external_url'] ?? '')) ?>"
              <?= isset($errors['external_url']) ? 'aria-invalid="true"' : '' ?>>
       <p class="hint">
-        予約不要のイベントで、詳細ページに「詳細を見る（外部サイト）」ボタンとして表示します。
+        予約不要のイベントで、詳細ページに「詳細を見る」ボタンとして表示します。
         新しいタブで開きます。http:// または https:// から入力してください。
       </p>
       <?php if (isset($errors['external_url'])): ?><p class="error"><?= e($errors['external_url']) ?></p><?php endif; ?>
