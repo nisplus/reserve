@@ -121,7 +121,12 @@ echo "Tables in database: {$tables}\n";
  */
 function splitStatements(string $sql): array
 {
-    $lines = preg_split('/\R/', $sql) ?: [];
+    // /u is not optional. Without it \R is byte-oriented and treats 0x85 (NEL)
+    // as a line break - and 0x85 is a perfectly ordinary continuation byte in
+    // UTF-8, appearing inside 態, 者, 入 and many others. A Japanese comment
+    // containing one of those would be cut in half, and the tail would stop
+    // looking like a comment and be executed as SQL.
+    $lines = preg_split('/\R/u', $sql) ?: [];
     $kept = [];
     foreach ($lines as $line) {
         if (preg_match('/^\s*--/', $line)) {

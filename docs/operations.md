@@ -38,6 +38,78 @@ php bin/reset_bookings.php --yes --keep-mail         # 送信済みメール履�
 
 `--keep-mail` を付けた場合、`mail_queue.booking_id` は NULL に落とします（消えた予約を指したままにしないため）。
 
+### サンプルイベントとテスト予約を消して、本番データを入れる
+
+`bin/seed.php` が入れたサンプル（14社・56イベント・422開催回）とテスト予約をまとめて消し、**スキーマと事務局アカウントは残す**手順です。この状態から [イベントの一括投入](#2-イベント情報の一括投入) に進めます。
+
+```sql
+-- 実行前に必ずバックアップを取ってください:
+--   mysqldump -u root -p booking > backup_$(date +%Y%m%d).sql
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+TRUNCATE TABLE booking_attendees;
+TRUNCATE TABLE booking_events;
+TRUNCATE TABLE mail_queue;
+TRUNCATE TABLE bookings;
+TRUNCATE TABLE applicants;
+TRUNCATE TABLE event_sessions;
+TRUNCATE TABLE events;
+
+-- 会社が消えると所属先を失うため、会社担当者アカウントも一緒に削除します。
+-- 事務局アカウント（role='superadmin'）は残ります。
+DELETE FROM admin_users WHERE role = 'company';
+
+TRUNCATE TABLE companies;
+
+SET FOREIGN_KEY_CHECKS = 1;
+```
+
+ファイルに保存して流す場合:
+
+```bash
+mysql -u root -p booking < wipe.sql
+```
+
+#### なぜこの順番と `FOREIGN_KEY_CHECKS = 0` が要るのか
+
+- **子テーブルが先**。`FOREIGN_KEY_CHECKS = 0` の間は `ON DELETE CASCADE` が**働かない**ので、`booking_attendees` や `booking_events` を明示的に消さないと親だけ消えて孤児が残ります
+- **`DELETE` ではなく `TRUNCATE`**。AUTO_INCREMENT が 1 に戻るので、投入し直した本番データの ID が 1 から始まります（検証済み）
+- **`admin_users` の扱いが要注意**。`admin_users.company_id` は `companies` を参照しており、そのままだと `Cannot delete or update a parent row`（errno 1451）で止まります。かといって `FOREIGN_KEY_CHECKS = 0` のまま放置すると、**存在しない会社を指したアカウントが残ります**（実測で 2 件発生）。上の SQL はそれを避けるため会社担当者を先に削除しています
+- **最後に必ず `SET FOREIGN_KEY_CHECKS = 1`**。戻し忘れると、そのセッションの間だけ整合性チェックが効きません
+
+#### 実行後の確認
+
+```sql
+SELECT 'companies' t, COUNT(*) n FROM companies
+UNION ALL SELECT 'events',         COUNT(*) FROM events
+UNION ALL SELECT 'event_sessions', COUNT(*) FROM event_sessions
+UNION ALL SELECT 'bookings',       COUNT(*) FROM bookings
+UNION ALL SELECT 'admin_users',    COUNT(*) FROM admin_users;
+
+-- 宙に浮いた参照が無いこと（0 件が正常）
+SELECT COUNT(*) AS dangling
+FROM admin_users u LEFT JOIN companies c ON c.id = u.company_id
+WHERE u.company_id IS NOT NULL AND c.id IS NULL;
+```
+
+`admin_users` が 0 件になってしまった場合は、ログインできなくなる前に作り直してください。
+
+```bash
+php bin/create_admin.php admin <パスワード>
+```
+
+#### PHP のツールでも同じことができます
+
+SQL を触りたくない場合は、こちらでも同じ結果になります（`--fresh` は全テーブルを作り直すので**事務局アカウントも消えます**。`seed.php` が新しい管理者を作り、パスワードを一度だけ表示します）。
+
+```bash
+php bin/migrate.php --fresh
+php bin/seed.php --fresh   # サンプルも入れ直す場合
+```
+
+サンプルを入れずに空から始めたいなら `bin/seed.php` を実行せず、`bin/create_admin.php` で管理者だけ作ってください。
+
 ### 全部作り直す
 
 ```
