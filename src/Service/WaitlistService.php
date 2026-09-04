@@ -265,7 +265,7 @@ final class WaitlistService
         $this->mailQueue->enqueue(
             (string) $found['email'],
             (string) $found['name'],
-            "【イベント予約】繰り上げのご案内：ご参加が確定しました（{$found['event_title']}）",
+            "【はいてくヒルズ予約】繰り上げのご案内：ご参加が確定しました（{$found['event_title']}）",
             $body,
             (int) $found['id']
         );

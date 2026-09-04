@@ -28,6 +28,7 @@ $pageTitle = isset($title) && $title !== '' ? $title . ' | イベント予約' :
 <footer class="site-footer">
   <div class="wrap">
     <p>予約内容の確認・キャンセルは、予約完了メールに記載のURLから行えます。</p>
+    <p>hightech-hills.jp アドレスからのメールを受信できるように、迷惑メール設定から解除、もしくは受信許可設定をお願い致します</p>
   </div>
 </footer>
 </body>

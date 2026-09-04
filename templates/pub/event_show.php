@@ -49,7 +49,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
         詳細を見る
       </a>
     </p>
-    <p class="muted">リンク先は開催企業のサイトです。新しいタブで開きます。</p>
+    <p class="muted">リンク先ははいてくヒルズ公式サイトです。新しいタブで開きます。</p>
   <?php endif; ?>
 
 <?php elseif ($total === 0): ?>
@@ -59,7 +59,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
   <h2>開催時間を選ぶ</h2>
   <p class="muted">
     残席は表示時点のものです。ご予約の確定時に改めて確認しますので、
-    表示と異なる結果になる場合があります。
+    ご予約確定時に空き状況が変わっている場合があります。
   </p>
 
   <?php foreach ($days as $day): ?>

@@ -77,17 +77,17 @@ $externalUrl = (string) ($session['external_url'] ?? '');
     <input type="email" id="email" name="email" required maxlength="255"
            value="<?= e($old['email'] ?? '') ?>"
            <?= isset($errors['email']) ? 'aria-invalid="true"' : '' ?>>
-    <p class="hint">確認・キャンセル用のURLをこのアドレスにお送りします。</p>
+    <p class="hint">申込完了確認メールをこのアドレスにお送りします。</p>
     <?php if (isset($errors['email'])): ?><p class="error"><?= e($errors['email']) ?></p><?php endif; ?>
   </div>
 
   <div class="field">
-    <label for="phone">当日連絡が取れる電話番号</label>
+    <label for="phone">事前もしくは当日連絡が取れる電話番号</label>
     <input type="tel" id="phone" name="phone" required maxlength="30"
            placeholder="090-1234-5678"
            value="<?= e($old['phone'] ?? '') ?>"
            <?= isset($errors['phone']) ? 'aria-invalid="true"' : '' ?>>
-    <p class="hint">開催当日に連絡がつく番号をご入力ください。</p>
+    <p class="hint">事前確認および開催当日に連絡がつく番号をご入力ください。</p>
     <?php if (isset($errors['phone'])): ?><p class="error"><?= e($errors['phone']) ?></p><?php endif; ?>
   </div>
 

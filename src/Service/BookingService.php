@@ -386,10 +386,10 @@ final class BookingService
         $manageUrl = Config::url('/manage/' . $rawToken);
 
         if ($status === BookingStatus::Confirmed) {
-            $subject = "【イベント予約】ご予約が確定しました：{$context['event_title']}";
+            $subject = "【はいてくヒルズ予約】ご予約が確定しました：{$context['event_title']}";
             $headline = 'ご予約を受け付け、参加が確定しました。';
         } else {
-            $subject = "【イベント予約】キャンセル待ちで受け付けました：{$context['event_title']}";
+            $subject = "【はいてくヒルズ予約】キャンセル待ちで受け付けました：{$context['event_title']}";
             $headline = "満席のため、キャンセル待ち（受付順 {$waitlistSeq} 番）で受け付けました。\n"
                       . 'お席をご用意できるようになりましたら、改めてご連絡します。';
         }
