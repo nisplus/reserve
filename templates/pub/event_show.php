@@ -37,9 +37,6 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
 </div>
 
 <?php if (!$needsBooking): ?>
-  <?php /* 予約不要: no slot list at all - not even an empty one, because
-           "受付中の開催回はありません" would read as a temporary state rather
-           than the point. The external link, when set, is the call to action. */ ?>
   <h2>ご参加について</h2>
   <p class="lead">この体験プログラムは<strong>予約不要</strong>です。当日、直接会場までお越しください。整理券配布の情報は公式サイトにてお知らせします。</p>
 
@@ -51,16 +48,35 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
     </p>
     <p class="muted">リンク先ははいてくヒルズ公式サイトです。新しいタブで開きます。</p>
   <?php endif; ?>
+<?php endif; ?>
 
-<?php elseif ($total === 0): ?>
-  <h2>開催時間を選ぶ</h2>
-  <p class="empty">現在受付中の開催回はありません。</p>
+<?php
+/*
+ * The slot list is shown either way. For a 予約不要 event it is a timetable -
+ * when to turn up - so it carries no seat counts and no buttons: 残り 12 名 on
+ * something nobody reserves would be a number with no meaning behind it, and a
+ * 予約する button would lead to a page that refuses.
+ *
+ * A 予約不要 event with no slots shows nothing rather than an empty list. Here
+ * "受付中の開催回はありません" would read as a temporary state instead of the
+ * point, which is what it means for a bookable event.
+ */
+?>
+<?php if ($total === 0): ?>
+  <?php if ($needsBooking): ?>
+    <h2>開催時間を選ぶ</h2>
+    <p class="empty">現在受付中の開催回はありません。</p>
+  <?php endif; ?>
 <?php else: ?>
-  <h2>開催時間を選ぶ</h2>
-  <p class="muted">
-    残席は表示時点のものです。ご予約の確定時に改めて確認しますので、
-    ご予約確定時に空き状況が変わって予約が既に終了している場合があります。
-  </p>
+  <h2><?= $needsBooking ? '開催時間を選ぶ' : '開催時間' ?></h2>
+  <?php if ($needsBooking): ?>
+    <p class="muted">
+      残席は表示時点のものです。ご予約の確定時に改めて確認しますので、
+      ご予約確定時に空き状況が変わって予約が既に終了している場合があります。
+    </p>
+  <?php else: ?>
+    <p class="muted">ご予約は不要です。下記の時間内に、直接会場までお越しください。</p>
+  <?php endif; ?>
 
   <?php foreach ($days as $day): ?>
     <section class="day-group">
@@ -69,7 +85,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
       <?php foreach ($day['sessions'] as $session): ?>
         <?php
           $seatsLeft = (int) $session['seats_left'];
-          $isFull    = $seatsLeft === 0;
+          $isFull    = $needsBooking && $seatsLeft === 0;
           $waiting   = (int) $session['waitlist_count'];
         ?>
         <li class="slot <?= $isFull ? 'slot--full' : '' ?>">
@@ -77,24 +93,26 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
             <?= e(jp_time((string) $session['starts_at'])) ?>〜<?= e(jp_time((string) $session['ends_at'])) ?>
           </span>
 
-          <span class="slot-seats">
-            <?php if ($isFull): ?>
-              <span class="badge badge--bad">満席</span>
-              <?php if ($waiting > 0): ?>
-                <span class="muted">キャンセル待ち <?= $waiting ?> 件</span>
+          <?php if ($needsBooking): ?>
+            <span class="slot-seats">
+              <?php if ($isFull): ?>
+                <span class="badge badge--bad">満席</span>
+                <?php if ($waiting > 0): ?>
+                  <span class="muted">キャンセル待ち <?= $waiting ?> 件</span>
+                <?php endif; ?>
+              <?php elseif ($seatsLeft <= 3): ?>
+                <span class="badge badge--warn">残り <?= $seatsLeft ?> 名</span>
+              <?php else: ?>
+                <span class="badge badge--ok">残り <?= $seatsLeft ?> 名</span>
               <?php endif; ?>
-            <?php elseif ($seatsLeft <= 3): ?>
-              <span class="badge badge--warn">残り <?= $seatsLeft ?> 名</span>
-            <?php else: ?>
-              <span class="badge badge--ok">残り <?= $seatsLeft ?> 名</span>
-            <?php endif; ?>
-            <span class="muted">／ 定員 <?= (int) $session['capacity'] ?> 名</span>
-          </span>
+              <span class="muted">／ 定員 <?= (int) $session['capacity'] ?> 名</span>
+            </span>
 
-          <a class="btn btn--small <?= $isFull ? 'btn--ghost' : '' ?>"
-             href="<?= url('/sessions/') ?><?= (int) $session['id'] ?>/apply">
-            <?= $isFull ? 'キャンセル待ちで予約する' : '予約する' ?>
-          </a>
+            <a class="btn btn--small <?= $isFull ? 'btn--ghost' : '' ?>"
+               href="<?= url('/sessions/') ?><?= (int) $session['id'] ?>/apply">
+              <?= $isFull ? 'キャンセル待ちで予約する' : '予約する' ?>
+            </a>
+          <?php endif; ?>
         </li>
       <?php endforeach; ?>
       </ul>
@@ -102,4 +120,4 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
   <?php endforeach; ?>
 <?php endif; ?>
 
-<p><a href="<?= url('/') ?>"一覧へ戻る</a></p>
+<p><a href="<?= url('/') ?>">一覧へ戻る</a></p>

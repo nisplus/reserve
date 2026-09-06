@@ -35,7 +35,7 @@ final class EventController
         // an id that no longer exists) should not silently look like "no
         // events exist" - the view says so instead.
         return Response::html(View::render('pub/events_index', [
-            'title'     => '体験一覧',
+            'title'     => '体験内容一覧',
             'companies' => $events->groupByCompany($catalogue),
             'areas'     => Area::options(),
             'companyOptions' => $events->publishedCompanies($area),

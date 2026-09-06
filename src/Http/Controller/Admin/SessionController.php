@@ -239,7 +239,7 @@ final class SessionController
                 (string) $validator->value('starts_at'),
                 $session !== null ? (int) $session['id'] : null
             )) {
-                $validator->fail('starts_at', 'このイベントには同じ開始日時の開催回が既にあります。');
+                $validator->fail('starts_at', 'この体験プログラムには同じ開始日時の開催回が既にあります。');
             }
 
             // chk_sessions_seats would reject this at the database anyway, but

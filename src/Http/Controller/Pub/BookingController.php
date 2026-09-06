@@ -12,6 +12,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Validator;
 use App\Core\View;
+use App\Domain\BookingStatus;
 use App\Exception\DuplicateBookingException;
 use App\Exception\NotFoundException;
 use App\Exception\SessionFullException;
@@ -148,8 +149,13 @@ final class BookingController
             throw new NotFoundException('お探しの予約は見つかりませんでした。');
         }
 
+        // The heading already switches on the status; the tab title has to say
+        // the same thing, or a waitlisted applicant reads 確定 in one place and
+        // キャンセル待ち in the other.
+        $waitlisted = BookingStatus::tryFrom((string) $booking['status']) === BookingStatus::Waitlisted;
+
         return Response::html(View::render('pub/booking_done', [
-            'title'     => 'ご予約を受け付けました',
+            'title'     => $waitlisted ? 'キャンセル待ちで受け付けました' : 'ご予約を受け付けました',
             'booking'   => $booking,
             'attendees' => (new BookingAttendeeRepository())->listFor((int) $booking['id']),
         ]));

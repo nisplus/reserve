@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 /**
- * 予約不要 events (events.booking_required = 0): no sessions shown, no
- * applications accepted, and an optional external link.
+ * 予約不要 events (events.booking_required = 0): sessions optional, shown as a
+ * timetable when present, no applications accepted, optional external link.
  *
- * The interesting part is not the display - it is that sessions created
- * before the flag was set still exist, so a bookmarked apply URL has to be
- * refused rather than merely unlinked.
+ * The flag governs whether the slots are something to reserve or just when to
+ * turn up; it never removes them. So the sessions of a 予約不要 event are
+ * displayed but carry no booking link, a bookmarked apply URL still has to be
+ * refused rather than merely unlinked, and clearing the flag has to make those
+ * same slots bookable again.
  */
 
 require dirname(__DIR__) . '/bootstrap.php';
@@ -16,6 +18,7 @@ require __DIR__ . '/_fixture.php';
 
 use App\Core\Db;
 use App\Core\Validator;
+use App\Core\View;
 use App\Exception\NotFoundException;
 use App\Exception\ValidationException;
 use App\Repository\EventRepository;
@@ -87,16 +90,62 @@ try {
     $assert((int) Db::scalar('SELECT confirmed_seats FROM event_sessions WHERE id = ?', [$session]) === 0,
         'seat counter untouched');
 
-    // Flip it back and the same session books again - the flag gates, it does
-    // not destroy.
+    // --- the timetable is shown, with nothing to press ----------------------
+    // Rendered rather than asserted on the template source: the point is what
+    // a visitor is offered, and "no booking link" is only true of the output.
+    //
+    // renderPartial, not render: the layout would pull in the flash partial and
+    // with it a session, which cannot start once CLI output has begun. The page
+    // body is the whole of what these assertions are about anyway.
+    $sessionRepo = new EventSessionRepository();
+    $render = static function (int $eventId) use ($events, $sessionRepo): string {
+        $slots = $sessionRepo->forEvent($eventId, true);
+        return View::renderPartial('pub/event_show', [
+            'event' => $events->findWithCompany($eventId),
+            'days'  => $sessionRepo->groupByDate($slots),
+            'total' => count($slots),
+        ]);
+    };
+
+    $html = $render($freeId);
+    $assert(str_contains($html, '10:00') && str_contains($html, '11:00'),
+        '予約不要: the session times are shown');
+    $assert(!str_contains($html, '/apply'),
+        '予約不要: no booking link anywhere on the page');
+    $assert(!str_contains($html, '残り') && !str_contains($html, '満席'),
+        '予約不要: no seat counts - nothing is being reserved');
+
+    // Flip it back and the same session books again, and shows a button - the
+    // flag gates, it does not destroy.
     $events->update($freeId, $company, 'drop-in exhibit', null, null, 0, true,
         bookingRequired: true, externalUrl: $freeRow['external_url'],
         maxPartySize: (int) $freeRow['max_party_size']);
+
+    $assert(str_contains($render($freeId), '/sessions/' . $session . '/apply'),
+        'clearing the flag puts the booking button on the same session');
+
     $booked = (new BookingService())->book($session, fixture_email('nb-a'), 'A', 1);
     $assert($booked['booking_id'] > 0, 'clearing the flag makes the same session bookable again');
     $events->update($freeId, $company, 'drop-in exhibit', null, null, 0, true,
         bookingRequired: false, externalUrl: $freeRow['external_url'],
         maxPartySize: (int) $freeRow['max_party_size']);
+
+    // Setting it again hides the button, with a booking already on the slot.
+    $assert(!str_contains($render($freeId), '/apply'),
+        'setting the flag again removes the button from a session that has a booking');
+
+    // A 予約不要 event with no sessions at all is normal, not an error: some
+    // run all day with no times to announce. It must not say 受付中の開催回は
+    // ありません, which reads as a temporary state.
+    $noSlots = $events->create(
+        $company, 'all-day drop-in', null, null, 0, true,
+        bookingRequired: false, externalUrl: null,
+    );
+    $emptyHtml = $render($noSlots);
+    $assert(!str_contains($emptyHtml, '受付中の開催回はありません'),
+        '予約不要 without sessions says nothing about 開催回');
+    $assert(str_contains($emptyHtml, '予約不要'),
+        '予約不要 without sessions still explains itself');
 
     // --- the catalogue query exposes what the templates branch on ----------
     $catalogue = $events->publishedCatalogue();

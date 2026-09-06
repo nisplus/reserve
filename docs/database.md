@@ -26,7 +26,7 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 | テーブル | 用途 |
 |---|---|
 | [`companies`](#companies) | イベントを主催する企業。公開側では会社ごとにイベントをまとめて表示し、エリアで絞り込む。 |
-| [`events`](#events) | 1 つの催し。開催回を複数持つのが基本だが、予約不要のイベントは開催回を持たない。 |
+| [`events`](#events) | 1 つの催し。開催回を複数持つのが基本。予約不要のイベントは開催回を持っても持たなくてもよい（持つ場合は時間割として表示される）。 |
 | [`event_sessions`](#event_sessions) | イベントの開催回。**座席の勘定はこの行のロックの下でのみ行う**（docs/design.md B章）。 |
 | [`applicants`](#applicants) | メールアドレス 1 件につき 1 行。予約処理で最初にロックする親行であり、これが「同一人物の操作を直列化する」唯一の拠り所。 |
 | [`bookings`](#bookings) | 予約。1 行が 1 予約で、人数は party_size が持つ（複数人でも行は増えない）。 |
@@ -64,7 +64,7 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 
 ## events
 
-1 つの催し。開催回を複数持つのが基本だが、予約不要のイベントは開催回を持たない。
+1 つの催し。開催回を複数持つのが基本。予約不要のイベントは開催回を持っても持たなくてもよい（持つ場合は時間割として表示される）。
 
 | 列 | 型 | NULL | 既定値 | 説明 |
 |---|---|---|---|---|
@@ -73,7 +73,7 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 | `title` | varchar(200) | 不可 | — |  |
 | `description` | text | 可 | NULL |  |
 | `venue` | varchar(200) | 可 | NULL |  |
-| `booking_required` | tinyint(1) | 不可 | 1 | 0 なら「予約不要」。開催回を表示せず、申込も受け付けない（既存の開催回が残っていても拒否する）。 |
+| `booking_required` | tinyint(1) | 不可 | 1 | 0 なら「予約不要」。開催回は時間割として表示するが、予約ボタンは出さず申込も受け付けない（開催回が残っていても拒否する）。予約不要のイベントは開催回を持たなくてもよい。 |
 | `external_url` | varchar(500) | 可 | NULL | 開催企業のサイトなど。設定されていれば予約画面とイベント詳細に別タブリンクとして出る。http/https のみ。 |
 | `max_party_size` | tinyint(3) unsigned | 不可 | 20 | 1 予約あたりの上限人数。既定 20 は bookings.party_size の上限と同じ。 |
 | `sort_order` | int(11) | 不可 | 0 |  |
