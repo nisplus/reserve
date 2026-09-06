@@ -36,7 +36,7 @@ $externalUrl = (string) ($session['external_url'] ?? '');
       <dt>詳細</dt>
       <dd>
         <a href="<?= e($externalUrl) ?>" target="_blank" rel="noopener noreferrer">
-          開催企業のサイトで見る
+          開催企業の紹介ページで見る
         </a>
         <span class="muted">（新しいタブで開きます）</span>
       </dd>

@@ -25,7 +25,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
       <dt>詳細</dt>
       <dd>
         <a href="<?= e($externalUrl) ?>" target="_blank" rel="noopener noreferrer">
-          開催企業のサイトで見る
+          開催企業の紹介ページで見る
         </a>
         <span class="muted">（新しいタブで開きます）</span>
       </dd>
@@ -41,7 +41,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
            "受付中の開催回はありません" would read as a temporary state rather
            than the point. The external link, when set, is the call to action. */ ?>
   <h2>ご参加について</h2>
-  <p class="lead">この体験プログラムは<strong>予約不要</strong>です。当日、直接会場までお越しください。</p>
+  <p class="lead">この体験プログラムは<strong>予約不要</strong>です。当日、直接会場までお越しください。整理券配布の情報は公式サイトにてお知らせします。</p>
 
   <?php if ($externalUrl !== ''): ?>
     <p class="form-actions">
