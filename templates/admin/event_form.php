@@ -96,8 +96,9 @@ $noBooking = $old !== []
         <strong>予約不要</strong>（予約を受け付けない）
       </label>
       <p class="hint">
-        チェックすると公開側で開催回が表示されなくなり、一覧のボタンが「詳細を見る」に変わります。
-        既存の開催回は削除されませんが、予約は受け付けなくなります。
+        チェックすると<strong>予約ボタンが表示されなくなります</strong>。開催回は削除されず、
+        公開側には<strong>時間割として引き続き表示されます</strong>（予約不要のまま開催時間だけ
+        お知らせできます）。チェックを外せば、その開催回のまま予約の受付が始まります。
       </p>
     </div>
 
@@ -108,8 +109,9 @@ $noBooking = $old !== []
              value="<?= e($old['external_url'] ?? (string) ($event['external_url'] ?? '')) ?>"
              <?= isset($errors['external_url']) ? 'aria-invalid="true"' : '' ?>>
       <p class="hint">
-        予約不要の体験プログラムで、詳細ページに「詳細を見る」ボタンとして表示します。
-        新しいタブで開きます。http:// または https:// から入力してください。
+        予約不要の体験プログラムでは詳細ページに「詳細を見る」ボタンとして、
+        予約を受け付ける場合は詳細ページと予約画面にリンクとして表示します。
+        空欄なら表示しません。新しいタブで開きます。http:// または https:// から入力してください。
       </p>
       <?php if (isset($errors['external_url'])): ?><p class="error"><?= e($errors['external_url']) ?></p><?php endif; ?>
     </div>

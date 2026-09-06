@@ -27,6 +27,10 @@ declare(strict_types=1);
  * The column is optional, so sheets written against the earlier format load
  * unchanged.
  *
+ * 開催回 are optional for a 予約不要 event and required for every other one.
+ * Some drop-in events are a fixed timetable to turn up to and some run all day
+ * with nothing to announce, and the file has to be able to say either.
+ *
  * Companies are matched by name and created when missing, so a spreadsheet of
  * 14 companies x 4 events works without anyone looking up ids.
  *
@@ -176,11 +180,23 @@ if ($template) {
         '2027-03-01 14:00', '2027-03-01 14:30', '', '', '', '8',
     ]);
 
-    // 3) 予約不要: no schedule columns at all.
+    // 3) 予約不要, no fixed times: open all day, nothing to announce.
     $write([
         '株式会社サンプル製作所', 'east', '常設展示（予約不要）',
         '当日直接お越しください。', '展示ホール', 'https://example.com/exhibit', '1', '', '1',
         '', '', '', '', '', '',
+    ]);
+
+    // 4) 予約不要 with times: a timetable to turn up to. Shown to visitors
+    //    without seat counts or a booking button.
+    $write([
+        '株式会社サンプル製作所', 'east', '実演（予約不要・時間あり）',
+        '1 日 2 回の実演です。', '展示ホール 特設ステージ', '', '1', '', '1',
+        '2027-03-01 11:00', '11:20', '', '', '', '30',
+    ]);
+    $write([
+        '株式会社サンプル製作所', '', '実演（予約不要・時間あり）', '', '', '', '', '', '',
+        '2027-03-01 15:00', '15:20', '', '', '', '30',
     ]);
     exit(0);
 }
@@ -225,6 +241,9 @@ $rows = [];
 $errors = [];
 $lineNo = 1;
 $areaValues = array_keys(Area::options());
+
+/** Events already told, row by row, that they have no start. Keyed like $events. */
+$startMissingReported = [];
 
 /** Booleans are written as 1/0/はい/いいえ/空欄 by whoever made the sheet. */
 $asBool = static function (string $value, bool $default): bool {
@@ -271,17 +290,25 @@ while (($line = fgetcsv($handle, 0, ',', '"', '\\')) !== false) {
         $problem('上限人数は 1〜20 です');
     }
 
-    // Sessions. A 予約不要 event legitimately has none; otherwise the row is
-    // either a generator rule or one explicit slot, never both.
+    /*
+     * Sessions. A 予約不要 event may have them or not: some are a fixed
+     * timetable to turn up to, others run all day with nothing to announce.
+     * Where they exist they are shown as times and carry no booking button.
+     *
+     * An event that does take bookings needs at least one, or there is nothing
+     * to book. Otherwise the row is either a generator rule or one explicit
+     * slot, never both.
+     */
     $sessions = [];
     $hasStart     = $row['開始日時'] !== '';
     $hasEnd       = $row['終了日時'] !== '';
     $hasGenerator = $row['所要分'] !== '' || $row['間隔分'] !== '' || $row['回数'] !== '';
 
-    if ($noBooking && ($hasStart || $hasEnd)) {
-        $problem('予約不要のイベントに開催回は指定できません');
-    } elseif (!$noBooking && !$hasStart) {
-        $problem('開始日時が空です（予約不要にするなら「予約不要」を 1 にしてください）');
+    if (!$noBooking && !$hasStart && !$hasEnd) {
+        $problem('開始日時が空です（予約を受け付けないなら「予約不要」を 1 にしてください）');
+        $startMissingReported[$row['会社名'] . "\0" . $row['イベント名']] = true;
+    } elseif (!$hasStart && $hasEnd) {
+        $problem('終了日時だけが入っています。開始日時も入れてください');
     } elseif ($hasStart) {
         $start    = date_create_immutable(str_replace('/', '-', $row['開始日時']));
         $capacity = (int) $row['定員'];
@@ -434,12 +461,12 @@ foreach ($rows as $row) {
 }
 
 foreach ($events as $key => $event) {
-    // Reachable only across rows: a single 予約不要 row with a schedule is
-    // already refused above, but a 予約不要 first row followed by a slot row
-    // that leaves 予約不要 blank would otherwise slip through.
-    if (!$event['booking_required'] && $event['sessions'] !== []) {
+    // Only reachable across rows: 予約不要 stated on a later row, after the
+    // rows carrying the slots have already passed the per-row check. Skipped
+    // where a row has already said the same thing more precisely.
+    if ($event['booking_required'] && $event['sessions'] === [] && !isset($startMissingReported[$key])) {
         $errors[] = sprintf(
-            '%d 行目: 「%s／%s」は予約不要なのに開催回が指定されています',
+            '%d 行目: 「%s／%s」は予約を受け付けるのに開催回が 1 つもありません',
             $event['first_line'],
             $event['company'],
             $event['title']
@@ -613,12 +640,15 @@ foreach ($events as $event) {
         $slots[] = sprintf('ほか %d 件', count($event['sessions']) - 4);
     }
 
+    // A 予約不要 event may or may not have times now, so the marker is worth
+    // printing next to them rather than only standing in for their absence.
     printf(
-        "  %-28s %-30s %s\n",
+        "  %-28s %-30s %s%s\n",
         mb_strimwidth($event['company'], 0, 28),
         mb_strimwidth($event['title'], 0, 30),
+        $event['booking_required'] ? '' : '[予約不要] ',
         $event['sessions'] === []
-            ? '予約不要'
+            ? '開催時間なし'
             : sprintf('%d 回  %s', count($event['sessions']), implode('  ', $slots))
     );
 }

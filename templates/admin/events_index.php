@@ -53,17 +53,14 @@ use App\Core\Csrf;
             <span class="badge badge--muted">予約不要</span>
           <?php endif; ?>
         </td>
+        <?php /* 予約不要 events keep a timetable too - it is shown to visitors
+                 as when to turn up - so the 開催回 screen is reachable for
+                 every event, not only the bookable ones. */ ?>
         <td>
-          <?php if ((int) $event['booking_required'] !== 1): ?>
-            <span class="muted">—</span>
-          <?php else: ?>
-            <a href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions"><?= (int) $event['session_count'] ?> 件</a>
-          <?php endif; ?>
+          <a href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions"><?= (int) $event['session_count'] ?> 件</a>
         </td>
         <td>
-          <?php if ((int) $event['booking_required'] === 1): ?>
-            <a class="btn btn--ghost btn--small" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions">開催回</a>
-          <?php endif; ?>
+          <a class="btn btn--ghost btn--small" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions">開催回</a>
           <a class="btn btn--ghost btn--small" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/edit">編集</a>
           <?php if ((int) $event['session_count'] === 0): ?>
             <form class="inline-form" method="post" action="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/delete"

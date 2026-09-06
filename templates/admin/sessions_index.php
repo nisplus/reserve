@@ -14,6 +14,15 @@ use App\Domain\SessionStatus;
 
 <h1>開催回：<?= e($event['title']) ?></h1>
 
+<?php if ((int) $event['booking_required'] !== 1): ?>
+  <p class="muted">
+    この体験プログラムは<strong>予約不要</strong>です。ここで登録した開催回は、公開側に
+    <strong>時間割として表示され、予約ボタンは出ません</strong>。
+    下の「定員」「確定」「待ち」は予約を受け付けないあいだ使われませんが、
+    編集画面で<strong>予約不要のチェックを外すと、この開催回のまま予約の受付が始まります</strong>。
+  </p>
+<?php endif; ?>
+
 <div class="form-actions" style="margin-bottom:16px">
   <a class="btn" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions/bulk">まとめて作成</a>
   <a class="btn btn--ghost" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions/new">1件だけ作成</a>

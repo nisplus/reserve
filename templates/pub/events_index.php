@@ -93,9 +93,9 @@ use App\Domain\Area;
       <?php
         $sessionCount = (int) $event['session_count'];
         $seatsLeft    = (int) $event['seats_left'];
-        // 予約不要: nothing to reserve, so seats and slot counts say nothing
-        // useful. The card carries the badge and sends people to the detail
-        // page for whatever the host wants to tell them.
+        // 予約不要 events may still keep a timetable, so the card shows their
+        // times like any other. What it does not show is 残席 - there is
+        // nothing to reserve, so a seat count would be a number about nothing.
         $needsBooking = (int) $event['booking_required'] === 1;
       ?>
       <article class="card">
@@ -105,14 +105,14 @@ use App\Domain\Area;
           <p class="card-meta">会場: <?= e($event['venue']) ?></p>
         <?php endif; ?>
 
-        <?php if (!$needsBooking): ?>
-          <p class="card-meta">ご予約なしでご参加いただけます。</p>
-        <?php elseif ($sessionCount > 0): ?>
+        <?php if ($sessionCount > 0): ?>
           <p class="card-meta">
             <?= e(jp_date((string) $event['first_starts_at'])) ?>
             ／ 全 <?= $sessionCount ?> 回
             （<?= e(jp_time((string) $event['first_starts_at'])) ?>〜<?= e(jp_time((string) $event['last_ends_at'])) ?>）
           </p>
+        <?php elseif (!$needsBooking): ?>
+          <p class="card-meta">ご予約なしでご参加いただけます。</p>
         <?php else: ?>
           <p class="card-meta">開催回は準備中です。</p>
         <?php endif; ?>
@@ -128,7 +128,7 @@ use App\Domain\Area;
             <span class="badge badge--ok">空き <?= $seatsLeft ?> 名分</span>
           <?php endif; ?>
           <a class="btn btn--small btn--ghost" href="<?= url('/events/') ?><?= (int) $event['id'] ?>">
-            <?= $needsBooking ? '開催時間を見る' : '詳細を見る' ?>
+            <?= $needsBooking || $sessionCount > 0 ? '開催時間を見る' : '詳細を見る' ?>
           </a>
         </p>
       </article>

@@ -104,12 +104,23 @@ final class EventController
             (int) $input['max_party_size'],
         );
 
-        // Existing sessions are left alone rather than deleted: the flag may
-        // be a mistake, and bookings on them are history either way. They stop
-        // being reachable, which is enough.
+        // The flag decides whether the slots are a timetable or something to
+        // reserve; it never deletes them. So switching it either way is
+        // reversible, and saying so is the point of these two messages.
         $liveSessions = (new EventRepository())->sessionCount((int) $event['id']);
-        if (!$bookingRequired && $liveSessions > 0) {
-            Flash::info("この体験プログラムは予約不要になりました。既存の開催回 {$liveSessions} 件は公開側に表示されず、新規予約も受け付けません（データは残っています）。");
+        $wasRequired  = (int) $event['booking_required'] === 1;
+
+        if ($liveSessions > 0 && !$bookingRequired && $wasRequired) {
+            Flash::info(
+                "この体験プログラムは予約不要になりました。開催回 {$liveSessions} 件は"
+                . '時間割として引き続き表示されますが、予約ボタンは出ず、新規予約も受け付けません'
+                . '（既存の予約は残ります）。'
+            );
+        } elseif ($liveSessions > 0 && $bookingRequired && !$wasRequired) {
+            Flash::info(
+                "この体験プログラムは予約が必要になりました。開催回 {$liveSessions} 件に"
+                . '予約ボタンが表示され、受付が始まります。定員をご確認ください。'
+            );
         }
 
         Flash::success('体験プログラムを更新しました。');
