@@ -5,7 +5,7 @@ use App\Domain\BookingStatus;
 
 /**
  * @var array<int, array<string, mixed>> $rows
- * @var array<int, array<int, string>>   $attendees booking id => names
+ * @var array<int, array<int, string>>   $attendees booking id => attendee_no => name(age)
  * @var int                              $total
  * @var int                              $page
  * @var int                              $pages
@@ -110,11 +110,25 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
         </td>
         <td><?= e(jp_datetime((string) $row['starts_at'])) ?>〜<?= e(jp_time((string) $row['ends_at'])) ?></td>
         <td>
-          <?= e($row['name']) ?>
-          <?php $names = $attendees[(int) $row['id']] ?? []; ?>
-          <?php if (count($names) > 1): ?>
+          <?php
+            /*
+             * bookings.name is the applicant's name and nothing else, so taking
+             * it means dropping their age while every companion keeps theirs.
+             * attendee_no 1 is the same person with the age attached; the plain
+             * column is the fallback for a booking made without attendee rows
+             * (CLI callers may skip them).
+             */
+            $names      = $attendees[(int) $row['id']] ?? [];
+            $companions = array_filter(
+                $names,
+                static fn (int $no): bool => $no > 1,
+                ARRAY_FILTER_USE_KEY
+            );
+          ?>
+          <?= e($names[1] ?? $row['name']) ?>
+          <?php if ($companions !== []): ?>
             <br><span class="muted" style="font-size:12px">
-              同行: <?= e(implode('、', array_slice($names, 1))) ?>
+              同行: <?= e(implode('、', $companions)) ?>
             </span>
           <?php endif; ?>
           <?php if (trim((string) ($row['message'] ?? '')) !== ''): ?>

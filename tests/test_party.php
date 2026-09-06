@@ -108,11 +108,26 @@ try {
 
     // --- attendees are bound to the booking ---------------------------------
     $many = $attendees->namesForMany([
-        (int) $atCap['booking_id'], (int) $solo['booking_id'], 999999,
+        (int) $atCap['booking_id'], (int) $solo['booking_id'],
+        (int) $sparse['booking_id'], 999999,
     ]);
-    $assert(($many[(int) $atCap['booking_id']] ?? []) === ['AtCap', '二人目', '三人目']
-        && ($many[(int) $solo['booking_id']] ?? []) === ['Solo']
+    $assert(($many[(int) $atCap['booking_id']] ?? []) === [1 => 'AtCap', 2 => '二人目', 3 => '三人目']
+        && ($many[(int) $solo['booking_id']] ?? []) === [1 => 'Solo']
         && !isset($many[999999]), 'namesForMany groups by booking and omits unknown ids');
+
+    // Keyed by attendee_no, not by position: the admin list reads [1] to show
+    // the applicant with their age, and taking the first entry instead would
+    // label the third person as the applicant on a booking like this one.
+    $assert(($many[(int) $sparse['booking_id']] ?? []) === [1 => 'Sparse', 3 => '三人目だけ'],
+        'namesForMany keys by attendee_no, so a skipped name leaves a gap');
+
+    // The age travels with the name, which is the whole reason the admin list
+    // uses this rather than bookings.name.
+    $aged = $service->book($session, fixture_email('pt-aged'), 'Aged', 2,
+        companionNames: ['同行者'], ages: [42, 8]);
+    $agedNames = $attendees->namesForMany([(int) $aged['booking_id']])[(int) $aged['booking_id']] ?? [];
+    $assert($agedNames === [1 => 'Aged(42)', 2 => '同行者(8)'],
+        'the applicant carries their age too, not only the companions');
 
     // Cancelling leaves the record - it is who applied, not who is coming.
     (new CancellationService())->cancelById((int) $atCap['booking_id'], 'test:party');

@@ -85,8 +85,13 @@ final class BookingAttendeeRepository
      * Names for many bookings at once, for the admin list and CSV export -
      * one query rather than one per row.
      *
+     * Keyed by attendee_no, not by position. A blank name leaves a gap in the
+     * numbering (see replaceFor), so the first row of a booking is not
+     * necessarily attendee_no 1 - and a caller that wants "the applicant" has
+     * to ask for 1 rather than for the first entry it finds.
+     *
      * @param array<int, int> $bookingIds
-     * @return array<int, array<int, string>> booking id => names
+     * @return array<int, array<int, string>> booking id => attendee_no => name
      */
     public function namesForMany(array $bookingIds): array
     {
@@ -97,14 +102,14 @@ final class BookingAttendeeRepository
 
         $grouped = [];
         foreach (Db::select(
-            "SELECT booking_id, name, age FROM booking_attendees
+            "SELECT booking_id, attendee_no, name, age FROM booking_attendees
              WHERE booking_id IN ({$placeholders})
              ORDER BY booking_id, attendee_no",
             $bookingIds
         ) as $row) {
             // "山田 太郎(42)" reads better in a table cell and a CSV column
             // than two parallel lists.
-            $grouped[(int) $row['booking_id']][] = $row['age'] !== null
+            $grouped[(int) $row['booking_id']][(int) $row['attendee_no']] = $row['age'] !== null
                 ? sprintf('%s(%d)', (string) $row['name'], (int) $row['age'])
                 : (string) $row['name'];
         }
