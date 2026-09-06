@@ -15,6 +15,7 @@ use App\Domain\Area;
 <p class="lead">開催企業ごとに体験できる内容を掲載しています。参加したい体験プログラムを選び、開催時間をお選びください。</p>
 <p class="muted">同じ時間帯に重なる複数の体験プログラムはご予約いただけません。</p>
 <p class="muted">一度にお申し込みいただける体験プログラムは1つです。1つずつ予約を完了させてから別の予約を始めて下さい</p>
+<p class="muted">【9/11予約開始日までのお知らせ】9/11の予約開始時にテスト予約は全て削除します。</p>
 
 <?php /* GET, so filtering leaves the state in the address bar and the result
          is a link anyone can be sent. */ ?>
