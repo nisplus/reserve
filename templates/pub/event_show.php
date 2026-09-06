@@ -102,4 +102,4 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
   <?php endforeach; ?>
 <?php endif; ?>
 
-<p><a href="<?= url('/') ?>"一覧へ戻る</a></p>
+<p><a href="<?= url('/') ?>">一覧へ戻る</a></p>
