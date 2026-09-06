@@ -19,9 +19,9 @@ $noBooking = $old !== []
     ? ($old['no_booking'] ?? '') === '1'
     : ($event !== null && (int) $event['booking_required'] !== 1);
 ?>
-<p class="breadcrumb"><a href="<?= url('/admin/events') ?>">イベントの管理</a> ／ <?= $event === null ? '登録' : '編集' ?></p>
+<p class="breadcrumb"><a href="<?= url('/admin/events') ?>">体験プログラムの管理</a> ／ <?= $event === null ? '登録' : '編集' ?></p>
 
-<h1><?= $event === null ? 'イベントの登録' : 'イベントの編集' ?></h1>
+<h1><?= $event === null ? '体験プログラムの登録' : '体験プログラムの編集' ?></h1>
 
 <?php if ($errors !== []): ?>
   <div class="error-summary" role="alert"><p>入力内容をご確認ください。</p></div>
@@ -43,7 +43,7 @@ $noBooking = $old !== []
     </div>
 
     <div class="field">
-      <label for="title">イベント名</label>
+      <label for="title">体験プログラム名</label>
       <input type="text" id="title" name="title" required maxlength="200"
              value="<?= e($old['title'] ?? (string) ($event['title'] ?? '')) ?>"
              <?= isset($errors['title']) ? 'aria-invalid="true"' : '' ?>>
@@ -108,7 +108,7 @@ $noBooking = $old !== []
              value="<?= e($old['external_url'] ?? (string) ($event['external_url'] ?? '')) ?>"
              <?= isset($errors['external_url']) ? 'aria-invalid="true"' : '' ?>>
       <p class="hint">
-        予約不要のイベントで、詳細ページに「詳細を見る」ボタンとして表示します。
+        予約不要の体験プログラムで、詳細ページに「詳細を見る」ボタンとして表示します。
         新しいタブで開きます。http:// または https:// から入力してください。
       </p>
       <?php if (isset($errors['external_url'])): ?><p class="error"><?= e($errors['external_url']) ?></p><?php endif; ?>

@@ -13,7 +13,7 @@ use App\Core\Csrf;
 <div class="table-scroll">
   <table class="table">
     <thead>
-      <tr><th>表示順</th><th>会社名</th><th>かな</th><th>エリア</th><th>公開</th><th>イベント</th><th></th></tr>
+      <tr><th>表示順</th><th>会社名</th><th>かな</th><th>エリア</th><th>公開</th><th>体験内容</th><th></th></tr>
     </thead>
     <tbody>
     <?php foreach ($companies as $company): ?>

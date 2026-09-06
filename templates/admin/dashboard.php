@@ -9,7 +9,7 @@
 <h1>ダッシュボード</h1>
 
 <?php if (!$isSuperadmin): ?>
-  <p class="muted">自社のイベントに関する情報のみが表示されます。</p>
+  <p class="muted">自社の体験プログラムに関する情報のみが表示されます。</p>
 <?php endif; ?>
 
 <div class="stat-row">
@@ -23,7 +23,7 @@
   <?php if ($isSuperadmin): ?>
     <div class="stat"><strong><?= $stats['companies'] ?></strong><span>会社</span></div>
   <?php endif; ?>
-  <div class="stat"><strong><?= $stats['events'] ?></strong><span>イベント</span></div>
+  <div class="stat"><strong><?= $stats['events'] ?></strong><span>体験内容</span></div>
   <div class="stat"><strong><?= $stats['sessions'] ?></strong><span>開催回</span></div>
   <?php if ($isSuperadmin): ?>
     <div class="stat">
@@ -60,7 +60,7 @@
 
 <h2>管理</h2>
 <div class="form-actions">
-  <a class="btn" href="<?= url('/admin/events') ?>">イベントと開催回の管理</a>
+  <a class="btn" href="<?= url('/admin/events') ?>">体験プログラムと開催回の管理</a>
   <a class="btn" href="<?= url('/admin/bookings') ?>">予約一覧</a>
   <?php if ($isSuperadmin): ?>
     <a class="btn btn--ghost" href="<?= url('/admin/companies') ?>">会社の管理</a>

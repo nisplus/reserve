@@ -21,7 +21,7 @@ $status = BookingStatus::from((string) $booking['status']);
     お席をご用意できるようになりましたら、メールでご連絡します。
   </p>
 <?php elseif ($status === BookingStatus::Cancelled): ?>
-  <p class="lead">この予約はキャンセル済みです。再度のご予約はイベント一覧から行えます。</p>
+  <p class="lead">この予約はキャンセル済みです。再度のご予約は体験一覧から行えます。</p>
 <?php endif; ?>
 
 <div class="panel">
@@ -29,7 +29,7 @@ $status = BookingStatus::from((string) $booking['status']);
     <dt>予約番号</dt><dd><strong><?= e($booking['reference_code']) ?></strong></dd>
     <dt>状態</dt>
     <dd><span class="badge <?= e($status->badgeClass()) ?>"><?= e($status->label()) ?></span></dd>
-    <dt>イベント</dt><dd><?= e($booking['event_title']) ?></dd>
+    <dt>体験内容</dt><dd><?= e($booking['event_title']) ?></dd>
     <dt>開催企業</dt><dd><?= e($booking['company_name']) ?></dd>
     <dt>日時</dt>
     <dd><?= e(jp_datetime((string) $booking['starts_at'])) ?>〜<?= e(jp_time((string) $booking['ends_at'])) ?></dd>
@@ -71,9 +71,9 @@ $status = BookingStatus::from((string) $booking['status']);
     <?= Csrf::field() ?>
     <div class="form-actions">
       <button type="submit" class="btn btn--danger">この予約をキャンセルする</button>
-      <a class="btn btn--ghost" href="<?= url('/') ?>">イベント一覧へ</a>
+      <a class="btn btn--ghost" href="<?= url('/') ?>">一覧へ</a>
     </div>
   </form>
 <?php else: ?>
-  <p><a class="btn btn--ghost" href="<?= url('/') ?>">イベント一覧へ</a></p>
+  <p><a class="btn btn--ghost" href="<?= url('/') ?>">一覧へ</a></p>
 <?php endif; ?>

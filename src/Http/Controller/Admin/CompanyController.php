@@ -101,7 +101,7 @@ final class CompanyController
         // Both FKs are ON DELETE RESTRICT; explain instead of letting them explode.
         $events = $repo->eventCount((int) $company['id']);
         if ($events > 0) {
-            Flash::error("「{$company['name']}」にはイベントが {$events} 件あるため削除できません。先にイベントを削除してください。");
+            Flash::error("「{$company['name']}」には体験プログラムが {$events} 件あるため削除できません。先に体験プログラムを削除してください。");
             return Response::redirect('/admin/companies');
         }
 

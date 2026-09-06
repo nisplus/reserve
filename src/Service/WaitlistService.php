@@ -87,7 +87,7 @@ final class WaitlistService
             );
             if ($sameEvent !== null) {
                 throw new ValidationException(
-                    '繰り上げできません。この方は同じイベントの別の回を既にご予約済みです。'
+                    '繰り上げできません。この方は同じ体験プログラムの別の回を既にご予約済みです。'
                 );
             }
 
@@ -251,7 +251,7 @@ final class WaitlistService
         ご参加が確定しました。
 
         ── 確定した内容 ────────────
-        イベント　: {$found['event_title']}
+        体験内容　: {$found['event_title']}
         開催企業　: {$found['company_name']}
         日時　　　: {$when}
         人数　　　: {$found['party_size']} 名

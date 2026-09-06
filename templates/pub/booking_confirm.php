@@ -17,7 +17,7 @@ $travelPopup = $travelWarn !== null && !$travelBlock
     : '';
 ?>
 <p class="breadcrumb">
-  <a href="<?= url('/') ?>">イベント一覧</a> ／
+  <a href="<?= url('/') ?>">体験一覧</a> ／
   <a href="<?= url('/events/') ?><?= (int) $session['event_id'] ?>"><?= e($session['event_title']) ?></a> ／
   予約内容の確認
 </p>
@@ -51,7 +51,7 @@ $travelPopup = $travelWarn !== null && !$travelBlock
 
 <div class="panel">
   <dl class="detail-list">
-    <dt>イベント</dt><dd><?= e($session['event_title']) ?></dd>
+    <dt>体験内容</dt><dd><?= e($session['event_title']) ?></dd>
     <dt>開催企業</dt><dd><?= e($session['company_name']) ?></dd>
     <dt>日時</dt>
     <dd><?= e(jp_datetime((string) $session['starts_at'])) ?>〜<?= e(jp_time((string) $session['ends_at'])) ?></dd>

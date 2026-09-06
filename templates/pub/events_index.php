@@ -11,9 +11,10 @@ use App\Domain\Area;
  * @var bool                  $filtered       Whether any filter is active.
  */
 ?>
-<h1>イベント一覧</h1>
-<p class="lead">開催企業ごとにイベントを掲載しています。参加したいイベントを選び、開催時間をお選びください。</p>
-<p class="muted">同じ時間帯に重なる複数のイベントはご予約いただけません。</p>
+<h1>はいてくヒルズ2026 体験内容一覧</h1>
+<p class="lead">開催企業ごとに体験できる内容を掲載しています。参加したい体験プログラムを選び、開催時間をお選びください。</p>
+<p class="muted">同じ時間帯に重なる複数の体験プログラムはご予約いただけません。</p>
+<p class="muted">一度にお申し込みいただける体験プログラムは1つです。1つずつ予約を完了させてから別の予約を始めて下さい</p>
 
 <?php /* GET, so filtering leaves the state in the address bar and the result
          is a link anyone can be sent. */ ?>
@@ -70,8 +71,8 @@ use App\Domain\Area;
 <?php if ($companies === []): ?>
   <p class="empty">
     <?= $filtered
-        ? '条件に一致するイベントがありません。絞り込みを解除してご覧ください。'
-        : '現在公開中のイベントはありません。' ?>
+        ? '条件に一致する体験プログラムがありません。絞り込みを解除してご覧ください。'
+        : '現在公開中の体験プログラムはありません。' ?>
   </p>
 <?php endif; ?>
 

@@ -19,7 +19,7 @@ $ends   = $old['ends_at'] ?? ($session !== null ? $toLocal((string) $session['en
 $status = $old['status'] ?? (string) ($session['status'] ?? 'open');
 ?>
 <p class="breadcrumb">
-  <a href="<?= url('/admin/events') ?>">イベントの管理</a> ／
+  <a href="<?= url('/admin/events') ?>">体験プログラムの管理</a> ／
   <a href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions"><?= e($event['title']) ?></a> ／
   <?= $session === null ? '登録' : '編集' ?>
 </p>

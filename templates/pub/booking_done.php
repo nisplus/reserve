@@ -31,7 +31,7 @@ $status = BookingStatus::from((string) $booking['status']);
     <dt>予約番号</dt><dd><strong><?= e($booking['reference_code']) ?></strong></dd>
     <dt>状態</dt>
     <dd><span class="badge <?= e($status->badgeClass()) ?>"><?= e($status->label()) ?></span></dd>
-    <dt>イベント</dt><dd><?= e($booking['event_title']) ?></dd>
+    <dt>体験内容</dt><dd><?= e($booking['event_title']) ?></dd>
     <dt>開催企業</dt><dd><?= e($booking['company_name']) ?></dd>
     <dt>日時</dt>
     <dd><?= e(jp_datetime((string) $booking['starts_at'])) ?>〜<?= e(jp_time((string) $booking['ends_at'])) ?></dd>
@@ -63,4 +63,4 @@ $status = BookingStatus::from((string) $booking['status']);
   メールが届かない場合は、迷惑メールフォルダもご確認ください。
 </p>
 
-<p><a href="<?= url('/') ?>">イベント一覧へ戻る</a></p>
+<p><a href="<?= url('/') ?>">一覧へ戻る</a></p>

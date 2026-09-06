@@ -221,7 +221,7 @@ final class CancellationService
         {$line}
 
         ── キャンセルした内容 ──────────
-        イベント　: {$found['event_title']}
+        体験内容　: {$found['event_title']}
         開催企業　: {$found['company_name']}
         日時　　　: {$when}
         人数　　　: {$partySize} 名
@@ -267,7 +267,7 @@ final class CancellationService
         $body = <<<TEXT
         キャンセルにより空きが出ました。キャンセル待ちの繰り上げをご検討ください。
 
-        イベント　　　　: {$found['event_title']}（{$found['company_name']}）
+        体験内容　　　　: {$found['event_title']}（{$found['company_name']}）
         日時　　　　　　: {$when}
         開催回ID　　　　: {$sessionId}
         解放された席数　: {$freedSeats} 名分

@@ -35,7 +35,7 @@ final class EventController
         // an id that no longer exists) should not silently look like "no
         // events exist" - the view says so instead.
         return Response::html(View::render('pub/events_index', [
-            'title'     => 'イベント一覧',
+            'title'     => '体験一覧',
             'companies' => $events->groupByCompany($catalogue),
             'areas'     => Area::options(),
             'companyOptions' => $events->publishedCompanies($area),
@@ -52,7 +52,7 @@ final class EventController
 
         $event = (new EventRepository())->findWithCompany($eventId, true);
         if ($event === null) {
-            throw new NotFoundException('お探しのイベントは見つかりませんでした。');
+            throw new NotFoundException('お探しの体験プログラムは見つかりませんでした。');
         }
 
         $sessionRepo = new EventSessionRepository();

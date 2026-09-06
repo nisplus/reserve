@@ -50,7 +50,7 @@ $published = $old !== []
           <option value="<?= e($value) ?>" <?= $selectedArea === $value ? 'selected' : '' ?>><?= e($label) ?></option>
         <?php endforeach; ?>
       </select>
-      <p class="hint">公開側のイベント一覧で、エリアによる絞り込みに使われます。未設定の会社はエリア絞り込みに現れません。</p>
+      <p class="hint">公開側の体験一覧で、エリアによる絞り込みに使われます。未設定の会社はエリア絞り込みに現れません。</p>
       <?php if (isset($errors['area'])): ?><p class="error"><?= e($errors['area']) ?></p><?php endif; ?>
     </div>
 

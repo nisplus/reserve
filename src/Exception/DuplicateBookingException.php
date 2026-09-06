@@ -29,7 +29,7 @@ class DuplicateBookingException extends RuntimeException
             : '';
 
         return new self(sprintf(
-            '時間帯が重複する予約が既にあります（%s「%s」%s）。同じ時間帯の複数のイベントには予約できません。',
+            '時間帯が重複する予約が既にあります（%s「%s」%s）。同じ時間帯の複数の体験プログラムには予約できません。',
             (string) ($conflict['company_name'] ?? ''),
             (string) ($conflict['event_title'] ?? ''),
             $when
@@ -56,8 +56,8 @@ class DuplicateBookingException extends RuntimeException
             : '';
 
         return new self(sprintf(
-            'このイベントは既にご予約済みです（%s の回）。'
-            . '同じイベントを複数の回でご予約いただくことはできません。'
+            'この体験プログラムは既にご予約済みです（%s の回）。'
+            . '同じ体験プログラムを複数の回でご予約いただくことはできません。'
             . '回を変更される場合は、予約確認メールのURLから一度キャンセルしてください。',
             $when
         ), $conflict);

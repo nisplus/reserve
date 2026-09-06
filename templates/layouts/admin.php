@@ -22,14 +22,14 @@ $user = Auth::user();
 <body>
 <header class="admin-header">
   <div class="wrap wrap--wide">
-    <a class="site-title" href="<?= url('/admin') ?>">イベント予約 管理画面</a>
+    <a class="site-title" href="<?= url('/admin') ?>">体験予約 管理画面</a>
     <?php if ($user !== null): ?>
       <?php /* Links are hidden by role for clarity; the actual boundary is
                Authz on every screen, not this menu. */ ?>
       <nav class="admin-nav">
         <a href="<?= url('/admin') ?>">ダッシュボード</a>
         <a href="<?= url('/admin/bookings') ?>">予約一覧</a>
-        <a href="<?= url('/admin/events') ?>">イベント</a>
+        <a href="<?= url('/admin/events') ?>">体験内容</a>
         <?php if (Auth::isSuperadmin()): ?>
           <a href="<?= url('/admin/companies') ?>">会社</a>
           <a href="<?= url('/admin/mail') ?>">メール</a>

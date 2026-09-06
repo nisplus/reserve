@@ -40,7 +40,7 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
       </div>
     <?php endif; ?>
     <div class="field">
-      <label for="event">イベント</label>
+      <label for="event">体験プログラム</label>
       <select id="event" name="event" onchange="this.form.submit()">
         <option value="0">すべて</option>
         <?php foreach ($events as $event): ?>
@@ -90,7 +90,7 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
 <div class="table-scroll">
   <table class="table">
     <thead>
-      <tr><th>予約日時</th><th>予約番号</th><th>状態</th><th>イベント</th><th>開催日時</th><th>氏名</th><th>連絡先</th><th>人数</th><th></th></tr>
+      <tr><th>予約日時</th><th>予約番号</th><th>状態</th><th>体験内容</th><th>開催日時</th><th>氏名</th><th>連絡先</th><th>人数</th><th></th></tr>
     </thead>
     <tbody>
     <?php foreach ($rows as $row): ?>

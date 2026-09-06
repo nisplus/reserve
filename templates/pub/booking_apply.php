@@ -13,7 +13,7 @@ $isFull      = $seatsLeft === 0;
 $externalUrl = (string) ($session['external_url'] ?? '');
 ?>
 <p class="breadcrumb">
-  <a href="<?= url('/') ?>">イベント一覧</a> ／
+  <a href="<?= url('/') ?>">体験一覧</a> ／
   <a href="<?= url('/events/') ?><?= (int) $session['event_id'] ?>"><?= e($session['event_title']) ?></a> ／
   予約
 </p>
@@ -22,7 +22,7 @@ $externalUrl = (string) ($session['external_url'] ?? '');
 
 <div class="panel">
   <dl class="detail-list">
-    <dt>イベント</dt><dd><?= e($session['event_title']) ?></dd>
+    <dt>体験プログラム</dt><dd><?= e($session['event_title']) ?></dd>
     <dt>開催企業</dt><dd><?= e($session['company_name']) ?></dd>
     <dt>日時</dt>
     <dd><?= e(jp_datetime((string) $session['starts_at'])) ?>〜<?= e(jp_time((string) $session['ends_at'])) ?></dd>

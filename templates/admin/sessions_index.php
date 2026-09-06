@@ -9,7 +9,7 @@ use App\Domain\SessionStatus;
  */
 ?>
 <p class="breadcrumb">
-  <a href="<?= url('/admin/events') ?>">イベントの管理</a> ／ <?= e($event['company_name']) ?> ／ <?= e($event['title']) ?>
+  <a href="<?= url('/admin/events') ?>">体験プログラムの管理</a> ／ <?= e($event['company_name']) ?> ／ <?= e($event['title']) ?>
 </p>
 
 <h1>開催回：<?= e($event['title']) ?></h1>

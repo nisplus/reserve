@@ -172,7 +172,7 @@ final class BookingController
         // flag was set still exist, so a bookmarked or guessed apply URL has
         // to be refused here rather than relying on the links being gone.
         if ((int) $session['booking_required'] !== 1) {
-            throw new NotFoundException('このイベントは予約不要です。イベントページをご覧ください。');
+            throw new NotFoundException('この体験プログラムは予約不要です。体験プログラムページをご覧ください。');
         }
         return $session;
     }

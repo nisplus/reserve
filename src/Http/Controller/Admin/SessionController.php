@@ -200,7 +200,7 @@ final class SessionController
     {
         $event = (new EventRepository())->findWithCompany($id);
         if ($event === null) {
-            throw new NotFoundException('お探しのイベントは見つかりませんでした。');
+            throw new NotFoundException('お探しの体験プログラムは見つかりませんでした。');
         }
         Authz::assertCompany((int) $event['company_id']);
         return $event;

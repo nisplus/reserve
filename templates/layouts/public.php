@@ -3,7 +3,7 @@
  * @var string $content
  * @var string|null $title
  */
-$pageTitle = isset($title) && $title !== '' ? $title . ' | イベント予約' : 'イベント予約';
+$pageTitle = isset($title) && $title !== '' ? $title . ' | 体験予約' : '体験予約';
 ?>
 <!doctype html>
 <html lang="ja">
@@ -16,7 +16,7 @@ $pageTitle = isset($title) && $title !== '' ? $title . ' | イベント予約' :
 <body>
 <header class="site-header">
   <div class="wrap">
-    <a class="site-title" href="<?= url('/') ?>">イベント予約</a>
+    <a class="site-title" href="<?= url('/') ?>">体験予約</a>
   </div>
 </header>
 

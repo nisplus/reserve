@@ -128,7 +128,7 @@ final class BookingService
                     [(int) $session['event_id']]
                 ) ?? [];
                 if ((int) ($event['booking_required'] ?? 0) !== 1) {
-                    throw new ValidationException('このイベントは予約不要です。');
+                    throw new ValidationException('この体験プログラムは予約不要です。');
                 }
 
                 // The per-application cap. Checked here as well as in the
@@ -137,7 +137,7 @@ final class BookingService
                 $maxParty = (int) ($event['max_party_size'] ?? 0);
                 if ($maxParty > 0 && $partySize > $maxParty) {
                     throw new ValidationException(
-                        "このイベントは1回のご予約につき {$maxParty} 名までです。"
+                        "この体験プログラムは1回のご予約につき {$maxParty} 名までです。"
                     );
                 }
                 // tryFrom, not from: an ENUM value this build of the code does
@@ -422,7 +422,7 @@ final class BookingService
         {$headline}
 
         ── 予約内容 ──────────────
-        イベント　: {$context['event_title']}
+        体験内容　: {$context['event_title']}
         開催企業　: {$context['company_name']}
         日時　　　: {$when}
         {$venueLine}人数　　　: {$partySize} 名

@@ -9,7 +9,7 @@ use App\Core\Csrf;
  */
 ?>
 <p class="breadcrumb">
-  <a href="<?= url('/admin/events') ?>">イベントの管理</a> ／
+  <a href="<?= url('/admin/events') ?>">体験プログラムの管理</a> ／
   <a href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/sessions"><?= e($event['title']) ?></a> ／
   一括作成
 </p>

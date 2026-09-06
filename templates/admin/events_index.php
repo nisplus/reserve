@@ -8,7 +8,7 @@ use App\Core\Csrf;
  * @var int                              $companyId 0 = all
  */
 ?>
-<h1>イベントの管理</h1>
+<h1>体験プログラムの管理</h1>
 
 <div class="filter-bar" style="margin-bottom:16px">
   <?php /* A company account sees no filter: the list is already its own. */ ?>
@@ -26,16 +26,16 @@ use App\Core\Csrf;
       <noscript><button type="submit" class="btn btn--small">絞り込む</button></noscript>
     </form>
   <?php endif; ?>
-  <a class="btn" href="<?= url('/admin/events/new') ?><?= $companyId > 0 ? '?company=' . $companyId : '' ?>">イベントを登録</a>
+  <a class="btn" href="<?= url('/admin/events/new') ?><?= $companyId > 0 ? '?company=' . $companyId : '' ?>">体験プログラムを登録</a>
 </div>
 
 <?php if ($events === []): ?>
-  <p class="empty">イベントがありません。</p>
+  <p class="empty">体験プログラムがありません。</p>
 <?php else: ?>
 <div class="table-scroll">
   <table class="table">
     <thead>
-      <tr><th>会社</th><th>イベント名</th><th>会場</th><th>公開</th><th>開催回</th><th></th></tr>
+      <tr><th>会社</th><th>体験内容名</th><th>会場</th><th>公開</th><th>開催回</th><th></th></tr>
     </thead>
     <tbody>
     <?php foreach ($events as $event): ?>
@@ -67,7 +67,7 @@ use App\Core\Csrf;
           <a class="btn btn--ghost btn--small" href="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/edit">編集</a>
           <?php if ((int) $event['session_count'] === 0): ?>
             <form class="inline-form" method="post" action="<?= url('/admin/events/') ?><?= (int) $event['id'] ?>/delete"
-                  onsubmit="return confirm('このイベントを削除します。よろしいですか？この操作は取り消せません。')">
+                  onsubmit="return confirm('この体験プログラムを削除します。よろしいですか？この操作は取り消せません。')">
               <?= Csrf::field() ?>
               <button type="submit" class="btn btn--danger btn--small">削除</button>
             </form>

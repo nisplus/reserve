@@ -7,7 +7,7 @@
 $needsBooking = (int) $event['booking_required'] === 1;
 $externalUrl  = (string) ($event['external_url'] ?? '');
 ?>
-<p class="breadcrumb"><a href="<?= url('/') ?>">イベント一覧</a> ／ <?= e($event['company_name']) ?></p>
+<p class="breadcrumb"><a href="<?= url('/') ?>">体験一覧</a> ／ <?= e($event['company_name']) ?></p>
 
 <h1><?= e($event['title']) ?></h1>
 
@@ -41,7 +41,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
            "受付中の開催回はありません" would read as a temporary state rather
            than the point. The external link, when set, is the call to action. */ ?>
   <h2>ご参加について</h2>
-  <p class="lead">このイベントは<strong>予約不要</strong>です。当日、直接会場までお越しください。</p>
+  <p class="lead">この体験プログラムは<strong>予約不要</strong>です。当日、直接会場までお越しください。</p>
 
   <?php if ($externalUrl !== ''): ?>
     <p class="form-actions">
@@ -59,7 +59,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
   <h2>開催時間を選ぶ</h2>
   <p class="muted">
     残席は表示時点のものです。ご予約の確定時に改めて確認しますので、
-    ご予約確定時に空き状況が変わっている場合があります。
+    ご予約確定時に空き状況が変わって予約が既に終了している場合があります。
   </p>
 
   <?php foreach ($days as $day): ?>
@@ -102,4 +102,4 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
   <?php endforeach; ?>
 <?php endif; ?>
 
-<p><a href="<?= url('/') ?>">イベント一覧へ戻る</a></p>
+<p><a href="<?= url('/') ?>"一覧へ戻る</a></p>
