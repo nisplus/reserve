@@ -73,8 +73,9 @@ const TEMPLATE_COLUMNS = [
 ];
 
 /**
- * Event details, and the field each lands in. Used to check that a continuation
- * row does not quietly contradict the row that introduced the event.
+ * Details that belong to the event rather than to one 開催回, and the field
+ * each lands in. Any row of a group may supply them; two rows may not supply
+ * the same one differently.
  */
 const EVENT_ATTRIBUTES = [
     'エリア'   => 'area',
@@ -85,6 +86,51 @@ const EVENT_ATTRIBUTES = [
     '上限人数' => 'max_party',
     '公開'     => 'published',
 ];
+
+/**
+ * Fold the differences between two spellings of a company name that are
+ * typing accidents rather than different companies: full-width vs half-width,
+ * half-width katakana, and whitespace anywhere in the name.
+ *
+ * Only used to catch mistakes - the database is still keyed on the name as
+ * written, and nothing here rewrites what the operator typed.
+ */
+function normalise_company(string $name): string
+{
+    // asKV: full-width alphanumerics and spaces to half-width, half-width
+    // katakana to full-width, voiced marks combined.
+    $folded = mb_convert_kana($name, 'asKV');
+    $folded = preg_replace('/[\s\x{3000}]+/u', '', $folded) ?? $folded;
+    return mb_strtolower($folded);
+}
+
+/** Levenshtein distance in characters. PHP's own counts bytes, so 1 kanji reads as 3. */
+function name_distance(string $a, string $b): int
+{
+    $x = mb_str_split($a);
+    $y = mb_str_split($b);
+    $n = count($x);
+    $m = count($y);
+
+    if ($n === 0 || $m === 0) {
+        return max($n, $m);
+    }
+
+    $previous = range(0, $m);
+    for ($i = 1; $i <= $n; $i++) {
+        $current = [$i];
+        for ($j = 1; $j <= $m; $j++) {
+            $current[$j] = min(
+                $previous[$j] + 1,                                  // deletion
+                $current[$j - 1] + 1,                               // insertion
+                $previous[$j - 1] + ($x[$i - 1] === $y[$j - 1] ? 0 : 1)
+            );
+        }
+        $previous = $current;
+    }
+
+    return $previous[$m];
+}
 
 $options  = array_slice($argv, 1);
 $dryRun   = in_array('--dry-run', $options, true);
@@ -332,14 +378,16 @@ if ($rows === []) {
 }
 
 /*
- * Rows sharing 会社名 + イベント名 are one event. The first row of a group
- * carries its details and every row contributes its sessions, which is what
- * makes an irregular timetable expressible: one row per slot, each with its
- * own 終了日時 and 定員.
+ * Rows sharing 会社名 + イベント名 are one event. Every row contributes its
+ * sessions, which is what makes an irregular timetable expressible: one row
+ * per slot, each with its own 終了日時 and 定員.
  *
- * A later row that fills in a detail must agree with the first, or the file
- * says two things at once and picking either would be a guess. Blank means
- * "as above" and is the normal way to write them.
+ * 説明・会場・外部URL・予約不要・上限人数・公開・エリア belong to the event,
+ * not to a slot, so they need saying once - on whichever row the operator
+ * happened to write them, since which row is "first" is an accident of sort
+ * order and not something they should have to think about. Blank means "not
+ * stated here". Two rows stating the same detail differently is refused: the
+ * file is then saying two things and either answer would be a guess.
  */
 $events = [];
 foreach ($rows as $row) {
@@ -347,23 +395,39 @@ foreach ($rows as $row) {
 
     if (!isset($events[$key])) {
         $row['first_line'] = $row['line'];
+        // Which row supplied each detail, so a later clash can name it.
+        $row['stated_on'] = [];
+        foreach (EVENT_ATTRIBUTES as $column => $field) {
+            if ($row['raw'][$column] !== '') {
+                $row['stated_on'][$column] = $row['line'];
+            }
+        }
         $events[$key] = $row;
         continue;
     }
 
     foreach (EVENT_ATTRIBUTES as $column => $field) {
-        if ($row['raw'][$column] === '' || $row[$field] === $events[$key][$field]) {
+        if ($row['raw'][$column] === '') {
             continue;
         }
-        $errors[] = sprintf(
-            '%d 行目: 「%s／%s」の「%s」が %d 行目と食い違っています。'
-            . '2 行目以降は空欄にするか、同じ値にしてください',
-            $row['line'],
-            $row['company'],
-            $row['title'],
-            $column,
-            $events[$key]['first_line']
-        );
+
+        if (!isset($events[$key]['stated_on'][$column])) {
+            $events[$key][$field] = $row[$field];
+            $events[$key]['stated_on'][$column] = $row['line'];
+            continue;
+        }
+
+        if ($row[$field] !== $events[$key][$field]) {
+            $errors[] = sprintf(
+                '%d 行目: 「%s／%s」の「%s」が %d 行目と食い違っています。'
+                . 'イベント共通の項目なので、どちらか一方だけに書いてください',
+                $row['line'],
+                $row['company'],
+                $row['title'],
+                $column,
+                $events[$key]['stated_on'][$column]
+            );
+        }
     }
 
     $events[$key]['sessions'] = array_merge($events[$key]['sessions'], $row['sessions']);
@@ -417,6 +481,95 @@ foreach ($events as $key => $event) {
     }
 }
 
+/*
+ * Companies are matched on the name exactly as written, so a name that differs
+ * by one character quietly becomes a second company - and the only sign of it
+ * used to be the count of new companies going up by one.
+ *
+ * Three things guard that now. Spellings that differ only in width or spacing
+ * are refused outright, because nobody means those as different companies.
+ * Names within a couple of characters of an existing one are reported as a
+ * warning, because sometimes they really are different companies. And every
+ * company that will be created is listed by name, so the operator confirms the
+ * list rather than a number.
+ */
+$existing = Db::select('SELECT name, area FROM companies');
+$existingByFolded = [];
+foreach ($existing as $company) {
+    $existingByFolded[normalise_company((string) $company['name'])] = $company;
+}
+
+$warnings = [];
+$newCompanies = [];
+$areaClaims = [];
+
+foreach ($events as $event) {
+    $name = $event['company'];
+
+    // The file disagreeing with itself about one company's area.
+    if ($event['area'] !== null) {
+        if (isset($areaClaims[$name]) && $areaClaims[$name]['area'] !== $event['area']) {
+            $errors[] = sprintf(
+                '%d 行目: 会社「%s」のエリアが %d 行目と食い違っています（%s / %s）',
+                $event['first_line'],
+                $name,
+                $areaClaims[$name]['line'],
+                $areaClaims[$name]['area'],
+                $event['area']
+            );
+        }
+        $areaClaims[$name] ??= ['area' => $event['area'], 'line' => $event['first_line']];
+    }
+
+    $match = Db::selectOne('SELECT name, area FROM companies WHERE name = ?', [$name]);
+    if ($match !== null) {
+        // Silently ignoring this used to be the documented behaviour. It still
+        // is - an area chosen in the admin screen outranks a spreadsheet - but
+        // going unmentioned is how the two drift apart unnoticed.
+        if ($event['area'] !== null && $match['area'] !== null && $event['area'] !== $match['area']) {
+            $warnings[] = sprintf(
+                '%d 行目: 会社「%s」のエリアは登録済みの %s のままにします（CSV の %s は反映しません）',
+                $event['first_line'],
+                $name,
+                (string) $match['area'],
+                $event['area']
+            );
+        }
+        continue;
+    }
+
+    $folded = normalise_company($name);
+    if (isset($existingByFolded[$folded])) {
+        $errors[] = sprintf(
+            '%d 行目: 会社名「%s」は登録済みの「%s」と空白や全角半角の違いしかありません。'
+            . 'このままでは別の会社として登録されてしまいます。登録済みの表記に合わせてください',
+            $event['first_line'],
+            $name,
+            (string) $existingByFolded[$folded]['name']
+        );
+        continue;
+    }
+
+    $newCompanies[$name] ??= $event['first_line'];
+}
+
+foreach ($newCompanies as $name => $line) {
+    $folded = normalise_company($name);
+    foreach ($existingByFolded as $otherFolded => $company) {
+        $distance = name_distance($folded, $otherFolded);
+        if ($distance > 0 && $distance <= 2) {
+            $warnings[] = sprintf(
+                '%d 行目: 新しく作る会社「%s」は登録済みの「%s」と %d 文字違いです。'
+                . '別の会社として登録されます',
+                $line,
+                $name,
+                (string) $company['name'],
+                $distance
+            );
+        }
+    }
+}
+
 if ($errors !== []) {
     fwrite(STDERR, "取り込みを中止しました。以下を直してください:\n");
     foreach ($errors as $error) {
@@ -425,20 +578,29 @@ if ($errors !== []) {
     exit(1);
 }
 
-$newCompanies = [];
-foreach ($rows as $row) {
-    if ((int) Db::scalar('SELECT COUNT(*) FROM companies WHERE name = ?', [$row['company']]) === 0) {
-        $newCompanies[$row['company']] = true;
+printf(
+    "検証 OK: イベント %d 件（%d 行）/ 開催回 %d 件\n",
+    count($events),
+    count($rows),
+    array_sum(array_map(static fn (array $e): int => count($e['sessions']), $events))
+);
+
+if ($newCompanies !== []) {
+    printf("\n新しく作る会社 %d 社:\n", count($newCompanies));
+    foreach ($newCompanies as $name => $line) {
+        printf("  %d 行目  %s\n", $line, $name);
+    }
+    echo "  ※ 登録済みの会社に足すつもりの行がここにあれば、会社名の表記が違っています。\n";
+}
+
+if ($warnings !== []) {
+    echo "\n確認してください:\n";
+    foreach ($warnings as $warning) {
+        echo "  {$warning}\n";
     }
 }
 
-printf(
-    "検証 OK: イベント %d 件（%d 行）/ 開催回 %d 件 / 新規に作成する会社 %d 社\n",
-    count($events),
-    count($rows),
-    array_sum(array_map(static fn (array $e): int => count($e['sessions']), $events)),
-    count($newCompanies)
-);
+echo "\n";
 foreach ($events as $event) {
     // The times are the point of the file, so print them rather than a count:
     // a slot on the wrong day is the mistake --dry-run exists to catch, and it
