@@ -81,7 +81,9 @@ final class BookingController
         $filters = $this->filters($request);
         $rows = (new BookingRepository())->searchForAdmin($filters, self::EXPORT_MAX, 0);
 
-        $header = ['予約番号', '状態', '開催企業', 'イベント', '開催日時', '氏名', 'メールアドレス',
+        // 体験内容 rather than 体験プログラム: this is a column heading, and the
+        // CSV list header follows the same width rule as the on-screen table.
+        $header = ['予約番号', '状態', '開催企業', '体験内容', '開催日時', '氏名', 'メールアドレス',
                    '電話番号', '人数', '参加者', '開催企業へのメッセージ',
                    'キャンセル待ち順', '予約日時', 'キャンセル日時'];
         $statusLabels = ['confirmed' => '確定', 'waitlisted' => 'キャンセル待ち', 'cancelled' => 'キャンセル済み'];

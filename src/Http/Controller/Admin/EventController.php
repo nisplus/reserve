@@ -25,7 +25,7 @@ final class EventController
         $companyId = Authz::scopeCompanyId($request->queryInt('company'));
 
         return Response::html(View::render('admin/events_index', [
-            'title'     => 'イベントの管理',
+            'title'     => '体験プログラムの管理',
             'events'    => (new EventRepository())->listForAdmin($companyId),
             'options'   => $this->companyOptions(),
             'companyId' => $companyId ?? 0,
@@ -67,8 +67,8 @@ final class EventController
         );
 
         Flash::success($bookingRequired
-            ? 'イベントを登録しました。続けて開催回を登録してください。'
-            : 'イベントを登録しました（予約不要のため開催回は不要です）。');
+            ? '体験プログラムを登録しました。続けて開催回を登録してください。'
+            : '体験プログラムを登録しました（予約不要のため開催回は不要です）。');
         return Response::redirect('/admin/events?company=' . (int) $input['company_id']);
     }
 
@@ -109,10 +109,10 @@ final class EventController
         // being reachable, which is enough.
         $liveSessions = (new EventRepository())->sessionCount((int) $event['id']);
         if (!$bookingRequired && $liveSessions > 0) {
-            Flash::info("このイベントは予約不要になりました。既存の開催回 {$liveSessions} 件は公開側に表示されず、新規予約も受け付けません（データは残っています）。");
+            Flash::info("この体験プログラムは予約不要になりました。既存の開催回 {$liveSessions} 件は公開側に表示されず、新規予約も受け付けません（データは残っています）。");
         }
 
-        Flash::success('イベントを更新しました。');
+        Flash::success('体験プログラムを更新しました。');
         return Response::redirect('/admin/events?company=' . (int) $input['company_id']);
     }
 
@@ -141,7 +141,7 @@ final class EventController
     {
         $event = (new EventRepository())->find($id);
         if ($event === null) {
-            throw new NotFoundException('お探しのイベントは見つかりませんでした。');
+            throw new NotFoundException('お探しの体験プログラムは見つかりませんでした。');
         }
         Authz::assertCompany((int) $event['company_id']);
         return $event;
@@ -177,8 +177,8 @@ final class EventController
             $request->post('company_id'),
             array_map('strval', array_keys($options))
         );
-        $validator->required('title', 'イベント名', $request->post('title'))
-                  ->maxLength('title', 'イベント名', $request->post('title'), 200);
+        $validator->required('title', '体験プログラム名', $request->post('title'))
+                  ->maxLength('title', '体験プログラム名', $request->post('title'), 200);
         $validator->optional('description', $request->post('description'), 5000);
         $validator->optional('venue', $request->post('venue'), 200);
         $validator->intRange('sort_order', '表示順', $request->post('sort_order', '0'), 0, 9999);
@@ -214,7 +214,7 @@ final class EventController
     private function renderForm(?array $event, array $errors, array $old): Response
     {
         return Response::html(View::render('admin/event_form', [
-            'title'   => $event === null ? 'イベントの登録' : 'イベントの編集',
+            'title'   => $event === null ? '体験プログラムの登録' : '体験プログラムの編集',
             'event'   => $event,
             'errors'  => $errors,
             'old'     => $old,
