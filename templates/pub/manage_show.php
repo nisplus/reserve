@@ -36,6 +36,7 @@ $status = BookingStatus::from((string) $booking['status']);
     <?php if (($booking['venue'] ?? '') !== '' && $booking['venue'] !== null): ?>
       <dt>会場</dt><dd><?= e($booking['venue']) ?></dd>
     <?php endif; ?>
+    <dt>連絡先のご氏名</dt><dd><?= e($booking['contact_name'] ?? $booking['name']) ?></dd>
     <dt>メールアドレス</dt><dd><?= e($booking['email']) ?></dd>
     <dt>電話番号</dt><dd><?= e($booking['phone']) ?></dd>
     <dt>参加人数</dt><dd><?= (int) $booking['party_size'] ?> 名</dd>

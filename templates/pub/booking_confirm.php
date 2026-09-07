@@ -66,6 +66,7 @@ $travelPopup = $travelWarn !== null && !$travelBlock
     <?php if (($session['venue'] ?? '') !== '' && $session['venue'] !== null): ?>
       <dt>会場</dt><dd><?= e($session['venue']) ?></dd>
     <?php endif; ?>
+    <dt>連絡先のご氏名</dt><dd><?= e($input['contact_name']) ?></dd>
     <dt>メールアドレス</dt><dd><?= e($input['email']) ?></dd>
     <dt>電話番号</dt><dd><?= e($input['phone']) ?></dd>
     <dt>参加人数</dt><dd><?= (int) $input['party_size'] ?> 名</dd>
@@ -107,6 +108,7 @@ $travelPopup = $travelWarn !== null && !$travelBlock
   <form method="post" action="<?= url('/bookings') ?>"<?= $travelPopup ?>>
     <?= Csrf::field() ?>
     <input type="hidden" name="session_id" value="<?= (int) $session['id'] ?>">
+    <input type="hidden" name="contact_name" value="<?= e($input['contact_name']) ?>">
     <input type="hidden" name="email" value="<?= e($input['email']) ?>">
     <input type="hidden" name="phone" value="<?= e($input['phone']) ?>">
     <input type="hidden" name="name" value="<?= e($input['name']) ?>">

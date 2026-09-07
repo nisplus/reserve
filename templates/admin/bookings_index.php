@@ -138,6 +138,10 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
           <?php endif; ?>
         </td>
         <td class="muted">
+          <?php /* The contact belongs in this cell rather than 氏名: for a
+                   children's workshop the 氏名 column is the child and this
+                   is the adult to ring. */ ?>
+          <?= e($row['contact_name'] ?? $row['name']) ?><br>
           <?= e($row['email']) ?>
           <?php if (($row['phone'] ?? '') !== ''): ?><br><?= e($row['phone']) ?><?php endif; ?>
         </td>

@@ -153,7 +153,8 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 | `applicant_id` | int(10) unsigned | 不可 | — |  |
 | `email` | varchar(255) | 不可 | — | 申込時点のアドレスの写し。applicants への外部キーとは別に保持する。 |
 | `phone` | varchar(30) | 可 | NULL | 当日連絡が取れる番号。予約に 1 つ。 |
-| `name` | varchar(100) | 不可 | — |  |
+| `name` | varchar(100) | 不可 | — | **1 人目の参加者**の氏名（booking_attendees の attendee_no 1 と同じ人）。連絡先の氏名ではない。 |
+| `contact_name` | varchar(100) | 不可 | — | email と phone の持ち主、つまり連絡を取る相手の氏名。参加者とは別人のことがある（子どもの体験なら保護者）。**メールの宛名はこの列**。 |
 | `message` | text | 可 | NULL | 開催企業へのメッセージ（任意）。 |
 | `party_size` | tinyint(3) unsigned | 不可 | 1 | 人数。1〜20（chk_bookings_party）。イベント側の max_party_size がさらに上限を絞る。**座席を消費するのはこの列だけ。** |
 | `guardian_count` | tinyint(3) unsigned | 不可 | 0 | 体験しない付き添い（保護者等）の人数。**定員を消費しない**ので、来場人数は party_size + guardian_count。events.party_includes_guardians = 1 のイベントでは常に 0（付き添いは party_size に入っている）。上限 20 は BookingService::GUARDIAN_MAX が持つ（CHECK 制約は MariaDB 11.8 に拒否されるため置いていない）。 |

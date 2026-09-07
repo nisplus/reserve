@@ -109,6 +109,11 @@ final class BookingService
      *        order (index 0 is the applicant). Optional, same reasoning.
      * @param string|null $phone A number to reach the party on the day.
      * @param string|null $message Free text for the host company; optional.
+     * @param string|null $contactName Who to contact - the owner of $email and
+     *        $phone, which is not always a participant: for a children's
+     *        workshop it is the parent. Null falls back to $name, which is
+     *        right for an adult booking for themselves and keeps CLI callers
+     *        from having to invent a second person.
      * @param int $guardianCount People coming along who are not taking part
      *        (a parent watching, typically). Recorded but NOT charged against
      *        the capacity, and only meaningful for an event whose 参加人数
@@ -126,6 +131,7 @@ final class BookingService
         ?string $phone = null,
         ?string $message = null,
         int $guardianCount = 0,
+        ?string $contactName = null,
     ): array {
         // Step 0, outside the transaction: make sure the applicant row exists.
         // Doing this first keeps the locked section from having to create it,
@@ -135,7 +141,7 @@ final class BookingService
         try {
             return Db::transaction(function () use (
                 $sessionId, $email, $name, $partySize, $allowWaitlist, $applicantId,
-                $companionNames, $ages, $phone, $message, $guardianCount
+                $companionNames, $ages, $phone, $message, $guardianCount, $contactName
             ): array {
                 // 1) Applicant gate. From here to commit, this person's
                 //    bookings cannot change under us.
@@ -306,6 +312,7 @@ final class BookingService
                     phone:           $phone,
                     message:         $message,
                     guardianCount:   $guardianCount,
+                    contactName:     $contactName,
                 );
 
                 // 6) Who is coming. attendee_no 1 is the applicant; the rest
@@ -324,7 +331,10 @@ final class BookingService
                 //    with it. The raw token exists only inside this body.
                 $this->enqueueConfirmationMail(
                     $email,
-                    $name,
+                    // Addressed to the contact, not the participant: it is
+                    // their address, and a confirmation opening 太郎 様 when
+                    // 太郎 is eight years old is not who is reading it.
+                    $contactName ?? $name,
                     $status,
                     $waitlistSeq,
                     $referenceCode,
@@ -471,10 +481,19 @@ final class BookingService
             ? "会場　　　: {$context['venue']}\n"
             : '';
 
-        // Only worth listing when there is more than the applicant. The list
-        // may be shorter than party_size when names were not collected.
+        /*
+         * Listed when it says something the addressee line does not. That used
+         * to mean "more than one person", on the assumption that a party of one
+         * was the person being written to - which stopped being true once the
+         * contact could be someone else. A parent booking for one child would
+         * otherwise get a mail naming only the parent.
+         *
+         * The list may be shorter than party_size when names were not collected.
+         */
         $attendeeLines = '';
-        if (count($attendeeNames) > 1) {
+        if (count($attendeeNames) > 1
+            || (count($attendeeNames) === 1 && $attendeeNames[0] !== $name)
+        ) {
             $attendeeLines = "ご参加者　:\n";
             foreach ($attendeeNames as $index => $attendee) {
                 $attendeeLines .= sprintf("            %d. %s\n", $index + 1, $attendee);

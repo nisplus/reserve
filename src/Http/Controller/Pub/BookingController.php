@@ -127,11 +127,13 @@ final class BookingController
                 phone: (string) $input['phone'],
                 message: $input['message'] !== null ? (string) $input['message'] : null,
                 guardianCount: (int) $input['guardian_count'],
+                contactName: (string) $input['contact_name'],
             );
         } catch (DuplicateBookingException | SessionFullException | TravelBufferException | ValidationException $e) {
             // All of these are user-correctable outcomes, not errors: show the
             // form again with the reason on top and the input preserved.
             return $this->renderForm($session, ['_top' => $e->getMessage()], [
+                'contact_name' => (string) $input['contact_name'],
                 'email'      => (string) $input['email'],
                 'phone'      => (string) $input['phone'],
                 'name'       => (string) $input['name'],
@@ -206,6 +208,12 @@ final class BookingController
         $maxParty = min((int) $session['max_party_size'] ?: self::PARTY_MAX, self::PARTY_MAX);
 
         $validator = new Validator();
+        // The contact block: whose address and number these are. Required like
+        // the other two, because a booking nobody can be reached about is no
+        // use to the host - and for a children's workshop this is the only
+        // adult name on the record.
+        $validator->required('contact_name', '連絡先のご氏名', $request->post('contact_name'))
+                  ->maxLength('contact_name', '連絡先のご氏名', $request->post('contact_name'), 100);
         $validator->email('email', 'メールアドレス', $request->post('email'));
         $validator->phone('phone', '当日連絡が取れる電話番号', $request->post('phone'));
         $validator->required('name', 'お名前', $request->post('name'))
@@ -286,6 +294,7 @@ final class BookingController
         }
 
         return $this->renderForm($session, $validator->errors(), [
+            'contact_name' => $request->post('contact_name'),
             'email'      => $request->post('email'),
             'phone'      => $request->post('phone'),
             'name'       => $request->post('name'),

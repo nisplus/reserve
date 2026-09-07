@@ -86,7 +86,8 @@ final class BookingController
         // 付き添い人数 and 来場人数 are separate columns rather than one
         // combined figure: the seat count and the headcount are both wanted,
         // and a spreadsheet should not have to parse them back apart.
-        $header = ['予約番号', '状態', '開催企業', '体験内容', '開催日時', '氏名', 'メールアドレス',
+        $header = ['予約番号', '状態', '開催企業', '体験内容', '開催日時', '氏名',
+                   '連絡先氏名', 'メールアドレス',
                    '電話番号', '人数', '付き添い人数', '来場人数', '参加者', '開催企業へのメッセージ',
                    'キャンセル待ち順', '予約日時', 'キャンセル日時'];
         $statusLabels = ['confirmed' => '確定', 'waitlisted' => 'キャンセル待ち', 'cancelled' => 'キャンセル済み'];
@@ -105,6 +106,7 @@ final class BookingController
                 $row['event_title'],
                 jp_datetime((string) $row['starts_at']) . '〜' . jp_time((string) $row['ends_at']),
                 $row['name'],
+                $row['contact_name'],
                 $row['email'],
                 $row['phone'],
                 $row['party_size'],

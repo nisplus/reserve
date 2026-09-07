@@ -89,6 +89,28 @@ $guardiansInParty = (int) ($session['party_includes_guardians'] ?? 0) === 1;
 <form method="post" action="<?= url('/sessions/') ?><?= (int) $session['id'] ?>/confirm" novalidate>
   <?= Csrf::field() ?>
 
+  <h2>ご連絡先</h2>
+
+  <?php /* First, and its own heading: this is the person the host contacts,
+           who is not always one of the participants. Asking for it here
+           rather than in the message box means it reaches the addressee of
+           the confirmation mail and the 予約一覧, instead of sitting in free
+           text where nobody looks for it. */ ?>
+  <div class="field">
+    <label for="contact_name">ご氏名</label>
+    <input type="text" id="contact_name" name="contact_name" required maxlength="100"
+           value="<?= e($old['contact_name'] ?? '') ?>"
+           <?= isset($errors['contact_name']) ? 'aria-invalid="true"' : '' ?>>
+    <p class="hint">
+      ご連絡させていただく方のお名前です。
+      <?php if (!$guardiansInParty): ?>
+        お子様がご参加の場合は、<strong>保護者様のお名前</strong>をご入力ください。
+      <?php endif; ?>
+      ご参加者と同じ方の場合も、ご記入ください。
+    </p>
+    <?php if (isset($errors['contact_name'])): ?><p class="error"><?= e($errors['contact_name']) ?></p><?php endif; ?>
+  </div>
+
   <div class="field">
     <label for="email">メールアドレス</label>
     <input type="email" id="email" name="email" required maxlength="255"
@@ -108,6 +130,8 @@ $guardiansInParty = (int) ($session['party_includes_guardians'] ?? 0) === 1;
     <?php if (isset($errors['phone'])): ?><p class="error"><?= e($errors['phone']) ?></p><?php endif; ?>
   </div>
 
+  <h2>ご参加人数</h2>
+
   <div class="field">
     <label for="party_size">参加人数</label>
     <input type="number" id="party_size" name="party_size" required min="1" max="<?= $maxParty ?>"
@@ -117,7 +141,9 @@ $guardiansInParty = (int) ($session['party_includes_guardians'] ?? 0) === 1;
       <?php if ($guardiansInParty): ?>
         付き添いの保護者様も含めた、ご来場になる全員の人数をご入力ください。
       <?php else: ?>
-        保護者等、体験されない付き添いの方は含めません。連絡先となる方の氏名をメッセージ欄にご記入下さい。
+        <?php /* The instruction to put the contact's name in the message box
+                 is gone: there is a field for it above now. */ ?>
+        保護者等、体験されない付き添いの方は含めません。
       <?php endif; ?>
       <?php if ($maxParty < 20): ?>1回のご予約につき <?= $maxParty ?> 名までです。<?php endif; ?>
     </p>
@@ -144,7 +170,7 @@ $guardiansInParty = (int) ($session['party_includes_guardians'] ?? 0) === 1;
   <h2>ご参加者</h2>
 
   <div class="field">
-    <label for="name">1人目のお名前（ご予約者）</label>
+    <label for="name">1人目のお名前</label>
     <input type="text" id="name" name="name" required maxlength="100"
            value="<?= e($old['name'] ?? '') ?>"
            <?= isset($errors['name']) ? 'aria-invalid="true"' : '' ?>>
@@ -225,8 +251,10 @@ $guardiansInParty = (int) ($session['party_includes_guardians'] ?? 0) === 1;
 
   <div class="field">
     <label for="message">メッセージ（任意）</label>
+    <?php /* The contact's name used to be requested here for want of a field.
+             It has one now, so this is back to being what it says it is. */ ?>
     <textarea id="message" name="message" maxlength="1000"
-              placeholder="ご参加者と連絡先となる方（保護者等）が別になる場合は連絡先の御氏名をご記入下さい、他にもご質問、配慮が必要なこと、当日の予定など"><?= e($old['message'] ?? '') ?></textarea>
+              placeholder="ご質問、配慮が必要なこと、当日の予定など"><?= e($old['message'] ?? '') ?></textarea>
     <p class="hint">開催企業に伝えたいことがあればご記入ください。1000文字以内・省略できます。</p>
     <?php if (isset($errors['message'])): ?><p class="error"><?= e($errors['message']) ?></p><?php endif; ?>
   </div>

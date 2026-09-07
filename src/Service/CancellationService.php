@@ -215,8 +215,12 @@ final class CancellationService
                 : 'ご予約をキャンセルしました。';
         }
 
+        // The contact, not the participant - it is their address the mail is
+        // going to. ?? for a row read before migration 008 backfilled it.
+        $addressee = (string) ($found['contact_name'] ?? $found['name']);
+
         $body = <<<TEXT
-        {$found['name']} 様
+        {$addressee} 様
 
         {$line}
 
@@ -234,7 +238,7 @@ final class CancellationService
 
         $this->mailQueue->enqueue(
             (string) $found['email'],
-            (string) $found['name'],
+            $addressee,
             "【はいてくヒルズ予約】キャンセルを受け付けました：{$found['event_title']}",
             $body,
             (int) $found['id']

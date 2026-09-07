@@ -244,8 +244,12 @@ final class WaitlistService
         $when = jp_datetime((string) $found['starts_at']) . '〜' . jp_time((string) $found['ends_at']);
         $manageNote = '予約内容の確認・キャンセルは、予約時にお送りしたメールに記載のURLから行えます。';
 
+        // The contact, not the participant - it is their address the mail is
+        // going to. ?? for a row read before migration 008 backfilled it.
+        $addressee = (string) ($found['contact_name'] ?? $found['name']);
+
         $body = <<<TEXT
-        {$found['name']} 様
+        {$addressee} 様
 
         キャンセル待ちでご予約いただいていた以下の回に空きが出たため、
         ご参加が確定しました。
@@ -264,7 +268,7 @@ final class WaitlistService
 
         $this->mailQueue->enqueue(
             (string) $found['email'],
-            (string) $found['name'],
+            $addressee,
             "【はいてくヒルズ予約】繰り上げのご案内：ご参加が確定しました（{$found['event_title']}）",
             $body,
             (int) $found['id']
