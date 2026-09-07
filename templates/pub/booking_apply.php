@@ -9,7 +9,10 @@ use App\Core\Csrf;
  * @var int                   $maxParty Per-application cap for this event.
  */
 $seatsLeft   = (int) $session['seats_left'];
-$isFull      = $seatsLeft === 0;
+$waiting     = (int) ($session['waitlist_count'] ?? 0);
+// Anyone waiting owns the free seats, so this application joins the queue
+// whatever the seat count says (BookingService::wouldWaitlist).
+$isFull      = $waiting > 0 || $seatsLeft === 0;
 $externalUrl = (string) ($session['external_url'] ?? '');
 // Whether 参加人数 already counts the people coming along. Where it does not,
 // they are asked for separately and do not take a seat.
@@ -46,7 +49,10 @@ $guardiansInParty = (int) ($session['party_includes_guardians'] ?? 0) === 1;
     <?php endif; ?>
     <dt>空き状況</dt>
     <dd>
-      <?php if ($isFull): ?>
+      <?php if ($waiting > 0): ?>
+        <span class="badge badge--warn">キャンセル待ち受付中</span>
+        <span class="muted">現在 <?= $waiting ?> 件</span>
+      <?php elseif ($seatsLeft === 0): ?>
         <span class="badge badge--bad">満席</span>
         <span class="muted">キャンセル待ちでの受付になります</span>
       <?php else: ?>
@@ -67,10 +73,18 @@ $guardiansInParty = (int) ($session['party_includes_guardians'] ?? 0) === 1;
   </div>
 <?php endif; ?>
 
-<p class="muted">
-  残席は表示時点のものです。ご予約の確定時に改めて確認するため、
-  確定の時点で満席となった場合はキャンセル待ちでの受付になります。
-</p>
+<?php if ($waiting > 0): ?>
+  <p class="muted">
+    この開催回はキャンセル待ちの受付中です。キャンセルで空いたお席は、
+    <strong>お待ちの方から順にご案内</strong>しますので、いま空きが出ていても
+    キャンセル待ちとしての受付になります。
+  </p>
+<?php else: ?>
+  <p class="muted">
+    残席は表示時点のものです。ご予約の確定時に改めて確認するため、
+    確定の時点で満席となった場合はキャンセル待ちでの受付になります。
+  </p>
+<?php endif; ?>
 
 <form method="post" action="<?= url('/sessions/') ?><?= (int) $session['id'] ?>/confirm" novalidate>
   <?= Csrf::field() ?>

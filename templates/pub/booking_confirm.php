@@ -27,8 +27,16 @@ $travelPopup = $travelWarn !== null && !$travelBlock
 <?php if ($willWait): ?>
   <div class="error-summary" role="alert">
     <p>
-      この開催回は満席のため、<strong>キャンセル待ち</strong>としての受付になります。
-      お席をご用意できるようになった場合に、ご連絡のうえ繰り上げとなります。
+      <?php if ((int) ($session['waitlist_count'] ?? 0) > 0): ?>
+        <?php /* Seats may well be free here. Saying 満席 would contradict the
+                 slot list, so this explains the real reason instead. */ ?>
+        この開催回にはすでにキャンセル待ちの方がいらっしゃるため、
+        <strong>キャンセル待ち</strong>としての受付になります。
+        キャンセルで空いたお席は、お待ちの方から順にご案内します。
+      <?php else: ?>
+        この開催回は満席のため、<strong>キャンセル待ち</strong>としての受付になります。
+        お席をご用意できるようになった場合に、ご連絡のうえ繰り上げとなります。
+      <?php endif; ?>
     </p>
   </div>
 <?php endif; ?>

@@ -52,6 +52,30 @@ final class BookingService
      */
     public const GUARDIAN_MAX = 20;
 
+    /**
+     * Would this application have to wait rather than being confirmed?
+     *
+     * Two reasons, and the second is the less obvious one: a seat freed by a
+     * cancellation belongs to the queue, not to whoever happens to apply next.
+     * Without that rule the seat goes back on sale the moment it is released,
+     * and someone applying afterwards is confirmed ahead of people who have
+     * been waiting - which is the opposite of what a waitlist is for. So while
+     * anyone is waiting on a session, further applications join the queue
+     * behind them however many seats are free.
+     *
+     * The cost is that a gap nobody in the queue can use (one seat free, only
+     * a party of three waiting) stays empty until the office acts on it. That
+     * is deliberate: it is visible on the dashboard, and the alternative
+     * trades away the guarantee for the people already in line.
+     *
+     * Static and shared so the screens cannot answer this differently from the
+     * transaction that decides it.
+     */
+    public static function wouldWaitlist(int $seatsLeft, int $partySize, int $waitingCount): bool
+    {
+        return $waitingCount > 0 || $partySize > $seatsLeft;
+    }
+
     public function __construct(
         private readonly ApplicantRepository $applicants = new ApplicantRepository(),
         private readonly BookingRepository $bookings = new BookingRepository(),
@@ -228,7 +252,17 @@ final class BookingService
                 //    the session row is locked, so the counters cannot move.
                 $seatsLeft = (int) $session['capacity'] - (int) $session['confirmed_seats'];
 
-                if ($partySize <= $seatsLeft) {
+                // Whether anyone is already in the queue. Counted under the
+                // session lock, which is the same lock every path that adds to
+                // or removes from the queue must hold - so this cannot go stale
+                // between here and the insert below.
+                $waitingCount = (int) Db::scalar(
+                    "SELECT COUNT(*) FROM bookings
+                     WHERE session_id = ? AND status = 'waitlisted'",
+                    [$sessionId]
+                );
+
+                if (!self::wouldWaitlist($seatsLeft, $partySize, $waitingCount)) {
                     $status = BookingStatus::Confirmed;
                     $waitlistSeq = null;
                     Db::execute(
@@ -237,7 +271,13 @@ final class BookingService
                     );
                 } else {
                     if (!$allowWaitlist) {
-                        throw new SessionFullException(max($seatsLeft, 0));
+                        // 0, not the seats that happen to be free: to a new
+                        // application none of them are available while the
+                        // queue holds them, and reporting 残り 2 名 on a
+                        // refusal would be the same lie the fix is about.
+                        throw new SessionFullException(
+                            $waitingCount > 0 ? 0 : max($seatsLeft, 0)
+                        );
                     }
                     $status = BookingStatus::Waitlisted;
                     $waitlistSeq = (int) $session['waitlist_counter'] + 1;

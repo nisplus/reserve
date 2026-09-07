@@ -73,7 +73,15 @@ final class BookingController
             'title'       => '予約内容の確認',
             'session'     => $session,
             'input'       => $input,
-            'willWait'    => (int) $session['seats_left'] < (int) $input['party_size'],
+            // Same helper the booking transaction uses, so this screen cannot
+            // promise a confirmation the transaction will turn into a waitlist
+            // entry - and in particular cannot show 残り 2 名 for seats the
+            // queue is holding.
+            'willWait'    => BookingService::wouldWaitlist(
+                (int) $session['seats_left'],
+                (int) $input['party_size'],
+                (int) $session['waitlist_count'],
+            ),
             // Travel-time proximity to a booking this address already holds.
             // Advisory here (it drives the warning panel and the popup); the
             // enforcing check runs inside the booking transaction.

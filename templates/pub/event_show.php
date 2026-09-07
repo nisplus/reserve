@@ -85,32 +85,41 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
       <?php foreach ($day['sessions'] as $session): ?>
         <?php
           $seatsLeft = (int) $session['seats_left'];
-          $isFull    = $needsBooking && $seatsLeft === 0;
           $waiting   = (int) $session['waitlist_count'];
+          /*
+           * While anyone is waiting, the free seats are theirs, so this slot
+           * cannot be booked directly however many are left. Saying 残り 2 名
+           * next to a button that only joins a queue is the misreport that
+           * made a cancelled seat look available to whoever came next.
+           */
+          $queued   = $waiting > 0;
+          $noSeats  = $seatsLeft === 0;
+          $mustWait = $needsBooking && ($queued || $noSeats);
         ?>
-        <li class="slot <?= $isFull ? 'slot--full' : '' ?>">
+        <li class="slot <?= $mustWait ? 'slot--full' : '' ?>">
           <span class="slot-time">
             <?= e(jp_time((string) $session['starts_at'])) ?>〜<?= e(jp_time((string) $session['ends_at'])) ?>
           </span>
 
           <?php if ($needsBooking): ?>
             <span class="slot-seats">
-              <?php if ($isFull): ?>
+              <?php if ($queued): ?>
+                <span class="badge badge--warn">キャンセル待ち受付中</span>
+                <span class="muted">現在 <?= $waiting ?> 件</span>
+              <?php elseif ($noSeats): ?>
                 <span class="badge badge--bad">満席</span>
-                <?php if ($waiting > 0): ?>
-                  <span class="muted">キャンセル待ち <?= $waiting ?> 件</span>
-                <?php endif; ?>
               <?php elseif ($seatsLeft <= 3): ?>
                 <span class="badge badge--warn">残り <?= $seatsLeft ?> 名</span>
+                <span class="muted">／ 定員 <?= (int) $session['capacity'] ?> 名</span>
               <?php else: ?>
                 <span class="badge badge--ok">残り <?= $seatsLeft ?> 名</span>
+                <span class="muted">／ 定員 <?= (int) $session['capacity'] ?> 名</span>
               <?php endif; ?>
-              <span class="muted">／ 定員 <?= (int) $session['capacity'] ?> 名</span>
             </span>
 
-            <a class="btn btn--small <?= $isFull ? 'btn--ghost' : '' ?>"
+            <a class="btn btn--small <?= $mustWait ? 'btn--ghost' : '' ?>"
                href="<?= url('/sessions/') ?><?= (int) $session['id'] ?>/apply">
-              <?= $isFull ? 'キャンセル待ちで予約する' : '予約する' ?>
+              <?= $mustWait ? 'キャンセル待ちで予約する' : '予約する' ?>
             </a>
           <?php endif; ?>
         </li>

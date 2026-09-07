@@ -34,7 +34,11 @@
 
 <?php if ($promotable !== []): ?>
   <h2>繰り上げ候補のある開催回 <span class="badge badge--warn"><?= count($promotable) ?></span></h2>
-  <p class="muted">空席があり、キャンセル待ちの方が居る開催回です。「候補を見る」から個別に繰り上げできます。</p>
+  <p class="muted">
+    空席があり、キャンセル待ちの方が居る開催回です。「候補を見る」から個別に繰り上げできます。
+    <strong>この空席は新規予約には出していません</strong>（お待ちの方が優先され、あとから
+    予約された方もキャンセル待ちに入ります）。繰り上げるまで空いたままになります。
+  </p>
   <div class="table-scroll">
     <table class="table">
       <thead>

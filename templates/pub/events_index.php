@@ -93,7 +93,10 @@ use App\Domain\Area;
     <?php foreach ($company['events'] as $event): ?>
       <?php
         $sessionCount = (int) $event['session_count'];
+        // Seats a new applicant could take now: sessions with a queue
+        // contribute none, because their free seats are owed to it.
         $seatsLeft    = (int) $event['seats_left'];
+        $waitingCount = (int) ($event['waiting_count'] ?? 0);
         // 予約不要 events may still keep a timetable, so the card shows their
         // times like any other. What it does not show is 残席 - there is
         // nothing to reserve, so a seat count would be a number about nothing.
@@ -123,6 +126,11 @@ use App\Domain\Area;
             <span class="badge badge--muted">予約不要</span>
           <?php elseif ($sessionCount === 0): ?>
             <span class="badge badge--muted">受付前</span>
+          <?php elseif ($seatsLeft === 0 && $waitingCount > 0): ?>
+            <?php /* Seats may be free, but the queue holds them, so 全回満席
+                     would be wrong and 空き N 名分 would be a promise the
+                     booking screen cannot keep. */ ?>
+            <span class="badge badge--warn">キャンセル待ち受付中</span>
           <?php elseif ($seatsLeft === 0): ?>
             <span class="badge badge--bad">全回満席</span>
           <?php else: ?>

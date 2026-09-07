@@ -274,6 +274,8 @@ final class CancellationService
         キャンセル待ち　: {$waiting} 件
 
         繰り上げは管理画面から行えます（自動繰り上げは無効です）。
+        この席は新規予約には出しません。キャンセル待ちの方が優先され、
+        あとから予約された方もキャンセル待ちに入ります。
         TEXT;
 
         $this->mailQueue->enqueue(

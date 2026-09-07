@@ -75,6 +75,11 @@ final class EventSessionRepository
                     e.id AS event_id, e.title AS event_title, e.venue, e.description,
                     e.booking_required, e.max_party_size, e.external_url,
                     e.party_includes_guardians,
+                    -- Live count, not waitlist_counter: the counter only ever
+                    -- rises, and what the booking screens need to know is
+                    -- whether anyone is waiting NOW - a freed seat is theirs.
+                    (SELECT COUNT(*) FROM bookings b
+                      WHERE b.session_id = s.id AND b.status = 'waitlisted') AS waitlist_count,
                     c.id AS company_id, c.name AS company_name
              FROM event_sessions s
              JOIN events e    ON e.id = s.event_id

@@ -40,8 +40,23 @@ final class EventRepository
                     c.name_kana AS company_kana,
                     c.area AS company_area,
                     COUNT(s.id)                                   AS session_count,
-                    COALESCE(SUM(GREATEST(CAST(s.capacity AS SIGNED)
-                                        - CAST(s.confirmed_seats AS SIGNED), 0)), 0) AS seats_left,
+                    -- Seats a new applicant could actually take. A session with
+                    -- anyone waiting contributes none of its free seats: they
+                    -- belong to the queue (BookingService::wouldWaitlist), and
+                    -- a card reading 空き 2 名分 over a slot that can only be
+                    -- waitlisted is the same misreport in the summary.
+                    COALESCE(SUM(
+                        CASE WHEN EXISTS (SELECT 1 FROM bookings b
+                                           WHERE b.session_id = s.id AND b.status = 'waitlisted')
+                             THEN 0
+                             ELSE GREATEST(CAST(s.capacity AS SIGNED)
+                                         - CAST(s.confirmed_seats AS SIGNED), 0)
+                        END), 0)                                  AS seats_left,
+                    -- So the card can say キャンセル待ち受付中 rather than 満席
+                    -- for a session held open by its queue.
+                    COALESCE(SUM((SELECT COUNT(*) FROM bookings b
+                                   WHERE b.session_id = s.id AND b.status = 'waitlisted')), 0)
+                                                                  AS waiting_count,
                     MIN(s.starts_at)                              AS first_starts_at,
                     MAX(s.ends_at)                                AS last_ends_at
              FROM events e
