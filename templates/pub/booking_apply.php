@@ -36,7 +36,7 @@ $externalUrl = (string) ($session['external_url'] ?? '');
       <dt>詳細</dt>
       <dd>
         <a href="<?= e($externalUrl) ?>" target="_blank" rel="noopener noreferrer">
-          開催企業のサイトで見る
+          開催企業の紹介ページで見る
         </a>
         <span class="muted">（新しいタブで開きます）</span>
       </dd>
@@ -97,7 +97,7 @@ $externalUrl = (string) ($session['external_url'] ?? '');
            value="<?= e($old['party_size'] ?? '1') ?>"
            <?= isset($errors['party_size']) ? 'aria-invalid="true"' : '' ?>>
     <p class="hint">
-      ご本人を含めた人数を入力してください。
+      保護者等、体験されない付き添いの方は含めません。連絡先となる方の氏名をメッセージ欄にご記入下さい。
       <?php if ($maxParty < 20): ?>1回のご予約につき <?= $maxParty ?> 名までです。<?php endif; ?>
     </p>
     <?php if (isset($errors['party_size'])): ?><p class="error"><?= e($errors['party_size']) ?></p><?php endif; ?>
@@ -188,7 +188,7 @@ $externalUrl = (string) ($session['external_url'] ?? '');
   <div class="field">
     <label for="message">メッセージ（任意）</label>
     <textarea id="message" name="message" maxlength="1000"
-              placeholder="ご質問、配慮が必要なこと、当日の予定など"><?= e($old['message'] ?? '') ?></textarea>
+              placeholder="ご参加者と連絡先となる方（保護者等）が別になる場合は連絡先の御氏名をご記入下さい、他にもご質問、配慮が必要なこと、当日の予定など"><?= e($old['message'] ?? '') ?></textarea>
     <p class="hint">開催企業に伝えたいことがあればご記入ください。1000文字以内・省略できます。</p>
     <?php if (isset($errors['message'])): ?><p class="error"><?= e($errors['message']) ?></p><?php endif; ?>
   </div>
