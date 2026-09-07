@@ -18,6 +18,11 @@ $published = $old !== []
 $noBooking = $old !== []
     ? ($old['no_booking'] ?? '') === '1'
     : ($event !== null && (int) $event['booking_required'] !== 1);
+// Unchecked by default, which is the behaviour the public form already
+// describes: 参加人数 counts the people taking part, not their escorts.
+$guardiansInParty = $old !== []
+    ? ($old['guardians_in_party'] ?? '') === '1'
+    : ($event !== null && (int) $event['party_includes_guardians'] === 1);
 ?>
 <p class="breadcrumb"><a href="<?= url('/admin/events') ?>">体験プログラムの管理</a> ／ <?= $event === null ? '登録' : '編集' ?></p>
 
@@ -88,6 +93,20 @@ $noBooking = $old !== []
         2名以上の予約では、予約フォームで人数分のお名前を入力していただきます。
       </p>
       <?php if (isset($errors['max_party_size'])): ?><p class="error"><?= e($errors['max_party_size']) ?></p><?php endif; ?>
+    </div>
+
+    <div class="field">
+      <label>
+        <input type="checkbox" name="guardians_in_party" value="1" <?= $guardiansInParty ? 'checked' : '' ?>>
+        <strong>付き添いの保護者も参加人数に含める</strong>
+      </label>
+      <p class="hint">
+        親子で一緒に体験するなど、<strong>来場する全員が参加者</strong>となるイベントで
+        チェックしてください。定員は来場人数と同じ意味になります。<br>
+        チェックしない場合、参加人数は<strong>体験する方だけ</strong>を数え、予約画面に
+        「付き添いの人数」欄が出ます。付き添いの方は<strong>定員を消費しません</strong>ので、
+        会場の収容は「参加人数＋付き添い」でご確認ください（予約一覧と CSV に出しています）。
+      </p>
     </div>
 
     <div class="field">

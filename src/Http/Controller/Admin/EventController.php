@@ -64,6 +64,7 @@ final class EventController
             $bookingRequired,
             $input['external_url'] !== null ? (string) $input['external_url'] : null,
             (int) $input['max_party_size'],
+            $request->has('guardians_in_party'),
         );
 
         Flash::success($bookingRequired
@@ -102,6 +103,7 @@ final class EventController
             $bookingRequired,
             $input['external_url'] !== null ? (string) $input['external_url'] : null,
             (int) $input['max_party_size'],
+            $request->has('guardians_in_party'),
         );
 
         // The flag decides whether the slots are a timetable or something to
@@ -212,6 +214,7 @@ final class EventController
             'sort_order'   => $request->post('sort_order'),
             'is_published' => $request->has('is_published') ? '1' : '',
             'no_booking'   => $request->has('no_booking') ? '1' : '',
+            'guardians_in_party' => $request->has('guardians_in_party') ? '1' : '',
             'external_url' => $request->post('external_url'),
             'max_party_size' => $request->post('max_party_size'),
         ]);

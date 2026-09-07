@@ -28,7 +28,13 @@ final class EventSessionRepository
         return Db::select(
             'SELECT ' . self::SELECT_LIST . ",
                     (SELECT COUNT(*) FROM bookings b
-                      WHERE b.session_id = s.id AND b.status = 'waitlisted') AS waitlist_count
+                      WHERE b.session_id = s.id AND b.status = 'waitlisted') AS waitlist_count,
+                    -- Escorts do not consume capacity, so confirmed_seats does
+                    -- not answer 'how many people will be in the room'. Summed
+                    -- rather than denormalised: nothing decides anything on it,
+                    -- it is only ever displayed, so it needs no lock.
+                    (SELECT COALESCE(SUM(b.guardian_count), 0) FROM bookings b
+                      WHERE b.session_id = s.id AND b.status = 'confirmed') AS confirmed_guardians
              FROM event_sessions s
              WHERE s.event_id = ? {$where}
              ORDER BY s.starts_at, s.id",
@@ -68,6 +74,7 @@ final class EventSessionRepository
             'SELECT ' . self::SELECT_LIST . ",
                     e.id AS event_id, e.title AS event_title, e.venue, e.description,
                     e.booking_required, e.max_party_size, e.external_url,
+                    e.party_includes_guardians,
                     c.id AS company_id, c.name AS company_name
              FROM event_sessions s
              JOIN events e    ON e.id = s.event_id

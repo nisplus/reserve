@@ -61,6 +61,13 @@ $travelPopup = $travelWarn !== null && !$travelBlock
     <dt>メールアドレス</dt><dd><?= e($input['email']) ?></dd>
     <dt>電話番号</dt><dd><?= e($input['phone']) ?></dd>
     <dt>参加人数</dt><dd><?= (int) $input['party_size'] ?> 名</dd>
+    <?php if ((int) ($input['guardian_count'] ?? 0) > 0): ?>
+      <dt>付き添い</dt>
+      <dd>
+        <?= (int) $input['guardian_count'] ?> 名（体験されない方）
+        <span class="muted">／ ご来場 <?= (int) $input['party_size'] + (int) $input['guardian_count'] ?> 名</span>
+      </dd>
+    <?php endif; ?>
     <dt>ご参加者</dt>
     <dd>
       <ol style="margin:0;padding-left:1.4em">
@@ -97,6 +104,7 @@ $travelPopup = $travelWarn !== null && !$travelBlock
     <input type="hidden" name="name" value="<?= e($input['name']) ?>">
     <input type="hidden" name="message" value="<?= e((string) ($input['message'] ?? '')) ?>">
     <input type="hidden" name="party_size" value="<?= (int) $input['party_size'] ?>">
+    <input type="hidden" name="guardian_count" value="<?= (int) ($input['guardian_count'] ?? 0) ?>">
     <?php /* Carried forward and re-validated by store(); the confirm screen
              is not trusted any more than the form was. */ ?>
     <input type="hidden" name="age_1" value="<?= e((string) ($input['ages'][0] ?? '')) ?>">

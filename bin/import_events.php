@@ -67,12 +67,12 @@ const COLUMNS = [
  * the earlier format still loads - the operator who has one already should not
  * have to add an empty column to it.
  */
-const OPTIONAL_COLUMNS = ['終了日時'];
+const OPTIONAL_COLUMNS = ['終了日時', '保護者を含める'];
 
 /** Column order for --template, with 終了日時 beside the start it pairs with. */
 const TEMPLATE_COLUMNS = [
     '会社名', 'エリア', 'イベント名', '説明', '会場', '外部URL',
-    '予約不要', '上限人数', '公開',
+    '予約不要', '上限人数', '保護者を含める', '公開',
     '開始日時', '終了日時', '所要分', '間隔分', '回数', '定員',
 ];
 
@@ -82,13 +82,14 @@ const TEMPLATE_COLUMNS = [
  * the same one differently.
  */
 const EVENT_ATTRIBUTES = [
-    'エリア'   => 'area',
-    '説明'     => 'description',
-    '会場'     => 'venue',
-    '外部URL'  => 'url',
-    '予約不要' => 'booking_required',
-    '上限人数' => 'max_party',
-    '公開'     => 'published',
+    'エリア'         => 'area',
+    '説明'           => 'description',
+    '会場'           => 'venue',
+    '外部URL'        => 'url',
+    '予約不要'       => 'booking_required',
+    '上限人数'       => 'max_party',
+    '保護者を含める' => 'guardians_in_party',
+    '公開'           => 'published',
 ];
 
 /**
@@ -156,34 +157,38 @@ if ($template) {
     $write(TEMPLATE_COLUMNS);
 
     // 1) Generated: six 45-minute slots, 15 minutes apart, from 10:00.
+    //    保護者を含める = 1: everyone walking round the factory is a
+    //    participant, so the party size is simply the headcount.
     $write([
         '株式会社サンプル製作所', 'east', '工場見学ツアー',
         "普段は入れない製造ラインをご案内します。\n動きやすい服装でお越しください。",
-        '本社工場 A棟', 'https://example.com/tour', '', '5', '1',
+        '本社工場 A棟', 'https://example.com/tour', '', '5', '1', '1',
         '2027-03-01 10:00', '', '45', '15', '6', '20',
     ]);
 
     // 2) Explicit: three slots of different lengths and capacities, one per
     //    row. Only 会社名 and イベント名 repeat - they are what ties the rows
-    //    together; everything else is left to the first row.
+    //    together; everything else may go on any one of them.
+    //    保護者を含める blank: the children make the keyring, the parents
+    //    watch, so the booking form asks for the escorts separately.
     $write([
         '株式会社サンプル製作所', 'east', '手づくり体験教室',
-        '刻印入りのキーホルダーを作ります。', '研修棟 2F', '', '', '4', '1',
+        '刻印入りのキーホルダーを作ります。', '研修棟 2F', '', '', '4', '', '1',
         '2027-03-01 10:00', '10:45', '', '', '', '12',
     ]);
     $write([
-        '株式会社サンプル製作所', '', '手づくり体験教室', '', '', '', '', '', '',
+        '株式会社サンプル製作所', '', '手づくり体験教室', '', '', '', '', '', '', '',
         '2027-03-01 11:30', '13:00', '', '', '', '12',
     ]);
     $write([
-        '株式会社サンプル製作所', '', '手づくり体験教室', '', '', '', '', '', '',
+        '株式会社サンプル製作所', '', '手づくり体験教室', '', '', '', '', '', '', '',
         '2027-03-01 14:00', '2027-03-01 14:30', '', '', '', '8',
     ]);
 
     // 3) 予約不要, no fixed times: open all day, nothing to announce.
     $write([
         '株式会社サンプル製作所', 'east', '常設展示（予約不要）',
-        '当日直接お越しください。', '展示ホール', 'https://example.com/exhibit', '1', '', '1',
+        '当日直接お越しください。', '展示ホール', 'https://example.com/exhibit', '1', '', '', '1',
         '', '', '', '', '', '',
     ]);
 
@@ -191,11 +196,11 @@ if ($template) {
     //    without seat counts or a booking button.
     $write([
         '株式会社サンプル製作所', 'east', '実演（予約不要・時間あり）',
-        '1 日 2 回の実演です。', '展示ホール 特設ステージ', '', '1', '', '1',
+        '1 日 2 回の実演です。', '展示ホール 特設ステージ', '', '1', '', '', '1',
         '2027-03-01 11:00', '11:20', '', '', '', '30',
     ]);
     $write([
-        '株式会社サンプル製作所', '', '実演（予約不要・時間あり）', '', '', '', '', '', '',
+        '株式会社サンプル製作所', '', '実演（予約不要・時間あり）', '', '', '', '', '', '', '',
         '2027-03-01 15:00', '15:20', '', '', '', '30',
     ]);
     exit(0);
@@ -392,6 +397,7 @@ while (($line = fgetcsv($handle, 0, ',', '"', '\\')) !== false) {
         'venue'     => $row['会場'] !== '' ? $row['会場'] : null,
         'url'       => $row['外部URL'] !== '' ? $row['外部URL'] : null,
         'booking_required' => !$noBooking,
+        'guardians_in_party' => $asBool($row['保護者を含める'], false),
         'max_party' => $maxParty,
         'published' => $asBool($row['公開'], true),
         'sessions'  => $sessions,
@@ -689,12 +695,12 @@ Db::transaction(static function () use ($events, &$created): void {
         Db::execute(
             'INSERT INTO events
                (company_id, title, description, venue, booking_required, external_url,
-                max_party_size, sort_order, is_published)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                max_party_size, party_includes_guardians, sort_order, is_published)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $companyIds[$name], $row['title'], $row['description'], $row['venue'],
                 $row['booking_required'] ? 1 : 0, $row['url'], $row['max_party'],
-                0, $row['published'] ? 1 : 0,
+                $row['guardians_in_party'] ? 1 : 0, 0, $row['published'] ? 1 : 0,
             ]
         );
         $eventId = Db::lastInsertId();

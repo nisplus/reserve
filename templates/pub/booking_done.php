@@ -40,6 +40,13 @@ $status = BookingStatus::from((string) $booking['status']);
     <?php endif; ?>
     <dt>電話番号</dt><dd><?= e($booking['phone']) ?></dd>
     <dt>参加人数</dt><dd><?= (int) $booking['party_size'] ?> 名</dd>
+    <?php if ((int) ($booking['guardian_count'] ?? 0) > 0): ?>
+      <dt>付き添い</dt>
+      <dd>
+        <?= (int) $booking['guardian_count'] ?> 名（体験されない方）
+        <span class="muted">／ ご来場 <?= (int) $booking['party_size'] + (int) $booking['guardian_count'] ?> 名</span>
+      </dd>
+    <?php endif; ?>
     <?php if ($attendees !== []): ?>
       <dt>ご参加者</dt>
       <dd>

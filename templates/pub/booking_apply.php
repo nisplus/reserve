@@ -11,6 +11,9 @@ use App\Core\Csrf;
 $seatsLeft   = (int) $session['seats_left'];
 $isFull      = $seatsLeft === 0;
 $externalUrl = (string) ($session['external_url'] ?? '');
+// Whether 参加人数 already counts the people coming along. Where it does not,
+// they are asked for separately and do not take a seat.
+$guardiansInParty = (int) ($session['party_includes_guardians'] ?? 0) === 1;
 ?>
 <p class="breadcrumb">
   <a href="<?= url('/') ?>">体験一覧</a> ／
@@ -97,11 +100,32 @@ $externalUrl = (string) ($session['external_url'] ?? '');
            value="<?= e($old['party_size'] ?? '1') ?>"
            <?= isset($errors['party_size']) ? 'aria-invalid="true"' : '' ?>>
     <p class="hint">
-      保護者等、体験されない付き添いの方は含めません。連絡先となる方の氏名をメッセージ欄にご記入下さい。
+      <?php if ($guardiansInParty): ?>
+        付き添いの保護者様も含めた、ご来場になる全員の人数をご入力ください。
+      <?php else: ?>
+        保護者等、体験されない付き添いの方は含めません。連絡先となる方の氏名をメッセージ欄にご記入下さい。
+      <?php endif; ?>
       <?php if ($maxParty < 20): ?>1回のご予約につき <?= $maxParty ?> 名までです。<?php endif; ?>
     </p>
     <?php if (isset($errors['party_size'])): ?><p class="error"><?= e($errors['party_size']) ?></p><?php endif; ?>
   </div>
+
+  <?php /* Asked for only where 参加人数 excludes them; the other events have
+           already counted these people above. Not required - blank means
+           nobody, which is the common answer. */ ?>
+  <?php if (!$guardiansInParty): ?>
+    <div class="field">
+      <label for="guardian_count">付き添いの人数（体験されない方）</label>
+      <input type="number" id="guardian_count" name="guardian_count" min="0" max="20"
+             value="<?= e($old['guardian_count'] ?? '0') ?>"
+             <?= isset($errors['guardian_count']) ? 'aria-invalid="true"' : '' ?>>
+      <p class="hint">
+        保護者様など、ご一緒に来場されるが体験はされない方の人数です。
+        いらっしゃらない場合は 0 のままで結構です。定員には含まれません。
+      </p>
+      <?php if (isset($errors['guardian_count'])): ?><p class="error"><?= e($errors['guardian_count']) ?></p><?php endif; ?>
+    </div>
+  <?php endif; ?>
 
   <h2>ご参加者</h2>
 

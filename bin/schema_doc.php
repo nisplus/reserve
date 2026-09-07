@@ -54,6 +54,7 @@ $columnNotes = [
     'events.booking_required' => '0 なら「予約不要」。開催回は時間割として表示するが、予約ボタンは出さず申込も受け付けない（開催回が残っていても拒否する）。予約不要のイベントは開催回を持たなくてもよい。',
     'events.external_url' => '開催企業のサイトなど。設定されていれば予約画面とイベント詳細に別タブリンクとして出る。http/https のみ。',
     'events.max_party_size' => '1 予約あたりの上限人数。既定 20 は bookings.party_size の上限と同じ。',
+    'events.party_includes_guardians' => '1 なら「参加人数」に付き添いの保護者も含める（来場人数＝定員）。0 なら参加人数は体験する人だけで、付き添いは bookings.guardian_count に別に記録し定員を消費しない。既定 0。',
     'events.is_published' => '0 なら公開側に出ない。会社が非公開ならイベントも出ない。',
 
     'event_sessions.capacity' => '定員（人数）。予約 1 件で party_size 人ぶん消費する。',
@@ -68,7 +69,8 @@ $columnNotes = [
     'bookings.email' => '申込時点のアドレスの写し。applicants への外部キーとは別に保持する。',
     'bookings.phone' => '当日連絡が取れる番号。予約に 1 つ。',
     'bookings.message' => '開催企業へのメッセージ（任意）。',
-    'bookings.party_size' => '人数。1〜20（chk_bookings_party）。イベント側の max_party_size がさらに上限を絞る。',
+    'bookings.party_size' => '人数。1〜20（chk_bookings_party）。イベント側の max_party_size がさらに上限を絞る。**座席を消費するのはこの列だけ。**',
+    'bookings.guardian_count' => '体験しない付き添い（保護者等）の人数。**定員を消費しない**ので、来場人数は party_size + guardian_count。events.party_includes_guardians = 1 のイベントでは常に 0（付き添いは party_size に入っている）。上限 20 は BookingService::GUARDIAN_MAX が持つ（CHECK 制約は MariaDB 11.8 に拒否されるため置いていない）。',
     'bookings.waitlist_seq' => 'キャンセル待ちの受付順。**waitlisted のときだけ値を持つ**（不変条件(5)）。',
     'bookings.cancel_token_hash' => 'キャンセル用トークンの SHA-256。**生の値は保存しない**ので、DB が漏れてもキャンセル権限は渡らない。',
     'bookings.active_key' => '生成列（STORED）。cancelled のとき NULL になり、UNIQUE 内で NULL が重複を許される性質で「キャンセル後の再予約」を可能にしている。',

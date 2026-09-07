@@ -50,6 +50,14 @@ use App\Domain\SessionStatus;
           <?php if ((int) $session['seats_left'] === 0): ?>
             <span class="badge badge--bad">満席</span>
           <?php endif; ?>
+          <?php /* Only where escorts are counted separately - otherwise the
+                   seat count already is the headcount. */ ?>
+          <?php if ((int) ($session['confirmed_guardians'] ?? 0) > 0): ?>
+            <br><span class="muted" style="font-size:12px">
+              来場見込み <?= (int) $session['confirmed_seats'] + (int) $session['confirmed_guardians'] ?> 名
+              （付き添い <?= (int) $session['confirmed_guardians'] ?> 名）
+            </span>
+          <?php endif; ?>
         </td>
         <td><?= (int) $session['waitlist_count'] ?> 件</td>
         <td>

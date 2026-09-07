@@ -118,6 +118,7 @@ final class BookingController
                 ages: (array) $input['ages'],
                 phone: (string) $input['phone'],
                 message: $input['message'] !== null ? (string) $input['message'] : null,
+                guardianCount: (int) $input['guardian_count'],
             );
         } catch (DuplicateBookingException | SessionFullException | TravelBufferException | ValidationException $e) {
             // All of these are user-correctable outcomes, not errors: show the
@@ -128,6 +129,7 @@ final class BookingController
                 'name'       => (string) $input['name'],
                 'message'    => $request->post('message'),
                 'party_size' => (string) $input['party_size'],
+                'guardian_count' => (string) $input['guardian_count'],
                 'companions' => $this->postedCompanions($request),
                 'ages'       => $this->postedAges($request) + [1 => $request->post('age_1')],
             ]);
@@ -206,6 +208,30 @@ final class BookingController
         // stand in the way of every reservation.
         $validator->optional('message', $request->post('message'), self::MESSAGE_MAX);
 
+        /*
+         * People coming along who are not taking part. Only asked for where
+         * 参加人数 excludes them - the other events count them there, so the
+         * field is neither shown nor read, and the service drops any value
+         * that arrives anyway.
+         *
+         * Blank reads as 0: leaving it empty is how most people will say "no
+         * one", and making that an error would be a box in the way.
+         */
+        $guardianCount = 0;
+        if ((int) $session['party_includes_guardians'] !== 1) {
+            $posted = trim((string) $request->post('guardian_count'));
+            if ($posted === '') {
+                $guardianCount = 0;
+            } elseif (!preg_match('/^\d+$/', $posted) || (int) $posted > BookingService::GUARDIAN_MAX) {
+                $validator->fail('guardian_count', sprintf(
+                    '付き添いの人数は 0〜%d の範囲で入力してください。',
+                    BookingService::GUARDIAN_MAX
+                ));
+            } else {
+                $guardianCount = (int) $posted;
+            }
+        }
+
         // Names and ages for the rest of the party, one pair per extra person.
         // Collected only once the party size itself is known to be sane, so a
         // nonsense number does not also produce a wall of per-person errors.
@@ -247,6 +273,7 @@ final class BookingController
             $values = $validator->values();
             $values['companions'] = $companions;
             $values['ages'] = $ages;
+            $values['guardian_count'] = $guardianCount;
             return $values;
         }
 
@@ -256,6 +283,7 @@ final class BookingController
             'name'       => $request->post('name'),
             'message'    => $request->post('message'),
             'party_size' => $request->post('party_size'),
+            'guardian_count' => $request->post('guardian_count'),
             'companions' => $this->postedCompanions($request),
             'ages'       => $this->postedAges($request) + [1 => $request->post('age_1')],
         ]);

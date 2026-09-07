@@ -179,6 +179,7 @@ final class BookingRepository
         string $cancelTokenHash,
         ?string $phone = null,
         ?string $message = null,
+        int $guardianCount = 0,
     ): int {
         // NOW() is server-side and takes the session time zone (+09:00), which
         // is what the DATETIME columns hold. It is a literal, not input.
@@ -187,8 +188,8 @@ final class BookingRepository
         Db::execute(
             'INSERT INTO bookings
                (reference_code, session_id, applicant_id, email, phone, name, message,
-                party_size, status, waitlist_seq, cancel_token_hash, confirmed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' . $confirmedAt . ')',
+                party_size, guardian_count, status, waitlist_seq, cancel_token_hash, confirmed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' . $confirmedAt . ')',
             [
                 $referenceCode,
                 $sessionId,
@@ -198,6 +199,7 @@ final class BookingRepository
                 $name,
                 $message,
                 $partySize,
+                $guardianCount,
                 $status->value,
                 $waitlistSeq,
                 $cancelTokenHash,
@@ -280,7 +282,8 @@ final class BookingRepository
         [$where, $params] = $this->adminFilterWhere($filters);
 
         $sql = "SELECT b.id, b.reference_code, b.email, b.phone, b.name, b.message,
-                       b.party_size, b.status, b.waitlist_seq, b.created_at, b.cancelled_at,
+                       b.party_size, b.guardian_count, b.status, b.waitlist_seq,
+                       b.created_at, b.cancelled_at,
                        s.id AS session_id, s.starts_at, s.ends_at,
                        s.capacity, s.confirmed_seats,
                        e.id AS event_id, e.title AS event_title,
@@ -354,8 +357,8 @@ final class BookingRepository
     {
         return Db::selectOne(
             "SELECT b.id, b.reference_code, b.session_id, b.applicant_id, b.email, b.phone,
-                    b.name, b.message, b.party_size, b.status, b.waitlist_seq, b.created_at,
-                    b.confirmed_at, b.cancelled_at,
+                    b.name, b.message, b.party_size, b.guardian_count, b.status,
+                    b.waitlist_seq, b.created_at, b.confirmed_at, b.cancelled_at,
                     s.starts_at, s.ends_at,
                     e.id AS event_id, e.title AS event_title, e.venue,
                     -- company_id is what Authz checks a write operation against.

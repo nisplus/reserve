@@ -141,7 +141,17 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
           <?= e($row['email']) ?>
           <?php if (($row['phone'] ?? '') !== ''): ?><br><?= e($row['phone']) ?><?php endif; ?>
         </td>
-        <td><?= (int) $row['party_size'] ?></td>
+        <td>
+          <?= (int) $row['party_size'] ?>
+          <?php /* Escorts do not take seats, so the venue headcount is not the
+                   seat count. Only shown where there are any. */ ?>
+          <?php if ((int) ($row['guardian_count'] ?? 0) > 0): ?>
+            <br><span class="muted" style="font-size:12px">
+              +付き添い<?= (int) $row['guardian_count'] ?><br>
+              来場<?= (int) $row['party_size'] + (int) $row['guardian_count'] ?>名
+            </span>
+          <?php endif; ?>
+        </td>
         <td>
           <?php if ($status === BookingStatus::Waitlisted): ?>
             <?php $fits = ((int) $row['capacity'] - (int) $row['confirmed_seats']) >= (int) $row['party_size']; ?>

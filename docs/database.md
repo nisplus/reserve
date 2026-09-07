@@ -76,6 +76,7 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 | `booking_required` | tinyint(1) | 不可 | 1 | 0 なら「予約不要」。開催回は時間割として表示するが、予約ボタンは出さず申込も受け付けない（開催回が残っていても拒否する）。予約不要のイベントは開催回を持たなくてもよい。 |
 | `external_url` | varchar(500) | 可 | NULL | 開催企業のサイトなど。設定されていれば予約画面とイベント詳細に別タブリンクとして出る。http/https のみ。 |
 | `max_party_size` | tinyint(3) unsigned | 不可 | 20 | 1 予約あたりの上限人数。既定 20 は bookings.party_size の上限と同じ。 |
+| `party_includes_guardians` | tinyint(1) | 不可 | 0 | 1 なら「参加人数」に付き添いの保護者も含める（来場人数＝定員）。0 なら参加人数は体験する人だけで、付き添いは bookings.guardian_count に別に記録し定員を消費しない。既定 0。 |
 | `sort_order` | int(11) | 不可 | 0 |  |
 | `is_published` | tinyint(1) | 不可 | 1 | 0 なら公開側に出ない。会社が非公開ならイベントも出ない。 |
 | `created_at` | datetime | 不可 | current_timestamp() |  |
@@ -154,7 +155,8 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 | `phone` | varchar(30) | 可 | NULL | 当日連絡が取れる番号。予約に 1 つ。 |
 | `name` | varchar(100) | 不可 | — |  |
 | `message` | text | 可 | NULL | 開催企業へのメッセージ（任意）。 |
-| `party_size` | tinyint(3) unsigned | 不可 | 1 | 人数。1〜20（chk_bookings_party）。イベント側の max_party_size がさらに上限を絞る。 |
+| `party_size` | tinyint(3) unsigned | 不可 | 1 | 人数。1〜20（chk_bookings_party）。イベント側の max_party_size がさらに上限を絞る。**座席を消費するのはこの列だけ。** |
+| `guardian_count` | tinyint(3) unsigned | 不可 | 0 | 体験しない付き添い（保護者等）の人数。**定員を消費しない**ので、来場人数は party_size + guardian_count。events.party_includes_guardians = 1 のイベントでは常に 0（付き添いは party_size に入っている）。上限 20 は BookingService::GUARDIAN_MAX が持つ（CHECK 制約は MariaDB 11.8 に拒否されるため置いていない）。 |
 | `status` | enum('confirmed','waitlisted','cancelled') | 不可 | — |  |
 | `waitlist_seq` | int(10) unsigned | 可 | NULL | キャンセル待ちの受付順。**waitlisted のときだけ値を持つ**（不変条件(5)）。 |
 | `cancel_token_hash` | char(64) | 不可 | — | キャンセル用トークンの SHA-256。**生の値は保存しない**ので、DB が漏れてもキャンセル権限は渡らない。 |

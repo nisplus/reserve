@@ -83,8 +83,11 @@ final class BookingController
 
         // 体験内容 rather than 体験プログラム: this is a column heading, and the
         // CSV list header follows the same width rule as the on-screen table.
+        // 付き添い人数 and 来場人数 are separate columns rather than one
+        // combined figure: the seat count and the headcount are both wanted,
+        // and a spreadsheet should not have to parse them back apart.
         $header = ['予約番号', '状態', '開催企業', '体験内容', '開催日時', '氏名', 'メールアドレス',
-                   '電話番号', '人数', '参加者', '開催企業へのメッセージ',
+                   '電話番号', '人数', '付き添い人数', '来場人数', '参加者', '開催企業へのメッセージ',
                    'キャンセル待ち順', '予約日時', 'キャンセル日時'];
         $statusLabels = ['confirmed' => '確定', 'waitlisted' => 'キャンセル待ち', 'cancelled' => 'キャンセル済み'];
 
@@ -105,6 +108,8 @@ final class BookingController
                 $row['email'],
                 $row['phone'],
                 $row['party_size'],
+                $row['guardian_count'],
+                (int) $row['party_size'] + (int) $row['guardian_count'],
                 implode(' / ', $attendees[(int) $row['id']] ?? []),
                 $row['message'],
                 $row['waitlist_seq'],

@@ -44,6 +44,14 @@ use PDOException;
  */
 final class BookingService
 {
+    /**
+     * Ceiling on bookings.guardian_count. Not a database CHECK: the constraint
+     * added in migration 002 was refused by MariaDB 11.8 (errno 1901) even as
+     * a standalone ALTER, so this class holds the rule and migration 007 says
+     * so. TINYINT UNSIGNED still keeps it non-negative.
+     */
+    public const GUARDIAN_MAX = 20;
+
     public function __construct(
         private readonly ApplicantRepository $applicants = new ApplicantRepository(),
         private readonly BookingRepository $bookings = new BookingRepository(),
@@ -77,6 +85,11 @@ final class BookingService
      *        order (index 0 is the applicant). Optional, same reasoning.
      * @param string|null $phone A number to reach the party on the day.
      * @param string|null $message Free text for the host company; optional.
+     * @param int $guardianCount People coming along who are not taking part
+     *        (a parent watching, typically). Recorded but NOT charged against
+     *        the capacity, and only meaningful for an event whose 参加人数
+     *        excludes them - forced to 0 for the events that count them, where
+     *        they are already inside $partySize.
      */
     public function book(
         int $sessionId,
@@ -88,6 +101,7 @@ final class BookingService
         array $ages = [],
         ?string $phone = null,
         ?string $message = null,
+        int $guardianCount = 0,
     ): array {
         // Step 0, outside the transaction: make sure the applicant row exists.
         // Doing this first keeps the locked section from having to create it,
@@ -97,7 +111,7 @@ final class BookingService
         try {
             return Db::transaction(function () use (
                 $sessionId, $email, $name, $partySize, $allowWaitlist, $applicantId,
-                $companionNames, $ages, $phone, $message
+                $companionNames, $ages, $phone, $message, $guardianCount
             ): array {
                 // 1) Applicant gate. From here to commit, this person's
                 //    bookings cannot change under us.
@@ -124,11 +138,27 @@ final class BookingService
                 // already refuses these; this closes the CLI and service paths
                 // and any screen added later.
                 $event = Db::selectOne(
-                    'SELECT company_id, booking_required, max_party_size FROM events WHERE id = ?',
+                    'SELECT company_id, booking_required, max_party_size, party_includes_guardians
+                     FROM events WHERE id = ?',
                     [(int) $session['event_id']]
                 ) ?? [];
                 if ((int) ($event['booking_required'] ?? 0) !== 1) {
                     throw new ValidationException('この体験プログラムは予約不要です。');
+                }
+
+                // Where 参加人数 already includes the people coming along, a
+                // separate count of them would be the same people twice. The
+                // form does not offer the field for these events; this is for
+                // a hand-made POST and for CLI callers, and it drops the value
+                // rather than erroring - there is nothing for the applicant to
+                // fix, and the number simply has no meaning here.
+                if ((int) ($event['party_includes_guardians'] ?? 0) === 1) {
+                    $guardianCount = 0;
+                }
+                if ($guardianCount < 0 || $guardianCount > self::GUARDIAN_MAX) {
+                    throw new ValidationException(
+                        '付き添いの人数は 0〜' . self::GUARDIAN_MAX . ' 名でご入力ください。'
+                    );
                 }
 
                 // The per-application cap. Checked here as well as in the
@@ -235,6 +265,7 @@ final class BookingService
                     cancelTokenHash: $token['hash'],
                     phone:           $phone,
                     message:         $message,
+                    guardianCount:   $guardianCount,
                 );
 
                 // 6) Who is coming. attendee_no 1 is the applicant; the rest
@@ -264,7 +295,8 @@ final class BookingService
                     $token['raw'],
                     $bookingId,
                     $this->attendees->namesFor($bookingId),
-                    $message
+                    $message,
+                    $guardianCount
                 );
 
                 return [
@@ -371,6 +403,7 @@ final class BookingService
         int $bookingId,
         array $attendeeNames = [],
         ?string $message = null,
+        int $guardianCount = 0,
     ): void {
         // Display names only; no lock needed and no harm if they change later.
         $context = Db::selectOne(
@@ -408,6 +441,12 @@ final class BookingService
             }
         }
 
+        // Only the events that keep them separate ever have a count here, so
+        // the line simply does not appear for the ones that do not.
+        $guardianLine = $guardianCount > 0
+            ? "付き添い　: {$guardianCount} 名（体験されない方）\n"
+            : '';
+
         // Echo the message back so the applicant has a record of what they
         // sent, and can see it arrived rather than wondering.
         $messageLines = '';
@@ -426,7 +465,7 @@ final class BookingService
         開催企業　: {$context['company_name']}
         日時　　　: {$when}
         {$venueLine}人数　　　: {$partySize} 名
-        {$attendeeLines}予約番号　: {$referenceCode}
+        {$guardianLine}{$attendeeLines}予約番号　: {$referenceCode}
         ────────────────────
         {$messageLines}
 
