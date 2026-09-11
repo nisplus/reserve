@@ -52,7 +52,7 @@ final class EventRepository
                              ELSE GREATEST(CAST(s.capacity AS SIGNED)
                                          - CAST(s.confirmed_seats AS SIGNED), 0)
                         END), 0)                                  AS seats_left,
-                    -- So the card can say キャンセル待ち受付中 rather than 満席
+                    -- So the card can say キャンセル待ち rather than 全回満席
                     -- for a session held open by its queue.
                     COALESCE(SUM((SELECT COUNT(*) FROM bookings b
                                    WHERE b.session_id = s.id AND b.status = 'waitlisted')), 0)

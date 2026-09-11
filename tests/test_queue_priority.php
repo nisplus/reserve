@@ -141,8 +141,13 @@ try {
         'days'  => $sessions->groupByDate($sessions->forEvent($eventId, true)),
         'total' => 2,
     ]);
-    $assert(str_contains($html, 'キャンセル待ち受付中'),
-        'the slot list offers the waitlist rather than the seats');
+    // What is asserted is the offer and the disclosure, not the badge wording -
+    // that is copy, and pinning it here turns an editorial change into a broken
+    // test (it already did once).
+    $assert(str_contains($html, 'キャンセル待ちで予約する'),
+        'the slot list offers the waitlist rather than a booking');
+    $assert(str_contains($html, '現在 1 件'),
+        'and says how many people are already in it');
     $assert(!str_contains($html, '残り 2 名'),
         'and does not advertise seats that cannot be booked');
 
@@ -152,8 +157,7 @@ try {
         'old'      => [],
         'maxParty' => 10,
     ]);
-    $assert(str_contains($apply, 'キャンセル待ち受付中')
-        && str_contains($apply, 'お待ちの方から順にご案内'),
+    $assert(str_contains($apply, 'お待ちの方から順にご案内'),
         'the booking form explains why a free seat cannot be taken');
     $assert(str_contains($apply, 'キャンセル待ちで確認画面へ'),
         'and its button says so');
