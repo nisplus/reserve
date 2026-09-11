@@ -104,7 +104,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
           <?php if ($needsBooking): ?>
             <span class="slot-seats">
               <?php if ($queued): ?>
-                <span class="badge badge--warn">キャンセル待ち受付中</span>
+                <span class="badge badge--warn">キャンセル待ち</span>
                 <span class="muted">現在 <?= $waiting ?> 件</span>
               <?php elseif ($noSeats): ?>
                 <span class="badge badge--bad">満席</span>
