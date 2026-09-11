@@ -75,7 +75,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
       ご予約確定時に空き状況が変わって予約が既に終了している場合があります。
     </p>
   <?php else: ?>
-    <p class="muted">ご予約は不要です。下記の時間内に、直接会場までお越しください。</p>
+    <p class="muted">ご予約は不要です。当日来場受付後、下記開始時刻までに直接会場までお越しください。</p>
   <?php endif; ?>
 
   <?php foreach ($days as $day): ?>
@@ -104,7 +104,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
           <?php if ($needsBooking): ?>
             <span class="slot-seats">
               <?php if ($queued): ?>
-                <span class="badge badge--warn">キャンセル待ち受付中</span>
+                <span class="badge badge--warn">キャンセル待ち</span>
                 <span class="muted">現在 <?= $waiting ?> 件</span>
               <?php elseif ($noSeats): ?>
                 <span class="badge badge--bad">満席</span>
