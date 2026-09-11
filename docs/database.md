@@ -77,6 +77,8 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 | `external_url` | varchar(500) | 可 | NULL | 開催企業のサイトなど。設定されていれば予約画面とイベント詳細に別タブリンクとして出る。http/https のみ。 |
 | `max_party_size` | tinyint(3) unsigned | 不可 | 20 | 1 予約あたりの上限人数。既定 20 は bookings.party_size の上限と同じ。 |
 | `party_includes_guardians` | tinyint(1) | 不可 | 0 | 1 なら「参加人数」に付き添いの保護者も含める（来場人数＝定員）。0 なら参加人数は体験する人だけで、付き添いは bookings.guardian_count に別に記録し定員を消費しない。既定 0。 |
+| `min_age` | tinyint(3) unsigned | 可 | NULL | 対象年齢の下限。NULL は制限なし（0 は「0 歳以上」という実際の下限で、NULL とは別）。 |
+| `max_age` | tinyint(3) unsigned | 可 | NULL | 対象年齢の上限。NULL は制限なし。予約時に**入力されたすべての年齢**を判定し、1 人でも範囲外なら受け付けない（キャンセル待ちにもしない）。大小関係は Validator が担保（CHECK 制約は MariaDB 11.8 に拒否されるため置いていない）。 |
 | `sort_order` | int(11) | 不可 | 0 |  |
 | `is_published` | tinyint(1) | 不可 | 1 | 0 なら公開側に出ない。会社が非公開ならイベントも出ない。 |
 | `created_at` | datetime | 不可 | current_timestamp() |  |

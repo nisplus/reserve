@@ -95,6 +95,34 @@ $guardiansInParty = $old !== []
       <?php if (isset($errors['max_party_size'])): ?><p class="error"><?= e($errors['max_party_size']) ?></p><?php endif; ?>
     </div>
 
+    <?php /* Both optional, and independently so - an event may have a floor,
+             a ceiling, both or neither. Blank means no limit; 0 is a real
+             floor, so the form must not treat them alike. */ ?>
+    <div class="field">
+      <label for="min_age">対象年齢の下限</label>
+      <input type="number" id="min_age" name="min_age" min="0" max="120"
+             placeholder="制限なし"
+             value="<?= e($old['min_age'] ?? (string) ($event['min_age'] ?? '')) ?>"
+             <?= isset($errors['min_age']) ? 'aria-invalid="true"' : '' ?>>
+      <p class="hint">この年齢以上の方のみご予約いただけます。<strong>空欄なら下限なし</strong>（0 と空欄は別の意味です）。</p>
+      <?php if (isset($errors['min_age'])): ?><p class="error"><?= e($errors['min_age']) ?></p><?php endif; ?>
+    </div>
+
+    <div class="field">
+      <label for="max_age">対象年齢の上限</label>
+      <input type="number" id="max_age" name="max_age" min="0" max="120"
+             placeholder="制限なし"
+             value="<?= e($old['max_age'] ?? (string) ($event['max_age'] ?? '')) ?>"
+             <?= isset($errors['max_age']) ? 'aria-invalid="true"' : '' ?>>
+      <p class="hint">
+        この年齢以下の方のみご予約いただけます。<strong>空欄なら上限なし</strong>。<br>
+        対象年齢は<strong>予約フォームに入力されたすべての年齢</strong>で判定します。
+        「付き添いの保護者も参加人数に含める」場合は保護者も対象になります
+        （含めない場合、付き添いの方は年齢を伺わないため対象外です）。
+        既に受け付けた予約は、あとから範囲を変えても取り消されません。
+      </p>
+      <?php if (isset($errors['max_age'])): ?><p class="error"><?= e($errors['max_age']) ?></p><?php endif; ?>
+    </div>
     <div class="field">
       <label>
         <input type="checkbox" name="guardians_in_party" value="1" <?= $guardiansInParty ? 'checked' : '' ?>>

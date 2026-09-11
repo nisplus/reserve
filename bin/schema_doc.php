@@ -54,6 +54,8 @@ $columnNotes = [
     'events.booking_required' => '0 なら「予約不要」。開催回は時間割として表示するが、予約ボタンは出さず申込も受け付けない（開催回が残っていても拒否する）。予約不要のイベントは開催回を持たなくてもよい。',
     'events.external_url' => '開催企業のサイトなど。設定されていれば予約画面とイベント詳細に別タブリンクとして出る。http/https のみ。',
     'events.max_party_size' => '1 予約あたりの上限人数。既定 20 は bookings.party_size の上限と同じ。',
+    'events.min_age' => '対象年齢の下限。NULL は制限なし（0 は「0 歳以上」という実際の下限で、NULL とは別）。',
+    'events.max_age' => '対象年齢の上限。NULL は制限なし。予約時に**入力されたすべての年齢**を判定し、1 人でも範囲外なら受け付けない（キャンセル待ちにもしない）。大小関係は Validator が担保（CHECK 制約は MariaDB 11.8 に拒否されるため置いていない）。',
     'events.party_includes_guardians' => '1 なら「参加人数」に付き添いの保護者も含める（来場人数＝定員）。0 なら参加人数は体験する人だけで、付き添いは bookings.guardian_count に別に記録し定員を消費しない。既定 0。',
     'events.is_published' => '0 なら公開側に出ない。会社が非公開ならイベントも出ない。',
 

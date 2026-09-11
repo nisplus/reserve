@@ -6,6 +6,7 @@ namespace App\Service;
 
 use App\Core\Config;
 use App\Core\Db;
+use App\Domain\AgeRange;
 use App\Domain\BookingStatus;
 use App\Domain\SessionStatus;
 use App\Exception\DuplicateBookingException;
@@ -168,7 +169,8 @@ final class BookingService
                 // already refuses these; this closes the CLI and service paths
                 // and any screen added later.
                 $event = Db::selectOne(
-                    'SELECT company_id, booking_required, max_party_size, party_includes_guardians
+                    'SELECT company_id, booking_required, max_party_size, party_includes_guardians,
+                            min_age, max_age
                      FROM events WHERE id = ?',
                     [(int) $session['event_id']]
                 ) ?? [];
@@ -199,6 +201,33 @@ final class BookingService
                     throw new ValidationException(
                         "この体験プログラムは1回のご予約につき {$maxParty} 名までです。"
                     );
+                }
+
+                /*
+                 * Age limits, on every age the caller supplied. Before the
+                 * seat decision on purpose: an application outside the range
+                 * must not become a waitlist entry either, or the queue fills
+                 * with people who could never be promoted.
+                 *
+                 * Only the ages given are checked. The web form requires one
+                 * per participant, so that is all of them; a CLI caller may
+                 * pass none, and inventing an age to reject it on would be
+                 * worse than letting the caller be responsible.
+                 */
+                $ageRange = AgeRange::fromEvent($event);
+                if (!$ageRange->isUnbounded()) {
+                    foreach ($ages as $index => $age) {
+                        if ($age === null) {
+                            continue;
+                        }
+                        if (!$ageRange->accepts((int) $age)) {
+                            throw new ValidationException(sprintf(
+                                '%d人目の年齢は対象年齢の範囲外です（%s）。',
+                                $index + 1,
+                                $ageRange->label()
+                            ));
+                        }
+                    }
                 }
                 // tryFrom, not from: an ENUM value this build of the code does
                 // not know about (a migration deployed ahead of the code, say)

@@ -18,6 +18,10 @@ use App\Repository\EventRepository;
 
 final class EventController
 {
+    /** Matches the range the booking form accepts for an attendee's age. */
+    private const AGE_MIN = 0;
+    private const AGE_MAX = 120;
+
     /** GET /admin/events?company=N */
     public function index(Request $request): Response
     {
@@ -65,6 +69,8 @@ final class EventController
             $input['external_url'] !== null ? (string) $input['external_url'] : null,
             (int) $input['max_party_size'],
             $request->has('guardians_in_party'),
+            $input['min_age'] !== null ? (int) $input['min_age'] : null,
+            $input['max_age'] !== null ? (int) $input['max_age'] : null,
         );
 
         Flash::success($bookingRequired
@@ -104,6 +110,8 @@ final class EventController
             $input['external_url'] !== null ? (string) $input['external_url'] : null,
             (int) $input['max_party_size'],
             $request->has('guardians_in_party'),
+            $input['min_age'] !== null ? (int) $input['min_age'] : null,
+            $input['max_age'] !== null ? (int) $input['max_age'] : null,
         );
 
         // The flag decides whether the slots are a timetable or something to
@@ -199,6 +207,45 @@ final class EventController
         // 20 is the ceiling chk_bookings_party imposes on the column.
         $validator->intRange('max_party_size', '1予約あたりの上限人数', $request->post('max_party_size', '20'), 1, 20);
 
+        /*
+         * Age limits. Either end may be left blank and so may both, so these
+         * cannot go through intRange - a blank there is an error, and here it
+         * is the normal answer meaning "no limit". 0 is a real lower bound and
+         * must not read as blank, which is why the test is on the string.
+         *
+         * The pair is checked here rather than by a CHECK constraint: the one
+         * migration 002 tried to add was refused by MariaDB 11.8 even as a
+         * standalone ALTER (see 009_age_limits.sql).
+         */
+        $ages = [];
+        foreach (['min_age' => '対象年齢の下限', 'max_age' => '対象年齢の上限'] as $field => $label) {
+            $posted = trim((string) $request->post($field));
+            if ($posted === '') {
+                $ages[$field] = null;
+                $validator->set($field, null);
+                continue;
+            }
+            if (!preg_match('/^\d+$/', $posted)
+                || (int) $posted < self::AGE_MIN || (int) $posted > self::AGE_MAX
+            ) {
+                $validator->fail($field, sprintf(
+                    '%sは%d〜%dの範囲で入力してください（制限しない場合は空欄）。',
+                    $label,
+                    self::AGE_MIN,
+                    self::AGE_MAX
+                ));
+                $ages[$field] = null;
+                continue;
+            }
+            $ages[$field] = (int) $posted;
+            $validator->set($field, (int) $posted);
+        }
+        if ($ages['min_age'] !== null && $ages['max_age'] !== null
+            && $ages['min_age'] > $ages['max_age']
+        ) {
+            $validator->fail('min_age', '対象年齢の下限は上限以下にしてください。');
+        }
+
         if (!$validator->hasErrors()) {
             $values = $validator->values();
             $values['company_id'] = (int) $values['company_id'];
@@ -215,6 +262,8 @@ final class EventController
             'is_published' => $request->has('is_published') ? '1' : '',
             'no_booking'   => $request->has('no_booking') ? '1' : '',
             'guardians_in_party' => $request->has('guardians_in_party') ? '1' : '',
+            'min_age'      => $request->post('min_age'),
+            'max_age'      => $request->post('max_age'),
             'external_url' => $request->post('external_url'),
             'max_party_size' => $request->post('max_party_size'),
         ]);

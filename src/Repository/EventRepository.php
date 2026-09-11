@@ -173,16 +173,19 @@ final class EventRepository
         ?string $externalUrl = null,
         int $maxPartySize = 20,
         bool $partyIncludesGuardians = false,
+        ?int $minAge = null,
+        ?int $maxAge = null,
     ): int {
         Db::execute(
             'INSERT INTO events
                (company_id, title, description, venue, sort_order, is_published,
-                booking_required, external_url, max_party_size, party_includes_guardians)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                booking_required, external_url, max_party_size, party_includes_guardians,
+                min_age, max_age)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $companyId, $title, $description, $venue, $sortOrder,
                 $published ? 1 : 0, $bookingRequired ? 1 : 0, $externalUrl, $maxPartySize,
-                $partyIncludesGuardians ? 1 : 0,
+                $partyIncludesGuardians ? 1 : 0, $minAge, $maxAge,
             ]
         );
         return Db::lastInsertId();
@@ -208,17 +211,19 @@ final class EventRepository
         ?string $externalUrl,
         int $maxPartySize,
         bool $partyIncludesGuardians = false,
+        ?int $minAge = null,
+        ?int $maxAge = null,
     ): void {
         Db::execute(
             'UPDATE events
              SET company_id = ?, title = ?, description = ?, venue = ?, sort_order = ?,
                  is_published = ?, booking_required = ?, external_url = ?, max_party_size = ?,
-                 party_includes_guardians = ?
+                 party_includes_guardians = ?, min_age = ?, max_age = ?
              WHERE id = ?',
             [
                 $companyId, $title, $description, $venue, $sortOrder,
                 $published ? 1 : 0, $bookingRequired ? 1 : 0, $externalUrl, $maxPartySize,
-                $partyIncludesGuardians ? 1 : 0, $id,
+                $partyIncludesGuardians ? 1 : 0, $minAge, $maxAge, $id,
             ]
         );
     }

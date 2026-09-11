@@ -12,6 +12,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Validator;
 use App\Core\View;
+use App\Domain\AgeRange;
 use App\Domain\BookingStatus;
 use App\Exception\DuplicateBookingException;
 use App\Exception\NotFoundException;
@@ -257,7 +258,30 @@ final class BookingController
             $partySize = (int) $validator->value('party_size');
             $names = $this->postedCompanions($request);
             $postedAges = $this->postedAges($request);
+
+            /*
+             * The event's age limits, applied to every age collected here.
+             * No exception for escorts, and none is needed: where 参加人数
+             * excludes them they have no age on the form at all, and where it
+             * includes them they are participants like anyone else.
+             *
+             * Checked per person so the message lands on the field that caused
+             * it. BookingService checks the same range inside the transaction,
+             * so a hand-made POST gets no further than a typed one.
+             */
+            $ageRange = AgeRange::fromEvent($session);
+            $refuse = static function (string $field, string $who) use ($validator, $ageRange): void {
+                $validator->fail($field, sprintf(
+                    '%sは対象年齢の範囲外です（%s）。',
+                    $who,
+                    $ageRange->label()
+                ));
+            };
+
             $ages[] = (int) $validator->value('age_1');
+            if (!$ageRange->accepts((int) $validator->value('age_1'))) {
+                $refuse('age_1', '1人目の年齢');
+            }
 
             for ($i = 2; $i <= $partySize; $i++) {
                 $value = trim($names[$i] ?? '');
@@ -279,6 +303,9 @@ final class BookingController
                         self::AGE_MIN,
                         self::AGE_MAX
                     ));
+                } elseif (!$ageRange->accepts((int) $age)) {
+                    $ages[] = (int) $age;
+                    $refuse("age_{$i}", "{$i}人目の年齢");
                 } else {
                     $ages[] = (int) $age;
                 }

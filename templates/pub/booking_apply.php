@@ -17,6 +17,8 @@ $externalUrl = (string) ($session['external_url'] ?? '');
 // Whether 参加人数 already counts the people coming along. Where it does not,
 // they are asked for separately and do not take a seat.
 $guardiansInParty = (int) ($session['party_includes_guardians'] ?? 0) === 1;
+// 空なら制限なし。label() が '' を返すので、そのまま表示の有無に使えます。
+$ageRange = App\Domain\AgeRange::fromEvent($session);
 ?>
 <p class="breadcrumb">
   <a href="<?= url('/') ?>">体験一覧</a> ／
@@ -45,6 +47,13 @@ $guardiansInParty = (int) ($session['party_includes_guardians'] ?? 0) === 1;
           開催企業の紹介ページで見る
         </a>
         <span class="muted">（新しいタブで開きます）</span>
+      </dd>
+    <?php endif; ?>
+    <?php if (!$ageRange->isUnbounded()): ?>
+      <dt>対象年齢</dt>
+      <dd>
+        <strong><?= e($ageRange->label()) ?></strong>
+        <span class="muted">／ 範囲外の年齢ではご予約いただけません</span>
       </dd>
     <?php endif; ?>
     <dt>空き状況</dt>
@@ -179,9 +188,15 @@ $guardiansInParty = (int) ($session['party_includes_guardians'] ?? 0) === 1;
 
   <div class="field">
     <label for="age_1">1人目の年齢</label>
+    <?php /* Repeated next to the field that has to satisfy it, not only in the
+             panel above: this is the box people are looking at when they type
+             a number that will be refused. */ ?>
     <input type="number" id="age_1" name="age_1" required min="0" max="120"
            value="<?= e((string) ($old['ages'][1] ?? '')) ?>"
            <?= isset($errors['age_1']) ? 'aria-invalid="true"' : '' ?>>
+    <?php if (!$ageRange->isUnbounded()): ?>
+      <p class="hint">この体験プログラムの対象年齢は <strong><?= e($ageRange->label()) ?></strong> です。</p>
+    <?php endif; ?>
     <?php if (isset($errors['age_1'])): ?><p class="error"><?= e($errors['age_1']) ?></p><?php endif; ?>
   </div>
 

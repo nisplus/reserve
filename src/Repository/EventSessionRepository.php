@@ -74,7 +74,7 @@ final class EventSessionRepository
             'SELECT ' . self::SELECT_LIST . ",
                     e.id AS event_id, e.title AS event_title, e.venue, e.description,
                     e.booking_required, e.max_party_size, e.external_url,
-                    e.party_includes_guardians,
+                    e.party_includes_guardians, e.min_age, e.max_age,
                     -- Live count, not waitlist_counter: the counter only ever
                     -- rises, and what the booking screens need to know is
                     -- whether anyone is waiting NOW - a freed seat is theirs.
