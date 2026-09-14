@@ -121,20 +121,12 @@ use App\Domain\Area;
         <?php endif; ?>
 
         <p class="card-foot">
-          <?php if (!$needsBooking): ?>
-            <span class="badge badge--muted">予約不要</span>
-          <?php elseif ($sessionCount === 0): ?>
-            <span class="badge badge--muted">受付前</span>
-          <?php elseif ($seatsLeft === 0 && $waitingCount > 0): ?>
-            <?php /* Seats may be free, but the queue holds them, so 全回満席
-                     would be wrong and 空き N 名分 would be a promise the
-                     booking screen cannot keep. */ ?>
-            <span class="badge badge--warn">キャンセル待ち</span>
-          <?php elseif ($seatsLeft === 0): ?>
-            <span class="badge badge--bad">全回満席</span>
-          <?php else: ?>
-            <span class="badge badge--ok">空き <?= $seatsLeft ?> 名分</span>
-          <?php endif; ?>
+          <?= App\Core\View::renderPartial('partials/event_availability', [
+                'needsBooking' => $needsBooking,
+                'sessionCount' => $sessionCount,
+                'seatsLeft'    => $seatsLeft,
+                'waitingCount' => $waitingCount,
+              ]) ?>
           <a class="btn btn--small btn--ghost" href="<?= url('/events/') ?><?= (int) $event['id'] ?>">
             <?= $needsBooking || $sessionCount > 0 ? '開催時間を見る' : '詳細を見る' ?>
           </a>

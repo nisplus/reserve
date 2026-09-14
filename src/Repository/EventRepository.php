@@ -146,11 +146,42 @@ final class EventRepository
         );
     }
 
-    /** @return array<int, array<string, mixed>> */
+    /**
+     * The admin programme list, with the same availability totals the public
+     * catalogue computes - so the office reads the same four states an
+     * applicant does (partials/event_availability.php).
+     *
+     * session_count stays a count of ALL sessions, because the admin list uses
+     * it for the 開催回 column and the delete guard. open_session_count is the
+     * one the badge asks about: a closed session takes no booking, so an event
+     * whose sessions are all closed is 受付前, not 全回満席.
+     *
+     * @return array<int, array<string, mixed>>
+     */
     public function listForAdmin(?int $companyId = null): array
     {
         $sql = "SELECT e.*, c.name AS company_name,
-                       (SELECT COUNT(*) FROM event_sessions s WHERE s.event_id = e.id) AS session_count
+                       (SELECT COUNT(*) FROM event_sessions s WHERE s.event_id = e.id) AS session_count,
+                       (SELECT COUNT(*) FROM event_sessions s
+                         WHERE s.event_id = e.id AND s.status = 'open') AS open_session_count,
+                       -- Seats a new applicant could actually take: a session
+                       -- with anyone waiting contributes none of its free
+                       -- seats, because those belong to its queue
+                       -- (BookingService::wouldWaitlist). Same expression as
+                       -- publishedCatalogue - the two must not disagree.
+                       (SELECT COALESCE(SUM(
+                                 CASE WHEN EXISTS (SELECT 1 FROM bookings b
+                                                    WHERE b.session_id = s.id
+                                                      AND b.status = 'waitlisted')
+                                      THEN 0
+                                      ELSE GREATEST(CAST(s.capacity AS SIGNED)
+                                                  - CAST(s.confirmed_seats AS SIGNED), 0)
+                                 END), 0)
+                          FROM event_sessions s
+                         WHERE s.event_id = e.id AND s.status = 'open') AS seats_left,
+                       (SELECT COUNT(*) FROM bookings b
+                          JOIN event_sessions s ON s.id = b.session_id
+                         WHERE s.event_id = e.id AND b.status = 'waitlisted') AS waiting_count
                 FROM events e
                 JOIN companies c ON c.id = e.company_id";
         $params = [];

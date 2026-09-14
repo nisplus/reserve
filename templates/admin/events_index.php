@@ -35,7 +35,7 @@ use App\Core\Csrf;
 <div class="table-scroll">
   <table class="table">
     <thead>
-      <tr><th>会社</th><th>体験内容名</th><th>会場</th><th>公開</th><th>開催回</th><th></th></tr>
+      <tr><th>会社</th><th>体験内容名</th><th>会場</th><th>公開</th><th>空き状況</th><th>開催回</th><th></th></tr>
     </thead>
     <tbody>
     <?php foreach ($events as $event): ?>
@@ -49,8 +49,25 @@ use App\Core\Csrf;
           <?php else: ?>
             <span class="badge badge--muted">非公開</span>
           <?php endif; ?>
-          <?php if ((int) $event['booking_required'] !== 1): ?>
-            <span class="badge badge--muted">予約不要</span>
+          <?php /* 予約不要 is not a publication state - it says whether the
+                   thing can be booked, which is what the 空き状況 column
+                   answers. It used to be announced in both. */ ?>
+        </td>
+        <?php /* The same badge the public catalogue shows, summed the same way,
+                 so the office and an applicant read the same state. The 開催回
+                 count beside it cannot say it: 8 件 is true of an event that is
+                 wide open and of one that is entirely queued. */ ?>
+        <td>
+          <?= App\Core\View::renderPartial('partials/event_availability', [
+                'needsBooking' => (int) $event['booking_required'] === 1,
+                'sessionCount' => (int) $event['open_session_count'],
+                'seatsLeft'    => (int) $event['seats_left'],
+                'waitingCount' => (int) $event['waiting_count'],
+              ]) ?>
+          <?php if ((int) $event['waiting_count'] > 0): ?>
+            <br><span class="muted" style="font-size:12px">
+              キャンセル待ち <?= (int) $event['waiting_count'] ?> 件
+            </span>
           <?php endif; ?>
         </td>
         <?php /* 予約不要 events keep a timetable too - it is shown to visitors
