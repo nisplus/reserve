@@ -35,7 +35,7 @@ use App\Domain\SessionStatus;
 <div class="table-scroll">
   <table class="table">
     <thead>
-      <tr><th>日時</th><th>定員</th><th>確定</th><th>待ち</th><th>受付</th><th></th></tr>
+      <tr><th>日時</th><th>空き状況</th><th>定員</th><th>確定</th><th>待ち</th><th>受付</th><th></th></tr>
     </thead>
     <tbody>
     <?php foreach ($sessions as $session): ?>
@@ -44,12 +44,30 @@ use App\Domain\SessionStatus;
         <td>
           <?= e(jp_datetime((string) $session['starts_at'])) ?>〜<?= e(jp_time((string) $session['ends_at'])) ?>
         </td>
+        <?php /* The same partial the public pages render, so the office sees
+                 what an applicant sees - including a session whose free seats
+                 are held for its queue, which the 定員/確定 columns beside it
+                 cannot show. 定員 has its own column here, so it is not
+                 repeated inside the badge. */ ?>
+        <td>
+          <?php if ($status === SessionStatus::Open): ?>
+            <?= App\Core\View::renderPartial('partials/seat_status', [
+                  'seatsLeft'    => (int) $session['seats_left'],
+                  'waiting'      => (int) $session['waitlist_count'],
+                  'capacity'     => (int) $session['capacity'],
+                  'showCapacity' => false,
+                ]) ?>
+          <?php else: ?>
+            <?php /* A closed session takes no bookings at all, so a seat count
+                     would describe an availability that is not on offer. */ ?>
+            <span class="muted">—</span>
+          <?php endif; ?>
+        </td>
         <td><?= (int) $session['capacity'] ?> 名</td>
         <td>
+          <?php /* No 満席 badge here any more - the 空き状況 column owns that
+                   signal, and stating it twice invites the two to disagree. */ ?>
           <?= (int) $session['confirmed_seats'] ?> 名
-          <?php if ((int) $session['seats_left'] === 0): ?>
-            <span class="badge badge--bad">満席</span>
-          <?php endif; ?>
           <?php /* Only where escorts are counted separately - otherwise the
                    seat count already is the headcount. */ ?>
           <?php if ((int) ($session['confirmed_guardians'] ?? 0) > 0): ?>

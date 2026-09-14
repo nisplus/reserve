@@ -10,6 +10,8 @@ use App\Domain\BookingStatus;
  * @var int                              $page
  * @var int                              $pages
  * @var array<string, mixed>             $filters
+ * @var App\Domain\BookingSort           $sort
+ * @var array<string, string>            $sortOptions value => label
  * @var array<int, string>               $options  company id => name
  * @var array<int, array<string, mixed>> $events   events for the event select
  * @var array<int, array<string, mixed>> $sessions sessions of the chosen event ([] otherwise)
@@ -20,6 +22,10 @@ $query = http_build_query(array_filter([
     'session' => (int) $filters['session_id'] ?: null,
     'status'  => (string) $filters['status'] ?: null,
     'email'   => (string) $filters['email'] ?: null,
+    // Carried through paging, the CSV link and the post-action return,
+    // so choosing an order does not silently revert on the next click.
+    // Omitted when it is the default, to keep shared URLs short.
+    'sort'    => $sort === App\Domain\BookingSort::Newest ? null : $sort->value,
 ]));
 $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query !== '' ? $query . '&' : '') . 'page=' . $p;
 ?>
@@ -69,6 +75,14 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
         <option value="">すべて</option>
         <?php foreach (BookingStatus::cases() as $case): ?>
           <option value="<?= e($case->value) ?>" <?= $filters['status'] === $case->value ? 'selected' : '' ?>><?= e($case->label()) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="field">
+      <label for="sort">並び順</label>
+      <select id="sort" name="sort" onchange="this.form.submit()">
+        <?php foreach ($sortOptions as $value => $label): ?>
+          <option value="<?= e($value) ?>" <?= $sort->value === $value ? 'selected' : '' ?>><?= e($label) ?></option>
         <?php endforeach; ?>
       </select>
     </div>

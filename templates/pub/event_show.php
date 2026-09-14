@@ -103,18 +103,11 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
 
           <?php if ($needsBooking): ?>
             <span class="slot-seats">
-              <?php if ($queued): ?>
-                <span class="badge badge--warn">キャンセル待ち</span>
-                <span class="muted">現在 <?= $waiting ?> 件</span>
-              <?php elseif ($noSeats): ?>
-                <span class="badge badge--bad">満席</span>
-              <?php elseif ($seatsLeft <= 3): ?>
-                <span class="badge badge--warn">残り <?= $seatsLeft ?> 名</span>
-                <span class="muted">／ 定員 <?= (int) $session['capacity'] ?> 名</span>
-              <?php else: ?>
-                <span class="badge badge--ok">残り <?= $seatsLeft ?> 名</span>
-                <span class="muted">／ 定員 <?= (int) $session['capacity'] ?> 名</span>
-              <?php endif; ?>
+              <?= App\Core\View::renderPartial('partials/seat_status', [
+                    'seatsLeft' => $seatsLeft,
+                    'waiting'   => $waiting,
+                    'capacity'  => (int) $session['capacity'],
+                  ]) ?>
             </span>
 
             <a class="btn btn--small <?= $mustWait ? 'btn--ghost' : '' ?>"

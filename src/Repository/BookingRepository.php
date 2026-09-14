@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Core\Db;
+use App\Domain\BookingSort;
 use App\Domain\BookingStatus;
 
 final class BookingRepository
@@ -278,13 +279,22 @@ final class BookingRepository
     /**
      * Admin list search. $filters keys: company_id, event_id, session_id,
      * status, email (substring). All optional; unknown keys are ignored -
-     * every fragment below is bound, nothing is interpolated.
+     * every filter fragment below is bound, nothing is interpolated.
+     *
+     * The one exception is the ORDER BY, which SQL will not take as a bound
+     * parameter. It comes from BookingSort, whose every branch is a literal
+     * written in that file, so nothing derived from a request reaches the
+     * query - see the enum for why the sort is typed rather than a string.
      *
      * @param array<string, mixed> $filters
      * @return array<int, array<string, mixed>>
      */
-    public function searchForAdmin(array $filters, int $limit, int $offset): array
-    {
+    public function searchForAdmin(
+        array $filters,
+        int $limit,
+        int $offset,
+        BookingSort $sort = BookingSort::Newest,
+    ): array {
         [$where, $params] = $this->adminFilterWhere($filters);
 
         $sql = "SELECT b.id, b.reference_code, b.email, b.phone, b.name, b.contact_name,
@@ -299,7 +309,7 @@ final class BookingRepository
                 JOIN events e         ON e.id = s.event_id
                 JOIN companies c      ON c.id = e.company_id
                 {$where}
-                ORDER BY b.created_at DESC, b.id DESC
+                ORDER BY {$sort->orderBy()}
                 LIMIT ? OFFSET ?";
 
         // Native prepares refuse string-typed LIMIT/OFFSET, so bind by hand.

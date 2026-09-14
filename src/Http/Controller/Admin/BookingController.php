@@ -11,6 +11,7 @@ use App\Core\Flash;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\View;
+use App\Domain\BookingSort;
 use App\Exception\NotFoundException;
 use App\Exception\ValidationException;
 use App\Mail\MailDispatcher;
@@ -43,7 +44,8 @@ final class BookingController
         $total = $repo->countForAdmin($filters);
         $pages = max(1, (int) ceil($total / self::PER_PAGE));
         $page  = min(max($request->queryInt('page', 1), 1), $pages);
-        $rows  = $repo->searchForAdmin($filters, self::PER_PAGE, ($page - 1) * self::PER_PAGE);
+        $sort  = BookingSort::fromRequest($request->query('sort'));
+        $rows  = $repo->searchForAdmin($filters, self::PER_PAGE, ($page - 1) * self::PER_PAGE, $sort);
 
         $sessions = [];
         if ((int) $filters['event_id'] > 0) {
@@ -60,6 +62,8 @@ final class BookingController
         return Response::html(View::render('admin/bookings_index', [
             'title'     => '予約一覧',
             'rows'      => $rows,
+            'sort'      => $sort,
+            'sortOptions' => BookingSort::options(),
             'attendees' => (new BookingAttendeeRepository())->namesForMany(
                 array_map(static fn (array $row): int => (int) $row['id'], $rows)
             ),
@@ -79,7 +83,15 @@ final class BookingController
     public function export(Request $request): Response
     {
         $filters = $this->filters($request);
-        $rows = (new BookingRepository())->searchForAdmin($filters, self::EXPORT_MAX, 0);
+        // Same order as the list it was exported from: a CSV that
+        // reshuffles the rows is a different document from the screen
+        // the operator was looking at when they pressed the button.
+        $rows = (new BookingRepository())->searchForAdmin(
+            $filters,
+            self::EXPORT_MAX,
+            0,
+            BookingSort::fromRequest($request->query('sort')),
+        );
 
         // 体験内容 rather than 体験プログラム: this is a column heading, and the
         // CSV list header follows the same width rule as the on-screen table.

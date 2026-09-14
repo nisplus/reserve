@@ -58,15 +58,13 @@ $ageRange = App\Domain\AgeRange::fromEvent($session);
     <?php endif; ?>
     <dt>空き状況</dt>
     <dd>
-      <?php if ($waiting > 0): ?>
-        <span class="badge badge--warn">キャンセル待ち</span>
-        <span class="muted">現在 <?= $waiting ?> 件</span>
-      <?php elseif ($seatsLeft === 0): ?>
-        <span class="badge badge--bad">満席</span>
+      <?= App\Core\View::renderPartial('partials/seat_status', [
+            'seatsLeft' => $seatsLeft,
+            'waiting'   => $waiting,
+            'capacity'  => (int) $session['capacity'],
+          ]) ?>
+      <?php if ($waiting === 0 && $seatsLeft === 0): ?>
         <span class="muted">キャンセル待ちでの受付になります</span>
-      <?php else: ?>
-        <span class="badge <?= $seatsLeft <= 3 ? 'badge--warn' : 'badge--ok' ?>">残り <?= $seatsLeft ?> 名</span>
-        <span class="muted">／ 定員 <?= (int) $session['capacity'] ?> 名</span>
       <?php endif; ?>
     </dd>
   </dl>
