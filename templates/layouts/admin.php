@@ -30,6 +30,7 @@ $user = Auth::user();
         <a href="<?= url('/admin') ?>">ダッシュボード</a>
         <a href="<?= url('/admin/bookings') ?>">予約一覧</a>
         <a href="<?= url('/admin/events') ?>">体験内容</a>
+        <a href="<?= url('/admin/mail/bulk') ?>">一斉送信</a>
         <?php if (Auth::isSuperadmin()): ?>
           <a href="<?= url('/admin/companies') ?>">会社</a>
           <a href="<?= url('/admin/mail') ?>">メール</a>

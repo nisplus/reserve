@@ -33,7 +33,31 @@ final class MailDispatcher
     }
 
     /** @return array{sent: int, failed: int, skipped: int} */
-    public function processPending(int $limit = 50): array
+    public function processPending(int $limit = 50, ?string $category = null): array
+    {
+        return $this->process($this->queue->pendingIds($limit, $category));
+    }
+
+    /**
+     * Send these particular messages now.
+     *
+     * The test send before a campaign uses this. Draining the queue's
+     * oldest rows instead would prove nothing about the message being
+     * tested - on a busy queue it would not even reach it.
+     *
+     * @param array<int, int> $ids
+     * @return array{sent: int, failed: int, skipped: int}
+     */
+    public function processIds(array $ids): array
+    {
+        return $this->process($ids);
+    }
+
+    /**
+     * @param array<int, int> $ids
+     * @return array{sent: int, failed: int, skipped: int}
+     */
+    private function process(array $ids): array
     {
         $mailer   = $this->mailer ?? MailerFactory::make();
         $fromMail = Config::string('mail.from.address');
@@ -41,7 +65,7 @@ final class MailDispatcher
 
         $sent = $failed = $skipped = 0;
 
-        foreach ($this->queue->pendingIds($limit) as $id) {
+        foreach ($ids as $id) {
             $outcome = Db::transaction(function () use ($id, $mailer, $fromMail, $fromName): string {
                 $row = $this->queue->lockPending($id);
                 if ($row === null) {
@@ -79,14 +103,19 @@ final class MailDispatcher
     }
 
     /**
-     * Post-commit hook for the web flow. Best effort by contract: the booking
-     * has already committed, so nothing here may break the user's response -
-     * on any failure the mail simply stays queued for bin/send_mail.php.
+     * Post-commit hook for the web flow. Best effort by contract: the
+     * booking has already committed, so nothing here may break the user's
+     * response - on any failure the mail simply stays queued for
+     * bin/send_mail.php.
+     *
+     * Transactional only. Without that narrowing, a person who has just
+     * booked would sit waiting while their request sent a slice of
+     * somebody else's bulk campaign.
      */
     public static function tryProcessPending(int $limit = 10): void
     {
         try {
-            (new self())->processPending($limit);
+            (new self())->processPending($limit, MailQueueRepository::TRANSACTIONAL);
         } catch (Throwable) {
             // Deliberately swallowed; the queue is the safety net.
         }

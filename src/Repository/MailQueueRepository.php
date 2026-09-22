@@ -14,25 +14,62 @@ use App\Core\Db;
  */
 final class MailQueueRepository
 {
-    public function enqueue(string $toEmail, ?string $toName, string $subject, string $body, ?int $bookingId = null): int
-    {
+    /** A message tied to one booking - the kind a person is waiting for. */
+    public const TRANSACTIONAL = 'transactional';
+
+    /** One message of a campaign sent to many people at once. */
+    public const BULK = 'bulk';
+
+    public function enqueue(
+        string $toEmail,
+        ?string $toName,
+        string $subject,
+        string $body,
+        ?int $bookingId = null,
+        string $category = self::TRANSACTIONAL,
+    ): int {
         Db::execute(
-            'INSERT INTO mail_queue (to_email, to_name, subject, body, booking_id) VALUES (?, ?, ?, ?, ?)',
-            [$toEmail, $toName, $subject, $body, $bookingId]
+            'INSERT INTO mail_queue (to_email, to_name, subject, body, booking_id, category)
+             VALUES (?, ?, ?, ?, ?, ?)',
+            [$toEmail, $toName, $subject, $body, $bookingId, $category]
         );
         return Db::lastInsertId();
     }
 
-    /** Oldest-first batch of ids worth attempting. @return array<int, int> */
-    public function pendingIds(int $limit): array
+    /**
+     * Oldest-first batch of ids worth attempting.
+     *
+     * $category narrows it. The inline send that runs at the end of a booking
+     * passes TRANSACTIONAL so a queued campaign cannot make the person who
+     * just booked wait for other people's mail; cron and the admin button
+     * pass null and drain everything.
+     *
+     * @return array<int, int>
+     */
+    public function pendingIds(int $limit, ?string $category = null): array
     {
+        $where = $category !== null ? 'AND category = ?' : '';
         $statement = Db::pdo()->prepare(
-            "SELECT id FROM mail_queue WHERE status = 'pending' ORDER BY id LIMIT ?"
+            "SELECT id FROM mail_queue WHERE status = 'pending' {$where} ORDER BY id LIMIT ?"
         );
+        $position = 1;
+        if ($category !== null) {
+            $statement->bindValue($position++, $category);
+        }
         // Native prepares reject a string for LIMIT; it must be bound as an int.
-        $statement->bindValue(1, $limit, \PDO::PARAM_INT);
+        $statement->bindValue($position, $limit, \PDO::PARAM_INT);
         $statement->execute();
         return array_map('intval', $statement->fetchAll(\PDO::FETCH_COLUMN));
+    }
+
+    /**
+     * How many are still waiting. Shown on the admin button and reported
+     * back after a drain, because a campaign is sent in batches and the
+     * operator needs to know whether they are finished.
+     */
+    public function countPending(): int
+    {
+        return (int) Db::scalar("SELECT COUNT(*) FROM mail_queue WHERE status = 'pending'");
     }
 
     /**
@@ -82,23 +119,27 @@ final class MailQueueRepository
     }
 
     /**
-     * Newest-first admin listing, optionally by status.
+     * Newest-first admin listing, optionally by status and by category.
+     *
+     * The category filter is what keeps a campaign readable: 300 queued
+     * announcements otherwise bury every booking confirmation sent the
+     * same afternoon, and those are the ones somebody is waiting for.
      *
      * @return array<int, array<string, mixed>>
      */
-    public function listForAdmin(string $status, int $limit, int $offset): array
+    public function listForAdmin(string $status, int $limit, int $offset, string $category = ''): array
     {
-        $where = $status !== '' ? 'WHERE status = ?' : '';
+        [$where, $params] = self::filter($status, $category);
         $statement = Db::pdo()->prepare(
             "SELECT id, to_email, to_name, subject, status, attempts, last_error,
-                    booking_id, created_at, sent_at
+                    booking_id, category, created_at, sent_at
              FROM mail_queue {$where}
              ORDER BY id DESC
              LIMIT ? OFFSET ?"
         );
         $position = 1;
-        if ($status !== '') {
-            $statement->bindValue($position++, $status);
+        foreach ($params as $param) {
+            $statement->bindValue($position++, $param);
         }
         $statement->bindValue($position++, $limit, \PDO::PARAM_INT);
         $statement->bindValue($position, $offset, \PDO::PARAM_INT);
@@ -106,12 +147,31 @@ final class MailQueueRepository
         return $statement->fetchAll();
     }
 
-    public function countForAdmin(string $status): int
+    public function countForAdmin(string $status, string $category = ''): int
     {
-        if ($status === '') {
-            return (int) Db::scalar('SELECT COUNT(*) FROM mail_queue');
+        [$where, $params] = self::filter($status, $category);
+        return (int) Db::scalar("SELECT COUNT(*) FROM mail_queue {$where}", $params);
+    }
+
+    /**
+     * The WHERE both admin queries share, so the total and the page
+     * cannot disagree about what is being listed.
+     *
+     * @return array{0: string, 1: array<int, string>}
+     */
+    private static function filter(string $status, string $category): array
+    {
+        $where = [];
+        $params = [];
+        if ($status !== '') {
+            $where[] = 'status = ?';
+            $params[] = $status;
         }
-        return (int) Db::scalar('SELECT COUNT(*) FROM mail_queue WHERE status = ?', [$status]);
+        if ($category !== '') {
+            $where[] = 'category = ?';
+            $params[] = $category;
+        }
+        return [$where === [] ? '' : 'WHERE ' . implode(' AND ', $where), $params];
     }
 
     /**

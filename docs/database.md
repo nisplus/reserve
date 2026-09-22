@@ -252,7 +252,8 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 | `status` | enum('pending','sent','failed') | 不可 | 'pending' | pending → sent。5 回失敗すると failed で滞留し、管理画面から再送できる。 |
 | `attempts` | tinyint(3) unsigned | 不可 | 0 |  |
 | `last_error` | varchar(500) | 可 | NULL |  |
-| `booking_id` | bigint(20) unsigned | 可 | NULL | 関連する予約。外部キーは張っていない（予約が消えてもメール履歴は残す）。 |
+| `booking_id` | bigint(20) unsigned | 可 | NULL | 関連する予約。外部キーは張っていない（予約が消えてもメール履歴は残す）。一斉送信は NULL（予約「について」のメールであって、予約「から」出たメールではない）。 |
+| `category` | varchar(20) | 不可 | 'transactional' | transactional（予約確定・キャンセルなど、相手が待っているメール）か bulk（一斉送信）。**予約完了直後のインライン送信は transactional だけを送る**ので、一斉送信をキューに積んでも予約した人が待たされない。 |
 | `created_at` | datetime | 不可 | current_timestamp() |  |
 | `sent_at` | datetime | 可 | NULL |  |
 
@@ -260,6 +261,7 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 
 - `idx_mail_booking` — `booking_id`
 - `idx_mail_status` — `status`, `id`
+- `idx_mail_status_category` — `status`, `category`, `id`
 - `PRIMARY`（UNIQUE） — `id`
 
 ---

@@ -86,7 +86,8 @@ $columnNotes = [
     'booking_events.actor' => "誰の操作か。'applicant' / 'admin:ユーザー名' / 'system:auto_promote' など。",
 
     'mail_queue.status' => 'pending → sent。5 回失敗すると failed で滞留し、管理画面から再送できる。',
-    'mail_queue.booking_id' => '関連する予約。外部キーは張っていない（予約が消えてもメール履歴は残す）。',
+    'mail_queue.booking_id' => '関連する予約。外部キーは張っていない（予約が消えてもメール履歴は残す）。一斉送信は NULL（予約「について」のメールであって、予約「から」出たメールではない）。',
+    'mail_queue.category' => "transactional（予約確定・キャンセルなど、相手が待っているメール）か bulk（一斉送信）。**予約完了直後のインライン送信は transactional だけを送る**ので、一斉送信をキューに積んでも予約した人が待たされない。",
 
     'settings.name' => "設定キー。App\\Core\\Settings が知っているキーだけを受け付ける（booking.enabled / booking.opens_at / booking.closes_at / booking.closed_message）。key は MySQL の予約語なので name。",
     'settings.value' => '真偽値は 1/0、日時は Y-m-d H:i:s（JST）、案内文はそのまま。NULL と行が無いのはどちらも「未設定」。',

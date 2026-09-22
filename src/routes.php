@@ -81,4 +81,12 @@ return static function (Router $router): void {
     $router->get('/admin/mail',               [App\Http\Controller\Admin\MailController::class, 'index'], $office);
     $router->post('/admin/mail/{id}/resend',  [App\Http\Controller\Admin\MailController::class, 'resend'], $office);
     $router->post('/admin/mail/send-pending', [App\Http\Controller\Admin\MailController::class, 'sendPending'], $office);
+
+    // Bulk announcements are $auth, not $office: a company account may
+    // address its own applicants. The scoping is enforced in the
+    // controller from the session, never from the form.
+    $router->get('/admin/mail/bulk',          [App\Http\Controller\Admin\BulkMailController::class, 'compose'], $auth);
+    $router->post('/admin/mail/bulk/preview', [App\Http\Controller\Admin\BulkMailController::class, 'preview'], $auth);
+    $router->post('/admin/mail/bulk/test',    [App\Http\Controller\Admin\BulkMailController::class, 'test'], $auth);
+    $router->post('/admin/mail/bulk',         [App\Http\Controller\Admin\BulkMailController::class, 'send'], $auth);
 };
