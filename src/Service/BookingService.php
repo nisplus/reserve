@@ -6,6 +6,7 @@ namespace App\Service;
 
 use App\Core\Config;
 use App\Core\Db;
+use App\Core\Settings;
 use App\Domain\AgeRange;
 use App\Domain\BookingStatus;
 use App\Domain\SessionStatus;
@@ -176,6 +177,25 @@ final class BookingService
                 ) ?? [];
                 if ((int) ($event['booking_required'] ?? 0) !== 1) {
                     throw new ValidationException('この体験プログラムは予約不要です。');
+                }
+
+                /*
+                 * The site-wide booking switch, checked here and not only on
+                 * the screens. A deadline is a moment in time, and the form is
+                 * a two-step POST, so there is always a window where someone
+                 * loaded the page while it was open and submits after it shut
+                 * - and the minutes around a deadline are exactly when people
+                 * pile up. Hiding the links keeps people from starting;
+                 * this is what turns away the ones already inside.
+                 *
+                 * Before the seat decision, as the age check is: an
+                 * application that cannot be taken must not become a waitlist
+                 * entry either.
+                 */
+                $window = Settings::bookingWindow();
+                $now = new \DateTimeImmutable('now');
+                if (!$window->isOpenAt($now)) {
+                    throw new ValidationException($window->noticeAt($now));
                 }
 
                 // Where 参加人数 already includes the people coming along, a

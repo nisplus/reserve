@@ -21,10 +21,20 @@
  * @var int  $sessionCount  Sessions that could take a booking (open ones).
  * @var int  $seatsLeft     Seats a new applicant could actually take.
  * @var int  $waitingCount  People queued across the event's sessions.
+ * @var \App\Domain\BookingClosedReason|null $closed Site-wide booking stop.
+ *                          Outranks the seat totals for the same reason it
+ *                          does per session, but NOT 予約不要: an event that
+ *                          never took bookings is unaffected by bookings
+ *                          being stopped, and saying 受付終了 about it would
+ *                          be telling people to stay away from something they
+ *                          can still walk into.
  */
+$closed ??= null;
 ?>
 <?php if (!$needsBooking): ?>
   <span class="badge badge--muted">予約不要</span>
+<?php elseif ($closed !== null): ?>
+  <span class="badge badge--muted"><?= e($closed->badgeLabel()) ?></span>
 <?php elseif ($sessionCount === 0): ?>
   <span class="badge badge--muted">受付前</span>
 <?php elseif ($seatsLeft === 0 && $waitingCount > 0): ?>

@@ -3,7 +3,21 @@
  * @var array<string, mixed> $event
  * @var array<int, array{date:string, sessions:array<int, array<string,mixed>>}> $days
  * @var int $total
+ * @var \App\Domain\BookingClosedReason|null $closed Site-wide booking stop.
+ * @var string $closedNotice
  */
+/*
+ * Defaulted rather than required, as the partials are. These pages are
+ * rendered from tests and from two controllers, and a page that hard-requires
+ * a variable makes every future caller learn about booking windows to render
+ * an unrelated thing. Uninformed means "open": the stop is enforced in the
+ * booking transaction, so what is lost by a caller that forgets is the notice,
+ * not the rule - and the booking-window test renders the real path to check
+ * the controllers do pass it.
+ */
+$closed ??= null;
+$closedNotice ??= '';
+
 $needsBooking = (int) $event['booking_required'] === 1;
 $externalUrl  = (string) ($event['external_url'] ?? '');
 ?>
@@ -62,6 +76,16 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
  * point, which is what it means for a bookable event.
  */
 ?>
+<?php if ($needsBooking && $closed !== null): ?>
+  <?php /* The slot list below is left exactly as it is. A stop shuts the
+           way in, not the information: someone deciding whether to travel
+           still needs the times, the venue and the description. */ ?>
+  <div class="error-summary" role="alert">
+    <p><?= enl($closedNotice) ?></p>
+    <p class="muted">開催時間は下記のとおりです。</p>
+  </div>
+<?php endif; ?>
+
 <?php if ($total === 0): ?>
   <?php if ($needsBooking): ?>
     <h2>開催時間を選ぶ</h2>
@@ -95,6 +119,9 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
           $queued   = $waiting > 0;
           $noSeats  = $seatsLeft === 0;
           $mustWait = $needsBooking && ($queued || $noSeats);
+          // A site-wide stop removes the button entirely rather than
+          // turning it into a waitlist button: there is nothing to join.
+          $stopped  = $needsBooking && $closed !== null;
         ?>
         <li class="slot <?= $mustWait ? 'slot--full' : '' ?>">
           <span class="slot-time">
@@ -107,13 +134,16 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
                     'seatsLeft' => $seatsLeft,
                     'waiting'   => $waiting,
                     'capacity'  => (int) $session['capacity'],
+                    'closed'    => $closed,
                   ]) ?>
             </span>
 
-            <a class="btn btn--small <?= $mustWait ? 'btn--ghost' : '' ?>"
-               href="<?= url('/sessions/') ?><?= (int) $session['id'] ?>/apply">
-              <?= $mustWait ? 'キャンセル待ちで予約する' : '予約する' ?>
-            </a>
+            <?php if (!$stopped): ?>
+              <a class="btn btn--small <?= $mustWait ? 'btn--ghost' : '' ?>"
+                 href="<?= url('/sessions/') ?><?= (int) $session['id'] ?>/apply">
+                <?= $mustWait ? 'キャンセル待ちで予約する' : '予約する' ?>
+              </a>
+            <?php endif; ?>
           <?php endif; ?>
         </li>
       <?php endforeach; ?>

@@ -21,10 +21,18 @@
  * @var bool $showCapacity Whether to print ／ 定員 N 名 after the count. The
  *                         admin list has its own 定員 column, so it passes
  *                         false rather than saying it twice.
+ * @var \App\Domain\BookingClosedReason|null $closed Site-wide booking stop, if
+ *                         any. It outranks everything below: while nothing can
+ *                         be booked, a seat count is an invitation to press a
+ *                         button that is not there. The times stay on the page -
+ *                         only the way in is shut.
  */
 $showCapacity ??= true;
+$closed ??= null;
 ?>
-<?php if ($waiting > 0): ?>
+<?php if ($closed !== null): ?>
+  <span class="badge badge--muted"><?= e($closed->badgeLabel()) ?></span>
+<?php elseif ($waiting > 0): ?>
   <span class="badge badge--warn">キャンセル待ち</span>
   <span class="muted">現在 <?= (int) $waiting ?> 件</span>
 <?php elseif ($seatsLeft === 0): ?>

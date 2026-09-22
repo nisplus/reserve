@@ -34,6 +34,7 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 | [`booking_events`](#booking_events) | 予約の状態遷移の監査ログ。「誰がいつキャンセルしたか」に答える。 |
 | [`mail_queue`](#mail_queue) | 送信待ちメール（トランザクショナル・アウトボックス）。予約と同じトランザクションで積むので、ロールバックした予約のメールは残らない。 |
 | [`admin_users`](#admin_users) | 管理画面のアカウント。事務局（全社）と会社担当者（自社のみ）の 2 種類。 |
+| [`settings`](#settings) | アプリ全体の設定（今は予約受付の開閉のみ）。**行が無いときは App\Core\Settings の既定値が効き、その既定は「受付中」**。だからマイグレーション 010 を本番に当てても挙動は変わらない。 |
 | [`schema_migrations`](#schema_migrations) | 適用済みマイグレーションの記録。bin/migrate.php が管理する。 |
 
 ---
@@ -290,6 +291,22 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 **外部キー**
 
 - `company_id` → `companies.id`（ON DELETE RESTRICT / ON UPDATE CASCADE）
+
+---
+
+## settings
+
+アプリ全体の設定（今は予約受付の開閉のみ）。**行が無いときは App\Core\Settings の既定値が効き、その既定は「受付中」**。だからマイグレーション 010 を本番に当てても挙動は変わらない。
+
+| 列 | 型 | NULL | 既定値 | 説明 |
+|---|---|---|---|---|
+| `name` | varchar(64) | 不可 | — | 設定キー。App\Core\Settings が知っているキーだけを受け付ける（booking.enabled / booking.opens_at / booking.closes_at / booking.closed_message）。key は MySQL の予約語なので name。 |
+| `value` | text | 可 | NULL | 真偽値は 1/0、日時は Y-m-d H:i:s（JST）、案内文はそのまま。NULL と行が無いのはどちらも「未設定」。 |
+| `updated_at` | datetime | 不可 | current_timestamp()（更新時に現在時刻） |  |
+
+**索引**
+
+- `PRIMARY`（UNIQUE） — `name`
 
 ---
 

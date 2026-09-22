@@ -42,6 +42,7 @@ $tableNotes = [
     'booking_events' => '予約の状態遷移の監査ログ。「誰がいつキャンセルしたか」に答える。',
     'mail_queue' => '送信待ちメール（トランザクショナル・アウトボックス）。予約と同じトランザクションで積むので、ロールバックした予約のメールは残らない。',
     'admin_users' => '管理画面のアカウント。事務局（全社）と会社担当者（自社のみ）の 2 種類。',
+    'settings' => 'アプリ全体の設定（今は予約受付の開閉のみ）。**行が無いときは App\\Core\\Settings の既定値が効き、その既定は「受付中」**。だからマイグレーション 010 を本番に当てても挙動は変わらない。',
     'schema_migrations' => '適用済みマイグレーションの記録。bin/migrate.php が管理する。',
 ];
 
@@ -87,6 +88,8 @@ $columnNotes = [
     'mail_queue.status' => 'pending → sent。5 回失敗すると failed で滞留し、管理画面から再送できる。',
     'mail_queue.booking_id' => '関連する予約。外部キーは張っていない（予約が消えてもメール履歴は残す）。',
 
+    'settings.name' => "設定キー。App\\Core\\Settings が知っているキーだけを受け付ける（booking.enabled / booking.opens_at / booking.closes_at / booking.closed_message）。key は MySQL の予約語なので name。",
+    'settings.value' => '真偽値は 1/0、日時は Y-m-d H:i:s（JST）、案内文はそのまま。NULL と行が無いのはどちらも「未設定」。',
     'admin_users.role' => 'superadmin=事務局（全社）/ company=会社担当者（自社のみ）。company_id との対応は AdminUserRepository が強制する（MariaDB 11.8 が CHECK を受け付けないため）。',
     'admin_users.company_id' => 'role=company のとき必須、superadmin のとき NULL。',
     'admin_users.locked_until' => '10 回連続で失敗すると 15 分ロック。',

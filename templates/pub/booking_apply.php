@@ -7,7 +7,21 @@ use App\Core\Csrf;
  * @var array<string, string> $errors   Field errors; '_top' is a form-level message.
  * @var array<string, mixed>  $old      Previous input to re-fill after an error.
  * @var int                   $maxParty Per-application cap for this event.
+ * @var \App\Domain\BookingClosedReason|null $closed Site-wide booking stop.
+ * @var string                $closedNotice
  */
+/*
+ * Defaulted rather than required, as the partials are. These pages are
+ * rendered from tests and from two controllers, and a page that hard-requires
+ * a variable makes every future caller learn about booking windows to render
+ * an unrelated thing. Uninformed means "open": the stop is enforced in the
+ * booking transaction, so what is lost by a caller that forgets is the notice,
+ * not the rule - and the booking-window test renders the real path to check
+ * the controllers do pass it.
+ */
+$closed ??= null;
+$closedNotice ??= '';
+
 $seatsLeft   = (int) $session['seats_left'];
 $waiting     = (int) ($session['waitlist_count'] ?? 0);
 // Anyone waiting owns the free seats, so this application joins the queue
@@ -62,8 +76,9 @@ $ageRange = App\Domain\AgeRange::fromEvent($session);
             'seatsLeft' => $seatsLeft,
             'waiting'   => $waiting,
             'capacity'  => (int) $session['capacity'],
+            'closed'    => $closed,
           ]) ?>
-      <?php if ($waiting === 0 && $seatsLeft === 0): ?>
+      <?php if ($closed === null && $waiting === 0 && $seatsLeft === 0): ?>
         <span class="muted">キャンセル待ちでの受付になります</span>
       <?php endif; ?>
     </dd>
@@ -93,6 +108,18 @@ $ageRange = App\Domain\AgeRange::fromEvent($session);
   </p>
 <?php endif; ?>
 
+<?php if ($closed !== null): ?>
+  <?php /* No form at all while bookings are stopped. Leaving the fields
+           up with a dead button invites someone to fill them in and be
+           turned away at the end, which is worse than saying so now. */ ?>
+  <div class="error-summary" role="alert">
+    <p><?= enl($closedNotice) ?></p>
+  </div>
+  <div class="form-actions">
+    <a class="btn btn--ghost" href="<?= url('/events/') ?><?= (int) $session['event_id'] ?>">開催時間を見る</a>
+    <a class="btn btn--ghost" href="<?= url('/') ?>">一覧へ戻る</a>
+  </div>
+<?php else: ?>
 <form method="post" action="<?= url('/sessions/') ?><?= (int) $session['id'] ?>/confirm" novalidate>
   <?= Csrf::field() ?>
 
@@ -277,3 +304,4 @@ $ageRange = App\Domain\AgeRange::fromEvent($session);
     <a class="btn btn--ghost" href="<?= url('/events/') ?><?= (int) $session['event_id'] ?>">開催時間の選択に戻る</a>
   </div>
 </form>
+<?php endif; ?>

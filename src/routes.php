@@ -72,6 +72,8 @@ return static function (Router $router): void {
     $router->post('/admin/sessions/{id}/delete',      [App\Http\Controller\Admin\SessionController::class, 'delete'], $auth);
 
     $router->get('/admin/bookings',               [App\Http\Controller\Admin\BookingController::class, 'index'], $auth);
+    $router->get('/admin/settings',            [App\Http\Controller\Admin\SettingsController::class, 'edit'], $auth);
+    $router->post('/admin/settings',           [App\Http\Controller\Admin\SettingsController::class, 'update'], $auth);
     $router->get('/admin/bookings/export',        [App\Http\Controller\Admin\BookingController::class, 'export'], $auth);
     $router->post('/admin/bookings/{id}/promote', [App\Http\Controller\Admin\BookingController::class, 'promote'], $auth);
     $router->post('/admin/bookings/{id}/cancel',  [App\Http\Controller\Admin\BookingController::class, 'cancel'], $auth);

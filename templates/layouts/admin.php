@@ -34,6 +34,7 @@ $user = Auth::user();
           <a href="<?= url('/admin/companies') ?>">会社</a>
           <a href="<?= url('/admin/mail') ?>">メール</a>
           <a href="<?= url('/admin/users') ?>">アカウント</a>
+          <a href="<?= url('/admin/settings') ?>">受付設定</a>
         <?php endif; ?>
         <a href="<?= url('/') ?>" target="_blank" rel="noopener">公開サイト</a>
       </nav>

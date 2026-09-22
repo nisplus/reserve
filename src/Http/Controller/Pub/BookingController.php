@@ -10,6 +10,7 @@ use App\Core\Flash;
 use App\Core\RateLimiter;
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\Settings;
 use App\Core\Validator;
 use App\Core\View;
 use App\Domain\AgeRange;
@@ -50,13 +51,7 @@ final class BookingController
     {
         $session = $this->loadSession($request->routeInt('id'));
 
-        return Response::html(View::render('pub/booking_apply', [
-            'title'    => '予約：' . $session['event_title'],
-            'session'  => $session,
-            'errors'   => [],
-            'old'      => [],
-            'maxParty' => min((int) $session['max_party_size'] ?: self::PARTY_MAX, self::PARTY_MAX),
-        ]));
+        return $this->renderForm($session, [], []);
     }
 
     /** POST /sessions/{id}/confirm - validate and show the confirmation screen. */
@@ -68,6 +63,24 @@ final class BookingController
         $input = $this->validateInput($request, $session);
         if ($input instanceof Response) {
             return $input; // the re-rendered form
+        }
+
+        // Caught here as well as in the transaction so the applicant is told
+        // before typing the rest of the party's names, not after.
+        $window = Settings::bookingWindow();
+        $now = new \DateTimeImmutable('now');
+        if (!$window->isOpenAt($now)) {
+            return $this->renderForm($session, ['_top' => $window->noticeAt($now)], [
+                'contact_name' => (string) $input['contact_name'],
+                'email'      => (string) $input['email'],
+                'phone'      => (string) $input['phone'],
+                'name'       => (string) $input['name'],
+                'message'    => $request->post('message'),
+                'party_size' => (string) $input['party_size'],
+                'guardian_count' => (string) $input['guardian_count'],
+                'companions' => $this->postedCompanions($request),
+                'ages'       => $this->postedAges($request) + [1 => $request->post('age_1')],
+            ]);
         }
 
         return Response::html(View::render('pub/booking_confirm', [
@@ -379,11 +392,26 @@ final class BookingController
      */
     private function renderForm(array $session, array $errors, array $old): Response
     {
+        /*
+         * A site-wide stop leaves this page reachable - it is linked from
+         * nowhere, but bookmarks and the browser's back button exist, and
+         * someone who loaded it while bookings were open may still be typing.
+         * Rather than a 404, which would tell them nothing, the page comes
+         * back with the reason at the top and the form withheld. The service
+         * refuses the same thing under the transaction, so this is the
+         * courtesy, not the enforcement.
+         */
+        $window = Settings::bookingWindow();
+        $now = new \DateTimeImmutable('now');
+        $closed = $window->reasonAt($now);
+
         return Response::html(View::render('pub/booking_apply', [
             'title'    => '予約：' . $session['event_title'],
             'session'  => $session,
             'errors'   => $errors,
             'old'      => $old,
+            'closed'       => $closed,
+            'closedNotice' => $window->noticeAt($now),
             'maxParty' => min((int) $session['max_party_size'] ?: self::PARTY_MAX, self::PARTY_MAX),
         ]), 422);
     }

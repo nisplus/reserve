@@ -9,12 +9,31 @@ use App\Domain\Area;
  * @var string|null           $area           Current area filter.
  * @var int                   $companyId      Current company filter (0 = none).
  * @var bool                  $filtered       Whether any filter is active.
+ * @var \App\Domain\BookingClosedReason|null $closed Site-wide booking stop.
  */
+/*
+ * Defaulted rather than required, as the partials are. These pages are
+ * rendered from tests and from two controllers, and a page that hard-requires
+ * a variable makes every future caller learn about booking windows to render
+ * an unrelated thing. Uninformed means "open": the stop is enforced in the
+ * booking transaction, so what is lost by a caller that forgets is the notice,
+ * not the rule - and the booking-window test renders the real path to check
+ * the controllers do pass it.
+ */
+$closed ??= null;
+$closedNotice ??= '';
 ?>
 <h1>はいてくヒルズ2026 体験内容一覧</h1>
 <p class="lead">開催企業ごとに体験できる内容を掲載しています。参加したい体験プログラムを選び、開催時間をお選びください。</p>
 <p class="muted">同じ時間帯に重なる複数の体験プログラムはご予約いただけません。</p>
 <p class="muted">一度にお申し込みいただける体験プログラムは1つです。1つずつ予約を完了させてから別の予約を始めて下さい</p>
+
+<?php if ($closed !== null): ?>
+  <div class="error-summary" role="alert">
+    <p><?= enl($closedNotice) ?></p>
+    <p class="muted">開催内容と時間は引き続きご覧いただけます。</p>
+  </div>
+<?php endif; ?>
 
 <?php /* GET, so filtering leaves the state in the address bar and the result
          is a link anyone can be sent. */ ?>
@@ -126,6 +145,7 @@ use App\Domain\Area;
                 'sessionCount' => $sessionCount,
                 'seatsLeft'    => $seatsLeft,
                 'waitingCount' => $waitingCount,
+                'closed'       => $closed,
               ]) ?>
           <a class="btn btn--small btn--ghost" href="<?= url('/events/') ?><?= (int) $event['id'] ?>">
             <?= $needsBooking || $sessionCount > 0 ? '開催時間を見る' : '詳細を見る' ?>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controller\Pub;
 
 use App\Core\Request;
+use App\Core\Settings;
 use App\Core\Response;
 use App\Core\View;
 use App\Domain\Area;
@@ -31,6 +32,12 @@ final class EventController
         $events = new EventRepository();
         $catalogue = $events->publishedCatalogue($area, $companyId);
 
+        // Null while bookings are being taken; a reason otherwise. A stop
+        // hides the way in, never the programme - the catalogue below is
+        // unchanged either way.
+        $window = Settings::bookingWindow();
+        $now = new \DateTimeImmutable('now');
+
         // A company filter that survived but matched nothing (wrong area, or
         // an id that no longer exists) should not silently look like "no
         // events exist" - the view says so instead.
@@ -42,6 +49,11 @@ final class EventController
             'area'      => $area,
             'companyId' => $companyId,
             'filtered'  => $area !== null || $companyId > 0,
+            // Null while bookings are being taken; a reason otherwise.
+            // The catalogue itself is unchanged - a stop hides the way
+            // in, never the programme.
+            'closed'       => $window->reasonAt($now),
+            'closedNotice' => $window->noticeAt($now),
         ]));
     }
 
@@ -58,11 +70,16 @@ final class EventController
         $sessionRepo = new EventSessionRepository();
         $sessions = $sessionRepo->forEvent($eventId, true);
 
+        $window = Settings::bookingWindow();
+        $now = new \DateTimeImmutable('now');
+
         return Response::html(View::render('pub/event_show', [
             'title' => (string) $event['title'],
             'event' => $event,
             'days'  => $sessionRepo->groupByDate($sessions),
             'total' => count($sessions),
+            'closed' => $window->reasonAt($now),
+            'closedNotice' => $window->noticeAt($now),
         ]));
     }
 }
