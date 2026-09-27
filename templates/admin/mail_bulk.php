@@ -186,10 +186,19 @@ $hidden = static function (array $old): string {
           <button type="submit" class="btn btn--danger"><?= number_format($count) ?> 件に送信する</button>
         </div>
       </form>
-      <p class="muted">
-        送信はキューに積まれ、定期実行で順次送られます。急ぐ場合は
-        <a href="<?= url('/admin/mail') ?>">メール送信キュー</a>の「今すぐ送信」を使ってください。
-      </p>
+      <?php if ($isOffice): ?>
+        <p class="muted">
+          送信はキューに積まれ、定期実行で順次送られます。急ぐ場合は
+          <a href="<?= url('/admin/mail') ?>">メール送信キュー</a>の「今すぐ送信」を使ってください。
+        </p>
+      <?php else: ?>
+        <?php /* No link to the queue screen: it is office-only, and a link
+                 that 404s would look like the send had failed. */ ?>
+        <p class="muted">
+          送信はキューに積まれ、順次送られます（送信完了まで数分かかることがあります）。
+          お急ぎの場合や、届かないというお問い合わせがあった場合は事務局にご連絡ください。
+        </p>
+      <?php endif; ?>
     <?php endif; ?>
   <?php endif; ?>
 </div>

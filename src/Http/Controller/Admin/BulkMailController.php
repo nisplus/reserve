@@ -120,10 +120,22 @@ final class BulkMailController
             $input['composed'],
         );
 
+        /*
+         * The queue screen is office-only, so a company account must not
+         * be sent there - it would answer a successful send with a 404.
+         * They are told the queue drains by itself instead, which for
+         * them is the whole truth: they have no button to hurry it.
+         */
+        if (Auth::companyId() === null) {
+            Flash::success("{$queued} 件をキューに積みました。下の「今すぐ送信」か定期実行で順次送信されます。");
+            return Response::redirect('/admin/mail');
+        }
+
         Flash::success(
-            "{$queued} 件をキューに積みました。下の「今すぐ送信」か定期実行で順次送信されます。"
+            "{$queued} 件をキューに積みました。順次送信されます（送信完了まで数分かかることがあります）。"
+            . 'お急ぎの場合は事務局にご連絡ください。'
         );
-        return Response::redirect('/admin/mail');
+        return Response::redirect('/admin/mail/bulk');
     }
 
     /**
