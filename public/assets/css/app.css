@@ -214,8 +214,8 @@ input[type=number] { max-width: 140px; }
 
 .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
-.stat dt { font-size: 13px; color: var(--ink-soft); margin: 0; }
-.stat dd { margin: 4px 0 0; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat strong { display: block; font-size: 26px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.stat span { display: block; margin-top: 2px; font-size: 13px; color: var(--ink-soft); }
 
 .inline-form { display: inline; }
 .empty { color: var(--ink-soft); padding: 24px; text-align: center; background: var(--panel); border: 1px dashed var(--line); border-radius: var(--radius); }
