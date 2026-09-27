@@ -189,7 +189,7 @@ $hidden = static function (array $old): string {
       <?php if ($isOffice): ?>
         <p class="muted">
           送信はキューに積まれ、定期実行で順次送られます。急ぐ場合は
-          <a href="<?= url('/admin/mail') ?>">メール送信キュー</a>の「今すぐ送信」を使ってください。
+          <a href="<?= url('/admin/mail') ?>">メール送信キュー</a>の「未送信を今すぐ送る」を使ってください。
         </p>
       <?php else: ?>
         <?php /* No link to the queue screen: it is office-only, and a link

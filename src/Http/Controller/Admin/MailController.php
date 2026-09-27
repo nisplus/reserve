@@ -90,7 +90,7 @@ final class MailController
 
         $message = sprintf('送信 %d 件、失敗 %d 件。', $result['sent'], $result['failed']);
         $message .= $remaining > 0
-            ? sprintf('残り %d 件です。もう一度「今すぐ送信」を押すと続きを送ります（定期実行でも順次送られます）。', $remaining)
+            ? sprintf('残り %d 件です。もう一度「未送信を今すぐ送る」を押すと続きを送ります（定期実行でも順次送られます）。', $remaining)
             : '未送信はありません。';
 
         if ($result['failed'] > 0) {

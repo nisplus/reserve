@@ -127,7 +127,7 @@ final class BulkMailController
          * them is the whole truth: they have no button to hurry it.
          */
         if (Auth::companyId() === null) {
-            Flash::success("{$queued} 件をキューに積みました。下の「今すぐ送信」か定期実行で順次送信されます。");
+            Flash::success("{$queued} 件をキューに積みました。下の「未送信を今すぐ送る」か定期実行で順次送信されます。");
             return Response::redirect('/admin/mail');
         }
 

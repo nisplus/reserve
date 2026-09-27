@@ -4,6 +4,8 @@
 
 設計判断とその理由は **[docs/design.md](docs/design.md)** にまとまっています。このファイルはセットアップと運用手順だけを扱います。
 
+画面の使い方は利用者向けのマニュアルに分けてあります — 事務局は **[docs/manual-office.md](docs/manual-office.md)**、開催企業のご担当者は **[docs/manual-company.md](docs/manual-company.md)**。そのまま印刷・配布できる文章にしてあるので、仕様を変えたらこちらも直してください。
+
 ## 何ができるか
 
 - 会社ごとにグループ化したイベント一覧と、開催回（1 イベントあたり 1 日 5〜10 回）の選択
@@ -348,6 +350,8 @@ bin/             CLI スクリプト
 docs/design.md   設計判断の記録（排他制御・スキーマ・落とし穴）
 docs/database.md テーブル定義書（bin/schema_doc.php が生成・直接編集しない）
 docs/operations.md データ初期化と一括投入の手順
+docs/manual-office.md   操作マニュアル（事務局向け・画面の使い方）
+docs/manual-company.md  操作マニュアル（会社担当者向け）
 storage/         ログ・セッション・メール出力（対象外）
 ```
 
