@@ -218,4 +218,15 @@ input[type=number] { max-width: 140px; }
 .stat span { display: block; margin-top: 2px; font-size: 13px; color: var(--ink-soft); }
 
 .inline-form { display: inline; }
+
+/* The same-day panel in the booking list: collapsed to a badge until
+   someone asks, so a day of ordinary multi-company visits does not bury
+   the rows it belongs to. */
+.same-day { margin-top: 6px; }
+.same-day > summary { cursor: pointer; list-style: none; font-size: 12px; }
+.same-day > summary::-webkit-details-marker { display: none; }
+.same-day > summary::after { content: ' ▾'; color: var(--ink-soft); }
+.same-day[open] > summary::after { content: ' ▴'; }
+.same-day__list { margin: 6px 0 0; padding-left: 16px; font-size: 12px; color: var(--ink-soft); }
+.same-day__list li { margin-bottom: 3px; }
 .empty { color: var(--ink-soft); padding: 24px; text-align: center; background: var(--panel); border: 1px dashed var(--line); border-radius: var(--radius); }

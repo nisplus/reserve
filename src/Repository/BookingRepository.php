@@ -97,6 +97,45 @@ final class BookingRepository
     }
 
     /**
+     * Every live booking held by these applicants - event, company and
+     * times only.
+     *
+     * The column list is the point of this method, not an accident of what
+     * the caller happened to need. It feeds a panel that shows one
+     * company's staff what else their applicant booked, which may be
+     * another company's programme. The programme is public; the names,
+     * contacts, party sizes and notes attached to that company's booking
+     * are not. Leaving them out here means no template can leak them by
+     * accident later.
+     *
+     * @param array<int, int> $applicantIds
+     * @return array<int, array<string, mixed>>
+     */
+    public function liveForApplicants(array $applicantIds): array
+    {
+        if ($applicantIds === []) {
+            return [];
+        }
+
+        $in = implode(',', array_fill(0, count($applicantIds), '?'));
+
+        return Db::select(
+            "SELECT b.id, b.applicant_id, b.status,
+                    s.starts_at, s.ends_at,
+                    e.id AS event_id, e.title AS event_title,
+                    c.id AS company_id, c.name AS company_name
+             FROM bookings b
+             JOIN event_sessions s ON s.id = b.session_id
+             JOIN events e         ON e.id = s.event_id
+             JOIN companies c      ON c.id = e.company_id
+             WHERE b.applicant_id IN ({$in})
+               AND b.status IN ('confirmed', 'waitlisted')
+             ORDER BY s.starts_at, b.id",
+            array_map('intval', array_values($applicantIds))
+        );
+    }
+
+    /**
      * Live bookings that do NOT overlap [startsAt, endsAt) but come within
      * $bufferMinutes of it on either side - the "can they physically get
      * there" check. Gap boundaries are inclusive: a gap of exactly
@@ -297,7 +336,7 @@ final class BookingRepository
     ): array {
         [$where, $params] = $this->adminFilterWhere($filters);
 
-        $sql = "SELECT b.id, b.reference_code, b.email, b.phone, b.name, b.contact_name,
+        $sql = "SELECT b.id, b.applicant_id, b.reference_code, b.email, b.phone, b.name, b.contact_name,
                        b.message, b.party_size, b.guardian_count, b.status, b.waitlist_seq,
                        b.created_at, b.cancelled_at,
                        s.id AS session_id, s.starts_at, s.ends_at,

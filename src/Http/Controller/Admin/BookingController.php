@@ -20,6 +20,7 @@ use App\Repository\BookingRepository;
 use App\Repository\CompanyRepository;
 use App\Repository\EventRepository;
 use App\Repository\EventSessionRepository;
+use App\Service\ApplicantScheduleService;
 use App\Service\CancellationService;
 use App\Service\CsvExporter;
 use App\Service\WaitlistService;
@@ -67,6 +68,9 @@ final class BookingController
             'attendees' => (new BookingAttendeeRepository())->namesForMany(
                 array_map(static fn (array $row): int => (int) $row['id'], $rows)
             ),
+            // What else these people booked that day. One query for the
+            // page, and event/company/times only - see the service.
+            'schedule' => (new ApplicantScheduleService())->forRows($rows),
             'total'    => $total,
             'page'     => $page,
             'pages'    => $pages,
@@ -152,7 +156,29 @@ final class BookingController
         }
 
         MailDispatcher::tryProcessPending();
-        Flash::success("繰り上げました。{$booking['name']} 様（{$booking['reference_code']}）の参加が確定し、ご本人にメールをお送りしています。");
+
+        /*
+         * A true overlap was refused above. What can still be true is a
+         * tight connection: the applicant accepted that warning when they
+         * booked the other session, but they accepted it against a booking
+         * that was only waitlisted at the time. Confirming it is a new
+         * fact, so the office is told rather than left to find out on the
+         * day. Not a refusal - the seat is already theirs.
+         */
+        $note = (new ApplicantScheduleService())->noteFor([
+            'id'           => $request->routeInt('id'),
+            'applicant_id' => (int) $booking['applicant_id'],
+            'starts_at'    => (string) $booking['starts_at'],
+            'ends_at'      => (string) $booking['ends_at'],
+            'company_id'   => (int) $booking['company_id'],
+        ]);
+
+        $message = "繰り上げました。{$booking['name']} 様（{$booking['reference_code']}）の参加が確定し、ご本人にメールをお送りしています。";
+        if ($note !== null) {
+            Flash::info($message . $note);
+        } else {
+            Flash::success($message);
+        }
         return $this->backToList($request);
     }
 

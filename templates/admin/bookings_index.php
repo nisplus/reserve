@@ -6,6 +6,9 @@ use App\Domain\BookingStatus;
 /**
  * @var array<int, array<string, mixed>> $rows
  * @var array<int, array<int, string>>   $attendees booking id => attendee_no => name(age)
+ * @var array<int, array{clash: App\Domain\ScheduleClash|null, others: array<int, array<string, mixed>>}> $schedule
+ *      booking id => that person's OTHER bookings the same day. Event,
+ *      company and times only; never the other booking's personal fields.
  * @var int                              $total
  * @var int                              $page
  * @var int                              $pages
@@ -28,6 +31,27 @@ $query = http_build_query(array_filter([
     'sort'    => $sort === App\Domain\BookingSort::Newest ? null : $sort->value,
 ]));
 $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query !== '' ? $query . '&' : '') . 'page=' . $p;
+
+/*
+ * One line per other booking, for the confirm() popup. Built as plain
+ * text because that is all a popup can show, and single quotes are
+ * stripped rather than escaped: an event title is not worth a broken
+ * script tag, and the popup is a prompt, not a record.
+ */
+$clashPrompt = static function (array $entry): string {
+    $lines = [];
+    foreach ($entry['others'] as $other) {
+        $lines[] = sprintf(
+            '・%s〜%s %s「%s」%s',
+            jp_time((string) $other['starts_at']),
+            jp_time((string) $other['ends_at']),
+            (string) $other['company_name'],
+            (string) $other['event_title'],
+            $other['clash']->needsAttention() ? '［' . $other['clash']->label() . '］' : ''
+        );
+    }
+    return str_replace(["'", "\n", "\r"], ['', ' ', ''], implode('\\n', $lines));
+};
 ?>
 <h1>予約一覧</h1>
 
@@ -122,7 +146,43 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
           <span class="muted"><?= e($row['company_name']) ?></span><br>
           <?= e($row['event_title']) ?>
         </td>
-        <td><?= e(jp_datetime((string) $row['starts_at'])) ?>〜<?= e(jp_time((string) $row['ends_at'])) ?></td>
+        <td>
+          <?= e(jp_datetime((string) $row['starts_at'])) ?>〜<?= e(jp_time((string) $row['ends_at'])) ?>
+          <?php
+            /*
+             * What else this person has that day. Touring several companies
+             * in one day is the normal use of this site, so the count is
+             * shown plainly and only a real clash is coloured.
+             */
+            $entry = $schedule[(int) $row['id']] ?? null;
+          ?>
+          <?php if ($entry !== null): ?>
+            <details class="same-day">
+              <summary>
+                <span class="badge <?= e($entry['clash']->badgeClass()) ?>">
+                  <?php if ($entry['clash']->needsAttention()): ?>⚠ <?php endif; ?>同日 他 <?= count($entry['others']) ?> 件
+                </span>
+                <?php if ($entry['clash']->needsAttention()): ?>
+                  <span class="muted"><?= e($entry['clash']->label()) ?></span>
+                <?php endif; ?>
+              </summary>
+              <ul class="same-day__list">
+                <?php foreach ($entry['others'] as $other): ?>
+                  <li>
+                    <?= e(jp_time((string) $other['starts_at'])) ?>〜<?= e(jp_time((string) $other['ends_at'])) ?>
+                    <?= e($other['company_name']) ?>「<?= e($other['event_title']) ?>」
+                    <?php if ($other['clash']->needsAttention()): ?>
+                      <span class="badge <?= e($other['clash']->badgeClass()) ?>"><?= e($other['clash']->label()) ?></span>
+                    <?php endif; ?>
+                    <?php if ((string) $other['status'] === 'waitlisted'): ?>
+                      <span class="muted">キャンセル待ち</span>
+                    <?php endif; ?>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            </details>
+          <?php endif; ?>
+        </td>
         <td>
           <?php
             /*
@@ -172,9 +232,23 @@ $pageUrl = static fn (int $p): string => url('/admin/bookings') . '?' . ($query 
         </td>
         <td>
           <?php if ($status === BookingStatus::Waitlisted): ?>
-            <?php $fits = ((int) $row['capacity'] - (int) $row['confirmed_seats']) >= (int) $row['party_size']; ?>
+            <?php
+              $fits = ((int) $row['capacity'] - (int) $row['confirmed_seats']) >= (int) $row['party_size'];
+              /*
+               * Same-day bookings go into the popup, because pressing this
+               * button is the moment the maybe becomes a commitment. The
+               * service refuses a true overlap, but a five-minute connection
+               * across the site it does not - and nobody sees it on the day.
+               */
+              $confirm = 'この予約を繰り上げて確定にします。よろしいですか？ご本人に確定メールが送られます。';
+              if ($entry !== null) {
+                  $confirm = ($entry['clash']->needsAttention() ? '【要確認】' : '')
+                      . 'この方は同じ日に次のご予約もお持ちです。\\n\\n'
+                      . $clashPrompt($entry) . '\\n\\n' . $confirm;
+              }
+            ?>
             <form class="inline-form" method="post" action="<?= url('/admin/bookings/') ?><?= (int) $row['id'] ?>/promote"
-                  onsubmit="return confirm('この予約を繰り上げて確定にします。よろしいですか？ご本人に確定メールが送られます。')">
+                  onsubmit="return confirm('<?= e($confirm) ?>')">
               <?= Csrf::field() ?>
               <input type="hidden" name="return_query" value="<?= e($query . ($query !== '' ? '&' : '') . 'page=' . $page) ?>">
               <button type="submit" class="btn btn--small <?= $fits ? '' : 'btn--ghost' ?>" <?= $fits ? '' : 'title="現在の空きでは足りません"' ?>>繰り上げ</button>
