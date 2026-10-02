@@ -4,14 +4,21 @@ declare(strict_types=1);
 
 namespace App\Domain;
 
+use App\Core\Config;
+
 /**
  * Mirrors the ENUM on companies.area - which part of the site a host company
  * is in.
  *
  * The stored values are English so they can travel in a query string that
- * people paste to each other (/?area=east). The Japanese names are labels
- * for display only; changing one here changes it everywhere without a
- * migration, and without invalidating links already shared.
+ * people paste to each other (/?area=east). The names are labels for
+ * display only; changing one changes it everywhere without a migration,
+ * and without invalidating links already shared.
+ *
+ * Which is why the labels come from config: what the parts of a site are
+ * called is the one thing here that belongs to the deployment and not to
+ * the software. The fallbacks are generic so a fresh clone still reads
+ * sensibly.
  */
 enum Area: string
 {
@@ -22,11 +29,16 @@ enum Area: string
 
     public function label(): string
     {
+        $configured = Config::array('areas')[$this->value] ?? null;
+        if (is_string($configured) && $configured !== '') {
+            return $configured;
+        }
+
         return match ($this) {
             self::East  => '東エリア',
             self::South => '南エリア',
             self::North => '北エリア',
-            self::Main  => 'テクノプラザ本館',
+            self::Main  => '本館',
         };
     }
 

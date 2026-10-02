@@ -239,7 +239,7 @@ final class CancellationService
         $this->mailQueue->enqueue(
             (string) $found['email'],
             $addressee,
-            "【はいてくヒルズ予約】キャンセルを受け付けました：{$found['event_title']}",
+            '【' . Config::mailPrefix() . "】キャンセルを受け付けました：{$found['event_title']}",
             $body,
             (int) $found['id']
         );
@@ -285,7 +285,7 @@ final class CancellationService
         $this->mailQueue->enqueue(
             $adminTo,
             null,
-            "【はいてくヒルズ予約】空きが出ました（キャンセル待ち {$waiting} 件）：{$found['event_title']}",
+            '【' . Config::mailPrefix() . "】空きが出ました（キャンセル待ち {$waiting} 件）：{$found['event_title']}",
             $body,
             (int) $found['id']
         );

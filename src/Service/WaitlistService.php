@@ -269,7 +269,7 @@ final class WaitlistService
         $this->mailQueue->enqueue(
             (string) $found['email'],
             $addressee,
-            "【はいてくヒルズ予約】繰り上げのご案内：ご参加が確定しました（{$found['event_title']}）",
+            '【' . Config::mailPrefix() . "】繰り上げのご案内：ご参加が確定しました（{$found['event_title']}）",
             $body,
             (int) $found['id']
         );

@@ -15,6 +15,40 @@ return [
     // not at the domain root: 'https://example.com/booking'.
     'base_url' => 'http://127.0.0.1:8000',
 
+    /*
+     * What this deployment is called. Everything here is shown to the public,
+     * so it belongs in config.php (which version control ignores) rather than
+     * in the code - the repository should carry a booking system, not one
+     * festival's name.
+     */
+    'site' => [
+        // The heading on the public programme list. Example: '〇〇フェス2026'.
+        'name' => '体験予約',
+
+        // What goes in the 【】 of every mail subject. Empty falls back to
+        // 'name'. Example: '〇〇フェス予約'.
+        'mail_prefix' => '',
+
+        // The domain to ask applicants to allow through their spam filter.
+        // Empty leaves that advice out of the page entirely, which is right
+        // when it has not been decided yet - advice naming no domain only
+        // teaches people to ignore the footer.
+        'mail_domain' => '',
+    ],
+
+    /*
+     * Display names for companies.area. The stored values stay english
+     * (east/south/north/main) so shared URLs keep working; only the labels
+     * differ per site, so only the labels are configured. Anything left out
+     * falls back to a generic name.
+     */
+    'areas' => [
+        'east'  => '東エリア',
+        'south' => '南エリア',
+        'north' => '北エリア',
+        'main'  => '本館',
+    ],
+
     'db' => [
         // 127.0.0.1 rather than localhost: on Windows the name can resolve to
         // IPv6 ::1 and stall or fail.

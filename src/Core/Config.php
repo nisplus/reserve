@@ -70,6 +70,26 @@ final class Config
         return is_array($value) ? $value : [];
     }
 
+    /**
+     * What this deployment calls itself, for headings and mail subjects.
+     *
+     * Defaulted rather than required: an install that has not set it still
+     * renders sensibly, which matters because the fallback is what anyone
+     * who clones the repository sees first.
+     */
+    public static function siteName(): string
+    {
+        $name = self::string('site.name');
+        return $name !== '' ? $name : '体験予約';
+    }
+
+    /** The 【】 of a mail subject; falls back to the site name. */
+    public static function mailPrefix(): string
+    {
+        $prefix = self::string('site.mail_prefix');
+        return $prefix !== '' ? $prefix : self::siteName();
+    }
+
     /** Base URL without a trailing slash, for building absolute links. */
     public static function url(string $path = ''): string
     {

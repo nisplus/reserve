@@ -13,6 +13,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/bootstrap.php';
 require __DIR__ . '/_fixture.php';
 
+use App\Core\Config;
 use App\Core\Db;
 use App\Domain\Area;
 use App\Repository\CompanyRepository;
@@ -43,8 +44,19 @@ try {
     // --- the enum ------------------------------------------------------------
     $assert(array_keys(Area::options()) === ['east', 'south', 'north', 'main'],
         'four areas, stored as URL-safe values');
-    $assert(Area::East->label() === '東エリア' && Area::Main->label() === 'テクノプラザ本館',
-        'labels are the Japanese names');
+    /*
+     * The labels are a deployment's own vocabulary, so they live in config
+     * and the enum only supplies a generic fallback. Asserted by swapping
+     * the config and putting it back, rather than by naming one site's
+     * areas here - which is what this test used to do.
+     */
+    $config = require dirname(__DIR__) . '/config/config.php';
+    Config::load(['areas' => ['east' => 'CT-TEST-東']] + $config);
+    $assert(Area::East->label() === 'CT-TEST-東', 'a configured label is used');
+    $assert(Area::Main->label() === '本館',
+        'and an area the config leaves out falls back to the generic name');
+    Config::load($config);
+    $assert(Area::East->label() !== '', 'the real config still names every area');
     $assert(Area::tryFrom('west') === null, 'an unknown area is null, not an error');
     $assert(Area::labelFor(null) === '未設定' && Area::labelFor('west') === '未設定',
         'null and nonsense both display as 未設定');
