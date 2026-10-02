@@ -22,7 +22,7 @@ $user = Auth::user();
 <body>
 <header class="admin-header">
   <div class="wrap wrap--wide">
-    <a class="site-title" href="<?= url('/admin') ?>">体験予約 管理画面</a>
+    <a class="site-title" href="<?= url('/admin') ?>"><?= e(App\Core\Config::siteTitle()) ?> 管理画面</a>
     <?php if ($user !== null): ?>
       <?php /* Links are hidden by role for clarity; the actual boundary is
                Authz on every screen, not this menu. */ ?>

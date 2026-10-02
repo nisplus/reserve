@@ -25,6 +25,11 @@ return [
         // The heading on the public programme list. Example: '〇〇フェス2026'.
         'name' => '体験予約',
 
+        // The header link and the browser tab, which want the word 予約 in a
+        // way the heading does not: '〇〇フェス2026 予約'. Written out rather
+        // than composed from 'name', because composing gives '体験予約 予約'
+        // on an install that has not set one. Empty falls back to 'name'.
+        'title' => '',
         // What goes in the 【】 of every mail subject. Empty falls back to
         // 'name'. Example: '〇〇フェス予約'.
         'mail_prefix' => '',

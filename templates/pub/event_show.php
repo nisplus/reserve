@@ -60,7 +60,7 @@ $externalUrl  = (string) ($event['external_url'] ?? '');
         詳細を見る
       </a>
     </p>
-    <p class="muted">リンク先は外部のサイトです。新しいタブで開きます。</p>
+    <p class="muted">リンク先は予約システムのページではありません。新しいタブで開きます。</p>
   <?php endif; ?>
 <?php endif; ?>
 

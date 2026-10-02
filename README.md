@@ -416,6 +416,7 @@ apache2ctl configtest && systemctl reload apache2
 ```php
 'site' => [
     'name'        => '〇〇フェス2026',   // 公開側の見出し「〇〇フェス2026 体験内容一覧」
+    'title'       => '〇〇フェス2026 予約', // ヘッダーとブラウザのタブ。空なら name を使う
     'mail_prefix' => '〇〇フェス予約',   // メール件名の【】。空なら name を使う
     'mail_domain' => 'example.jp',       // 受信許可のご案内に出すドメイン。空なら案内文ごと出しません
 ],

@@ -3,7 +3,8 @@
  * @var string $content
  * @var string|null $title
  */
-$pageTitle = isset($title) && $title !== '' ? $title . ' | 体験予約' : '体験予約';
+$siteTitle = App\Core\Config::siteTitle();
+$pageTitle = isset($title) && $title !== '' ? $title . ' | ' . $siteTitle : $siteTitle;
 ?>
 <!doctype html>
 <html lang="ja">
@@ -16,7 +17,7 @@ $pageTitle = isset($title) && $title !== '' ? $title . ' | 体験予約' : '体�
 <body>
 <header class="site-header">
   <div class="wrap">
-    <a class="site-title" href="<?= url('/') ?>">体験予約</a>
+    <a class="site-title" href="<?= url('/') ?>"><?= e($siteTitle) ?></a>
   </div>
 </header>
 

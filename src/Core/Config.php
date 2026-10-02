@@ -83,6 +83,19 @@ final class Config
         return $name !== '' ? $name : '体験予約';
     }
 
+    /**
+     * The header link and the browser tab.
+     *
+     * Separate from siteName() because the two slots read differently:
+     * the catalogue heading is followed by 体験内容一覧, while the header
+     * wants to say that this is where you book.
+     */
+    public static function siteTitle(): string
+    {
+        $title = self::string('site.title');
+        return $title !== '' ? $title : self::siteName();
+    }
+
     /** The 【】 of a mail subject; falls back to the site name. */
     public static function mailPrefix(): string
     {
