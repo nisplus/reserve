@@ -20,6 +20,9 @@ final class MailQueueRepository
     /** One message of a campaign sent to many people at once. */
     public const BULK = 'bulk';
 
+    /** The day-before reminder. Queued per person, not per booking. */
+    public const REMINDER = 'reminder';
+
     public function enqueue(
         string $toEmail,
         ?string $toName,

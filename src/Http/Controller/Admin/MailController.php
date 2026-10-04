@@ -36,7 +36,11 @@ final class MailController
         }
 
         $category = $request->query('category');
-        if (!in_array($category, [MailQueueRepository::TRANSACTIONAL, MailQueueRepository::BULK], true)) {
+        if (!in_array($category, [
+            MailQueueRepository::TRANSACTIONAL,
+            MailQueueRepository::BULK,
+            MailQueueRepository::REMINDER,
+        ], true)) {
             $category = '';
         }
 

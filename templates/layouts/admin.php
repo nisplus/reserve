@@ -34,6 +34,7 @@ $user = Auth::user();
         <?php if (Auth::isSuperadmin()): ?>
           <a href="<?= url('/admin/companies') ?>">会社</a>
           <a href="<?= url('/admin/mail') ?>">メール</a>
+          <a href="<?= url('/admin/reminders') ?>">リマインド</a>
           <a href="<?= url('/admin/users') ?>">アカウント</a>
           <a href="<?= url('/admin/settings') ?>">受付設定</a>
         <?php endif; ?>

@@ -44,7 +44,7 @@ $pageUrl = static fn (int $p): string => $listUrl($status, $category, $p);
 
 <div class="filter-bar" style="margin-bottom:16px">
   <span class="muted">種別:</span>
-  <?php foreach (['' => 'すべて', 'transactional' => '個別（予約関連）', 'bulk' => '一斉送信'] as $key => $name): ?>
+  <?php foreach (['' => 'すべて', 'transactional' => '個別（予約関連）', 'bulk' => '一斉送信', 'reminder' => 'リマインド'] as $key => $name): ?>
     <a class="btn btn--small <?= $category === $key ? '' : 'btn--ghost' ?>"
        href="<?= e($listUrl($status, $key)) ?>"><?= e($name) ?></a>
   <?php endforeach; ?>
@@ -85,6 +85,8 @@ $pageUrl = static fn (int $p): string => $listUrl($status, $category, $p);
         <td><span class="badge <?= e($badge($s)) ?>"><?= e($label($s)) ?></span></td>
         <td><?php if ((string) $row['category'] === 'bulk'): ?>
           <span class="badge badge--muted">一斉</span>
+        <?php elseif ((string) $row['category'] === 'reminder'): ?>
+          <span class="badge badge--muted">リマインド</span>
         <?php else: ?><span class="muted">個別</span><?php endif; ?></td>
         <td><?= e($row['to_email']) ?></td>
         <td>

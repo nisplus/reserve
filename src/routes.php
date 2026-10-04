@@ -82,6 +82,14 @@ return static function (Router $router): void {
     $router->post('/admin/mail/{id}/resend',  [App\Http\Controller\Admin\MailController::class, 'resend'], $office);
     $router->post('/admin/mail/send-pending', [App\Http\Controller\Admin\MailController::class, 'sendPending'], $office);
 
+    // The reminder is one message per person covering the whole site, so
+    // there is no company-scoped view of it: $office throughout.
+    $router->get('/admin/reminders',           [App\Http\Controller\Admin\ReminderController::class, 'index'], $office);
+    $router->post('/admin/reminders/settings', [App\Http\Controller\Admin\ReminderController::class, 'saveSettings'], $office);
+    $router->post('/admin/reminders/notice',   [App\Http\Controller\Admin\ReminderController::class, 'saveNotice'], $office);
+    $router->post('/admin/reminders/test',     [App\Http\Controller\Admin\ReminderController::class, 'test'], $office);
+    $router->post('/admin/reminders/send',     [App\Http\Controller\Admin\ReminderController::class, 'send'], $office);
+
     // Bulk announcements are $auth, not $office: a company account may
     // address its own applicants. The scoping is enforced in the
     // controller from the session, never from the form.

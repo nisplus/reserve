@@ -15,7 +15,8 @@ declare(strict_types=1);
  *   php bin/request.php /bookings --post name=山田 --post email=a@example.test
  *   php bin/request.php /manage/<token> --session=storage/cli-session.json
  *
- * --post implies POST. Repeat it per field. A CSRF token is injected
+ * --post implies POST. Repeat it per field; a key ending in [] builds an
+ * array, the way a list of checkboxes posts. A CSRF token is injected
  * automatically unless --no-csrf is given.
  */
 
@@ -34,7 +35,13 @@ $showHead = false;
 foreach ($argvRest as $arg) {
     if (str_starts_with($arg, '--post=')) {
         [$k, $v] = array_pad(explode('=', substr($arg, 7), 2), 2, '');
-        $post[$k] = $v;
+        if (str_ends_with($k, '[]')) {
+            // A repeated field, as checkboxes post it: --post=sessions[]=1
+            // --post=sessions[]=2 arrives as $_POST['sessions'] = ['1','2'].
+            $post[substr($k, 0, -2)][] = $v;
+        } else {
+            $post[$k] = $v;
+        }
     } elseif ($arg === '--text') {
         $asText = true;
     } elseif ($arg === '--no-csrf') {

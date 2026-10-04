@@ -127,6 +127,31 @@ final class Request
         return $value === '' || !preg_match('/^-?\d+$/', $value) ? $default : (int) $value;
     }
 
+    /**
+     * A repeated field - a list of checkboxes - as integers.
+     *
+     * Entries that are not digits are dropped rather than cast, because
+     * casting turns a tampered value into 0 and 0 is a plausible-looking
+     * id. A list of ids is either ids or it is noise.
+     *
+     * @return array<int, int>
+     */
+    public function postInts(string $key): array
+    {
+        $raw = $_POST[$key] ?? null;
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($raw as $value) {
+            if (is_string($value) && preg_match('/^\d+$/', $value) === 1) {
+                $out[] = (int) $value;
+            }
+        }
+        return $out;
+    }
+
     public function has(string $key): bool
     {
         return isset($_POST[$key]) || isset($_GET[$key]);
