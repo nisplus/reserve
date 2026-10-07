@@ -360,6 +360,7 @@ docs/operations.md データ初期化と一括投入の手順
 docs/manual-office.md   操作マニュアル（事務局向け・画面の使い方）
 docs/manual-company.md  操作マニュアル（会社担当者向け）
 docs/manual-vacancy.md  操作マニュアル（当日の空き状況。事務局・会社担当者の共通）
+docs/manual-vacancy.pptx 同上のスライド版
 storage/         ログ・セッション・メール出力（対象外）
 ```
 

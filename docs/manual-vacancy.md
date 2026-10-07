@@ -8,6 +8,8 @@
 
 **日時はすべて日本時間です。**
 
+> 研修や配布に使えるスライド版があります → **[manual-vacancy.pptx](manual-vacancy.pptx)**（PowerPoint、11 ページ）。内容はこの文書と同じです。
+
 ---
 
 ## 目次
