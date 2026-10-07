@@ -15,7 +15,9 @@
  * @var int    $pages
  * @var int    $interval seconds before moving to the next page
  * @var string $nextUrl  where the refresh goes: the next page, wrapping
+ * @var bool   $preview  true for the rehearsal; the data is invented
  */
+$preview ??= false;
 ?><!doctype html>
 <html lang="ja">
 <head>
@@ -32,6 +34,12 @@
 <link rel="stylesheet" href="<?= url('/assets/css/signage.css') ?>">
 </head>
 <body class="sg">
+
+<?php if ($preview): ?>
+  <?php /* Unmissable, and only ever rendered behind the admin login. A
+           rehearsal screen left running by mistake must announce itself. */ ?>
+  <div class="sg-preview">表示テスト中　この画面のデータはすべて架空のものです</div>
+<?php endif; ?>
 
 <header class="sg-head">
   <div class="sg-head__title">

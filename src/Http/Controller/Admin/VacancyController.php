@@ -34,6 +34,39 @@ final class VacancyController
 {
     private const RECENT = 15;
 
+    /**
+     * GET /admin/vacancy/signage - the wall display, with sample rows.
+     *
+     * Behind the admin login on purpose. The sample rows name companies
+     * that do not exist and states that are not true, and the public URL
+     * must never be able to show those - so the rehearsal lives here
+     * rather than as a flag on /vacancy.
+     *
+     * Writes nothing.
+     */
+    public function signagePreview(Request $request): Response
+    {
+        Authz::requireSuperadmin();
+
+        $per = max(1, min(40, $request->queryInt('per', 8)));
+        $interval = max(5, min(600, $request->queryInt('interval', 20)));
+        $rows = (new VacancyService())->sampleRows($per);
+
+        return Response::html(View::renderPartial('pub/vacancy_signage', [
+            'rows' => $rows,
+            'date' => VacancyService::today(),
+            'view' => 'now',
+            'asOf' => date('H:i'),
+            'page' => 1,
+            'pages' => 1,
+            'interval' => $interval,
+            // Refreshes onto itself: a rehearsal has one page, and the
+            // reload still proves the screen comes back by itself.
+            'nextUrl' => url('/admin/vacancy/signage') . '?per=' . $per . '&interval=' . $interval,
+            'preview' => true,
+        ]));
+    }
+
     /** GET /admin/vacancy?date=&event= */
     public function index(Request $request): Response
     {
@@ -104,7 +137,13 @@ final class VacancyController
         );
 
         Flash::success('登録しました。');
-        return Response::redirect('/admin/vacancy?date=' . urlencode($date));
+        /*
+         * Back to the row that was pressed, not the top of the page. On the
+         * day this button is pressed dozens of times down a long list, and
+         * scrolling back each time is the difference between a screen that
+         * gets updated and one that does not.
+         */
+        return Response::redirect('/admin/vacancy?date=' . urlencode($date) . '#e' . $eventId);
     }
 
     /**
@@ -171,7 +210,9 @@ final class VacancyController
 
     private function backUrl(string $date, int $eventId): string
     {
-        return '/admin/vacancy?date=' . urlencode($date) . '&event=' . $eventId;
+        // #sessions: the transcription panel sits below a long table, so
+        // without the anchor a save looks like nothing happened.
+        return '/admin/vacancy?date=' . urlencode($date) . '&event=' . $eventId . '#sessions';
     }
 
     /** Empty stays empty; anything non-numeric is treated as not entered. */

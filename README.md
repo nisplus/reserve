@@ -226,6 +226,7 @@ php.cmd bin/request.php / --text      # サーバーを立てずにページを�
 php.cmd bin/request.php /events/1 --headers
 php.cmd bin/send_mail.php             # メールキューの送信（本番では cron 推奨）
 php.cmd bin/send_reminders.php        # 前日リマインド（--date= / --dry-run）。既定は無効
+php.cmd bin/reset_vacancy.php         # 当日空き状況の報告を削除（--date= / --event= / --all / --dry-run）
 
 php.cmd bin/reset_bookings.php --dry-run   # 予約データだけ削除（イベントは残す）
 php.cmd bin/import_events.php --template   # イベント一括投入用の CSV ひな形

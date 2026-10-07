@@ -133,6 +133,54 @@ final class VacancyService
         return $report;
     }
 
+    /**
+     * Rows that look like a busy day, for checking the wall display before
+     * there is a day to check it on.
+     *
+     * Built in memory and written nowhere. Every state the screen can show
+     * is present - all four marks, a ticket count, and one report old
+     * enough to grey out - because the point of a rehearsal is to see the
+     * cases you cannot conjure on the day.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function sampleRows(int $count = 8): array
+    {
+        $recipe = [
+            ['サンプル工業株式会社', '工場見学ツアー', VacancyLevel::Open, null, 3],
+            ['サンプル工業株式会社', '組立体験', VacancyLevel::Few, 6, 12],
+            ['みほん電機株式会社', '製品体験ワークショップ', VacancyLevel::None, 0, 25],
+            ['みほん電機株式会社', '技術説明会', VacancyLevel::Ample, null, 8],
+            ['れい精密工業株式会社', 'ロボット操作体験', VacancyLevel::Open, 20, 2],
+            ['れい精密工業株式会社', '切削加工の実演', VacancyLevel::Few, 2, 40],
+            ['テスト食品株式会社', '試食と工場案内', VacancyLevel::Ample, null, 15],
+            ['テスト食品株式会社', 'パン作り体験', VacancyLevel::None, 0, self::STALE_MINUTES + 30],
+        ];
+
+        $out = [];
+        for ($i = 0; $i < $count; $i++) {
+            [$company, $title, $level, $remaining, $age] = $recipe[$i % count($recipe)];
+            $out[] = [
+                'id' => -($i + 1),
+                'title' => $title,
+                'event_title' => $title,
+                'company_name' => $company,
+                'starts_at' => date('Y-m-d 10:00:00'),
+                'ends_at' => date('Y-m-d 11:00:00'),
+                'in_progress' => false,
+                'fallback' => null,
+                'report' => $this->decorate([
+                    'level' => $level->value,
+                    'remaining' => $remaining,
+                    'note' => null,
+                    'reported_at' => date('Y-m-d H:i:s', time() - $age * 60),
+                    'reported_by' => 'sample',
+                ]),
+            ];
+        }
+        return $out;
+    }
+
     /** Today, in the timezone the application runs in. */
     public static function today(): string
     {

@@ -121,7 +121,11 @@ html, body {
  */
 .sg-card__mark {
   grid-column: 2;
-  grid-row: 1 / span 3;
+  /* Rows 1-2 only. Spanning all three put the mark on top of the
+     timestamp in row 3, which is exactly the line a reader needs when
+     the mark is greyed out for being old. */
+  grid-row: 1 / span 2;
+  align-self: center;
   font-size: 12.5vh;
   line-height: 1;
   text-align: center;
@@ -145,13 +149,17 @@ html, body {
 .sg-card__when {
   grid-column: 2;
   grid-row: 3;
+  /* Bottom-aligned, and with room for the stale line to sit under the
+     time rather than climbing into the mark above it. */
+  align-self: end;
   font-size: 1.7vh;
+  line-height: 1.35;
   color: var(--sg-muted);
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
-.sg-card__stale { display: block; color: var(--sg-few); font-weight: 700; }
+.sg-card__stale { display: block; margin-top: .3vh; font-size: 1.45vh; color: var(--sg-few); font-weight: 700; }
 
 /* --------------------------------------------------------------- levels */
 
@@ -173,6 +181,18 @@ html, body {
 .sg-card--stale,
 .sg-card--stale .sg-card__mark,
 .sg-card--stale .sg-card__label { color: var(--sg-muted); border-color: var(--sg-line); }
+
+/* The rehearsal banner. Loud on purpose: a test screen left on the wall
+   is worse than no screen, so it should be impossible to miss. */
+.sg-preview {
+  flex: none;
+  padding: 1vh 2vw;
+  background: #b45309;
+  color: #fff;
+  font-size: 2.4vh;
+  font-weight: 700;
+  text-align: center;
+}
 
 /* ---------------------------------------------------------------- footer */
 

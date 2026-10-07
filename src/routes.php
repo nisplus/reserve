@@ -90,6 +90,7 @@ return static function (Router $router): void {
     // there is no company-scoped view of it: $office throughout.
     // Availability is $auth, not $office: a company reports its own booth.
     // The scoping comes from the session, as it does for bulk mail.
+    $router->get('/admin/vacancy/signage',   [App\Http\Controller\Admin\VacancyController::class, 'signagePreview'], $office);
     $router->get('/admin/vacancy',           [App\Http\Controller\Admin\VacancyController::class, 'index'], $auth);
     $router->post('/admin/vacancy',          [App\Http\Controller\Admin\VacancyController::class, 'store'], $auth);
     $router->post('/admin/vacancy/sessions', [App\Http\Controller\Admin\VacancyController::class, 'storeSessions'], $auth);

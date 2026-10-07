@@ -161,6 +161,63 @@ try {
     $assert((int) Db::scalar('SELECT COUNT(*) FROM bookings') === $bookingsBefore,
         'nor bookings - this feature cannot disturb the booking system');
 
+    // --- a booth with no sessions at all --------------------------------------
+    // The design always said these take a "current status" and nothing else.
+    // An inner join on event_sessions quietly dropped them, so the one kind of
+    // event that can ONLY be reported this way could not be reported at all.
+    $walkIn = $events->create($companyA, 'A社 随時受付の展示', null, 'ロビー', 0, true);
+
+    $ids = array_map(
+        static fn (array $r): int => (int) $r['id'],
+        $service->forEvents($DAY, $companyA, false)
+    );
+    $assert(in_array($walkIn, $ids, true),
+        'a booth with no sessions is listed, because a current status is all it can have');
+
+    $counts = [];
+    foreach ($service->forEvents($DAY, $companyA, false) as $row) {
+        $counts[(int) $row['id']] = (int) $row['session_count'];
+    }
+    $assert($counts[$walkIn] === 0 && $counts[$tour] === 2,
+        'and session_count tells the screen which rows have a per-session form');
+
+    // An event whose sessions are all on other days is a different case: it is
+    // not running today, so there is nothing to say about it today.
+    $otherDay = $events->create($companyA, 'A社 来月だけ', null, null, 0, true);
+    fixture_create_session($otherDay, '2035-12-01 10:00:00', '2035-12-01 11:00:00', 10);
+    $ids = array_map(
+        static fn (array $r): int => (int) $r['id'],
+        $service->forEvents($DAY, $companyA, false)
+    );
+    $assert(!in_array($otherDay, $ids, true),
+        'a booth running only on other days stays off this day');
+
+    $repo->add($walkIn, null, 'open', null, null, 'test:vacancy');
+    $byId = [];
+    foreach ($service->forEvents($DAY, $companyA, false) as $row) {
+        $byId[(int) $row['id']] = $row;
+    }
+    $assert($byId[$walkIn]['report'] !== null
+        && $byId[$walkIn]['report']['level'] === VacancyLevel::Open,
+        'and its current status is published like any other');
+
+    // --- the signage rehearsal -------------------------------------------------
+    // Checking the wall display must not require the day it has to be right on.
+    $before = (int) Db::scalar('SELECT COUNT(*) FROM vacancy_reports');
+    $sample = $service->sampleRows(8);
+    $assert(count($sample) === 8, 'the rehearsal builds as many rows as asked for');
+    $assert((int) Db::scalar('SELECT COUNT(*) FROM vacancy_reports') === $before,
+        'and writes none of them - a rehearsal must not become data');
+
+    $marks = [];
+    $stale = 0;
+    foreach ($sample as $row) {
+        $marks[$row['report']['level']->value] = true;
+        $stale += $row['report']['is_stale'] ? 1 : 0;
+    }
+    $assert(count($marks) === 4, 'all four marks appear, so every colour can be judged');
+    $assert($stale > 0, 'and one row is old enough to grey out, which is the case you cannot stage');
+
     // --- the history the office reads back ------------------------------------
     $recent = $repo->recent(5, $companyA);
     $assert($recent !== [] && (string) $recent[0]['reported_by'] === 'test:vacancy',

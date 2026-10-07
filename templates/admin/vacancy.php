@@ -50,6 +50,13 @@ $current = static function (?array $report): string {
   <strong style="font-size:17px"><?= e(jp_date($date)) ?></strong>
   <a class="btn btn--ghost btn--small" href="<?= e($dayUrl($shift(1))) ?>">次の日 →</a>
   <a class="btn btn--ghost btn--small" href="<?= e($dayUrl((new DateTimeImmutable('today'))->format('Y-m-d'))) ?>">今日に戻す</a>
+  <?php if ($isOffice): ?>
+    <?php /* Rehearsing the wall display needs neither the day nor any data,
+             which is the point: you cannot check it for the first time on the
+             morning it has to be right. */ ?>
+    <a class="btn btn--ghost btn--small" href="<?= url('/admin/vacancy/signage') ?>"
+       target="_blank" rel="noopener">サイネージの表示テスト</a>
+  <?php endif; ?>
 </div>
 
 <?php if ($events === []): ?>
@@ -67,7 +74,7 @@ $current = static function (?array $report): string {
 <div class="table-scroll">
   <table class="table">
     <thead>
-      <tr><th>体験プログラム</th><th>現在</th><th>登録</th><th>開催回ごと</th></tr>
+      <tr><th>体験プログラム</th><th>現在</th><th>登録</th><th>開催回</th></tr>
     </thead>
     <tbody>
     <?php $company = null; ?>
@@ -76,7 +83,7 @@ $current = static function (?array $report): string {
         <?php $company = (int) $row['company_id']; ?>
         <tr><td colspan="4" style="background:var(--line-soft)"><strong><?= e($row['company_name']) ?></strong></td></tr>
       <?php endif; ?>
-      <tr>
+      <tr id="e<?= (int) $row['id'] ?>">
         <td>
           <?= e($row['title']) ?>
           <?php if (($row['venue'] ?? '') !== ''): ?>
@@ -99,7 +106,16 @@ $current = static function (?array $report): string {
           </form>
         </td>
         <td>
-          <a class="btn btn--ghost btn--small" href="<?= e($dayUrl($date, (int) $row['id'])) ?>">開催回を入力</a>
+          <?php /* A booth with no sessions today takes a current status and
+                   nothing else, so offering the per-session screen would open
+                   an empty one. */ ?>
+          <?php if ((int) $row['session_count'] > 0): ?>
+            <a class="btn btn--ghost btn--small" href="<?= e($dayUrl($date, (int) $row['id'])) ?>#sessions">
+              開催回を入力（<?= (int) $row['session_count'] ?>）
+            </a>
+          <?php else: ?>
+            <span class="muted" style="font-size:12px">開催回なし</span>
+          <?php endif; ?>
         </td>
       </tr>
     <?php endforeach; ?>
@@ -109,7 +125,7 @@ $current = static function (?array $report): string {
 
 <?php /* ------------------------------------------- transcription ------- */ ?>
 <?php if ($event !== null): ?>
-  <h2 style="margin-top:28px">開催回ごとに登録する</h2>
+  <h2 id="sessions" style="margin-top:28px">開催回ごとに登録する</h2>
   <p class="muted">
     各社から届いた<strong>整理券の状況を貼った開催回一覧表の写真</strong>を見ながら入力します。
     並びは<strong>開催時刻順</strong>で、紙の一覧表と同じ順序です。<br>

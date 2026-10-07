@@ -115,8 +115,22 @@ final class VacancyRepository
     }
 
     /**
-     * Published events running on $date, in the order the public catalogue
-     * uses: area, then company, then the event's own sort order.
+     * Booths to show for $date, in the order the public catalogue uses: area,
+     * then company, then the event's own sort order.
+     *
+     * Two kinds of event belong here, and an inner join once lost the second:
+     *
+     *   - those with a session that day, listed per session as well;
+     *   - those with NO sessions at all, which take a single "current status"
+     *     and nothing else. The design always said so - 開催回が設定されて
+     *     いない場合は現在の空き状況を登録する - but they could not be
+     *     reached, because the query required a session to join to.
+     *
+     * An event whose sessions are all on OTHER days is deliberately not here.
+     * It is not running today, so there is nothing to report about it.
+     *
+     * session_count is what the input screen reads to decide whether a
+     * per-session screen exists for a row.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -135,13 +149,19 @@ final class VacancyRepository
         return Db::select(
             "SELECT e.id, e.title, e.venue, e.booking_required,
                     c.id AS company_id, c.name AS company_name, c.area,
-                    MIN(s.starts_at) AS first_starts_at,
-                    MAX(s.ends_at)   AS last_ends_at,
-                    COUNT(s.id)      AS session_count
+                    MIN(today.starts_at) AS first_starts_at,
+                    MAX(today.ends_at)   AS last_ends_at,
+                    COUNT(today.id)      AS session_count
                FROM events e
-               JOIN companies c      ON c.id = e.company_id
-               JOIN event_sessions s ON s.event_id = e.id AND DATE(s.starts_at) = ?
-              WHERE 1 = 1 {$where}
+               JOIN companies c ON c.id = e.company_id
+               LEFT JOIN event_sessions today
+                      ON today.event_id = e.id AND DATE(today.starts_at) = ?
+              WHERE (
+                      today.id IS NOT NULL
+                      OR NOT EXISTS (SELECT 1 FROM event_sessions any_s
+                                      WHERE any_s.event_id = e.id)
+                    )
+                    {$where}
               GROUP BY e.id, e.title, e.venue, e.booking_required,
                        c.id, c.name, c.area, e.sort_order, c.sort_order
               ORDER BY c.sort_order, c.id, e.sort_order, e.id",
@@ -223,8 +243,16 @@ final class VacancyRepository
     private function scope(string $date, ?int $companyId): array
     {
         $params = [];
-        $scope = 'AND EXISTS (SELECT 1 FROM event_sessions s
-                               WHERE s.event_id = e.id AND DATE(s.starts_at) = ?)';
+        /*
+         * Same two kinds as eventsOn(): running today, or having no sessions
+         * at all. Without the second arm a walk-in booth could be reported on
+         * and the report would never come back out, which is a worse failure
+         * than refusing the report would have been.
+         */
+        $scope = 'AND (EXISTS (SELECT 1 FROM event_sessions s
+                                WHERE s.event_id = e.id AND DATE(s.starts_at) = ?)
+                      OR NOT EXISTS (SELECT 1 FROM event_sessions any_s
+                                      WHERE any_s.event_id = e.id))';
         $params[] = $date;
 
         if ($companyId !== null) {
