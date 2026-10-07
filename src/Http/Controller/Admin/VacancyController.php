@@ -85,15 +85,35 @@ final class VacancyController
             $sessions = $service->forSessions($date, $companyId, false, $eventId, false);
         }
 
+        $events = $service->forEvents($date, $companyId, false);
+
+        /*
+         * On any day but the festival's own, every row is a walk-up booth and
+         * the screen looks broken ("only the booths with no sessions show
+         * up"). Rather than leave the operator stepping through days with the
+         * arrows, offer the days that do have sessions.
+         */
+        // Counting rows that actually offer a per-session screen, not rows
+        // that merely have sessions: a day holding nothing but 予約不要 booths
+        // has no per-session input either, and the notice would be a lie.
+        $hasSessionsToday = false;
+        foreach ($events as $row) {
+            if (!$row['is_walk_in']) {
+                $hasSessionsToday = true;
+                break;
+            }
+        }
+
         return Response::html(View::render('admin/vacancy', [
-            'title'    => '当日の空き状況',
-            'date'     => $date,
-            'events'   => $service->forEvents($date, $companyId, false),
-            'event'    => $event,
-            'sessions' => $sessions,
-            'levels'   => VacancyLevel::options(),
-            'recent'   => $repo->recent(self::RECENT, $companyId),
-            'isOffice' => $companyId === null,
+            'title'     => '当日の空き状況',
+            'date'      => $date,
+            'events'    => $events,
+            'event'     => $event,
+            'sessions'  => $sessions,
+            'levels'    => VacancyLevel::options(),
+            'recent'    => $repo->recent(self::RECENT, $companyId),
+            'isOffice'  => $companyId === null,
+            'otherDays' => $hasSessionsToday ? [] : $service->sessionDaysNear($date, $companyId),
         ], 'layouts/admin'));
     }
 

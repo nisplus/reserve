@@ -15,8 +15,17 @@ declare(strict_types=1);
  *     flagged as a different claim rather than passed off as its own
  *   - a report nobody has refreshed in ninety minutes says so, because a stale
  *     ◎ on a wall sends people to a booth that filled up an hour ago
+ *   - 予約不要 is a walk-up booth whatever sessions it has: a current status
+ *     and no per-session screen, because nothing can be reserved for a slot
+ *     there and a per-slot ticket count would be a number about nothing
  *
  * And one that is structural: this writes to vacancy_reports and nothing else.
+ *
+ * The fixture day is TODAY rather than a far-future date, because a report
+ * carrying no session belongs to the day it was made - so a report cannot be
+ * both findable on the day under test and old enough to have gone stale
+ * unless that day is today. Every assertion is scoped to a fixture company
+ * for the same reason: today's real rows are in the way otherwise.
  */
 
 require dirname(__DIR__) . '/bootstrap.php';
@@ -47,14 +56,32 @@ $events = new EventRepository();
 $repo = new VacancyRepository();
 $service = new VacancyService();
 
-$DAY = '2035-08-08';
+$DAY  = date('Y-m-d');
+$NEXT = date('Y-m-d', strtotime('+1 day'));
+$FAR  = date('Y-m-d', strtotime('+40 days'));
+
 $ago = static fn (int $minutes): string => date('Y-m-d H:i:s', time() - $minutes * 60);
+
+/** @return array<int, array<string, mixed>> the day's rows for one company, keyed by event id */
+$rowsFor = static function (int $companyId, ?string $day = null) use ($service, $DAY): array {
+    $out = [];
+    foreach ($service->forEvents($day ?? $DAY, $companyId, false) as $row) {
+        $out[(int) $row['id']] = $row;
+    }
+    return $out;
+};
+
+/** @return array<int, int> event id => how many rows it has */
+$idsOf = static fn (array $rows): array => array_map(
+    static fn (array $r): int => (int) $r['id'],
+    $rows
+);
 
 try {
     $companyA = fixture_create_company('vacA');
     $companyB = fixture_create_company('vacB');
 
-    $tour = $events->create($companyA, 'A社 見学', null, 'A棟 受付', 0, true);
+    $tour  = $events->create($companyA, 'A社 見学', null, 'A棟 受付', 0, true);
     $build = $events->create($companyA, 'A社 体験', null, null, 0, true);
     $other = $events->create($companyB, 'B社 説明', null, null, 0, true);
 
@@ -63,7 +90,7 @@ try {
     fixture_create_session($build, $DAY . ' 10:00:00', $DAY . ' 11:00:00', 20);
     fixture_create_session($other, $DAY . ' 10:00:00', $DAY . ' 11:00:00', 20);
     // Another day, to prove the date filter does something.
-    fixture_create_session($tour, '2035-08-09 10:00:00', '2035-08-09 11:00:00', 20);
+    fixture_create_session($tour, $NEXT . ' 10:00:00', $NEXT . ' 11:00:00', 20);
 
     // --- the marks -----------------------------------------------------------
     $assert(VacancyLevel::Open->mark() === '◎' && VacancyLevel::None->mark() === '✕',
@@ -76,19 +103,16 @@ try {
         'and a report with no count at all is untouched');
 
     // --- nothing reported yet ------------------------------------------------
-    $rows = $service->forEvents($DAY, null, false);
-    $assert(count($rows) === 3, 'every booth running that day is listed, reported or not');
-    $assert($rows[0]['report'] === null,
+    $rows = $rowsFor($companyA);
+    $assert(count($rows) === 2, 'every booth running that day is listed, reported or not');
+    $assert($rows[$tour]['report'] === null,
         'with no report the entry is null - the page shows a dash, not an empty space');
 
     // --- newest wins ---------------------------------------------------------
     $repo->add($tour, null, 'open', null, null, 'test:vacancy', $ago(30));
     $repo->add($tour, null, 'few', 4, null, 'test:vacancy', $ago(5));
 
-    $byId = [];
-    foreach ($service->forEvents($DAY, null, false) as $row) {
-        $byId[(int) $row['id']] = $row;
-    }
+    $byId = $rowsFor($companyA);
     $assert($byId[$tour]['report']['level'] === VacancyLevel::Few,
         'the newest report is the current one');
     $assert($byId[$tour]['report']['remaining'] === 4, 'and brings its ticket count with it');
@@ -98,19 +122,25 @@ try {
     $assert($byId[$tour]['report']['is_stale'] === false, 'five minutes old is current');
 
     $repo->add($other, null, 'ample', null, null, 'test:vacancy', $ago(VacancyService::STALE_MINUTES + 1));
-    foreach ($service->forEvents($DAY, null, false) as $row) {
-        $byId[(int) $row['id']] = $row;
-    }
-    $assert($byId[$other]['report']['is_stale'] === true,
+    $otherRow = $rowsFor($companyB)[$other];
+    $assert($otherRow['report']['is_stale'] === true,
         'past ninety minutes it is marked stale - the dangerous failure is a stale ◎ on a wall');
-    $assert($byId[$other]['report']['age_minutes'] >= VacancyService::STALE_MINUTES,
+    $assert($otherRow['report']['age_minutes'] >= VacancyService::STALE_MINUTES,
         'and the age is carried so the screen can say how long');
+
+    // --- a current status belongs to the day it was entered -------------------
+    // There is no session to take a date from, so the day it was typed is the
+    // only day it describes. reset_vacancy.php already draws the line here;
+    // without it, a booth practised on last week still reads as today's ◎.
+    $assert(!isset($rowsFor($companyA, $NEXT)[$tour]['report'])
+        || $rowsFor($companyA, $NEXT)[$tour]['report'] === null,
+        "today's current status is not served up as tomorrow's");
 
     // --- per session, and the fallback --------------------------------------
     $repo->add($tour, $s1, 'none', 0, null, 'test:vacancy', $ago(10));
 
     $sessions = [];
-    foreach ($service->forSessions($DAY, null, false, null, false) as $row) {
+    foreach ($service->forSessions($DAY, $companyA, false, null, false) as $row) {
         $sessions[(int) $row['id']] = $row;
     }
 
@@ -124,28 +154,20 @@ try {
         'showing what the booth last said, which is a different claim and is labelled as one');
 
     // --- the date filter -----------------------------------------------------
-    $assert($service->forEvents('2035-08-09', null, false) !== [],
-        'the next day lists its own session');
-    $assert($service->forEvents('2035-08-10', null, false) === [],
+    $assert($idsOf($service->forEvents($NEXT, $companyA, false)) === [$tour],
+        'the next day lists the booth that runs then, and only that one');
+    $assert($service->forEvents($FAR, $companyB, false) === [],
         'and a day with nothing on returns nothing');
 
     // --- company scope -------------------------------------------------------
-    $scoped = $service->forEvents($DAY, $companyA, false);
-    $ids = array_map(static fn (array $r): int => (int) $r['id'], $scoped);
+    $ids = $idsOf($service->forEvents($DAY, $companyA, false));
     $assert(in_array($tour, $ids, true) && !in_array($other, $ids, true),
-        "a company account sees only its own booths");
+        'a company account sees only its own booths');
 
     // --- finished sessions are dropped from the public view ------------------
-    $past = fixture_create_session($build, date('Y-m-d') . ' 00:00:00', date('Y-m-d') . ' 00:30:00', 20);
-    $today = date('Y-m-d');
-    $upcomingIds = array_map(
-        static fn (array $r): int => (int) $r['id'],
-        $service->forSessions($today, null, true, null, false)
-    );
-    $allIds = array_map(
-        static fn (array $r): int => (int) $r['id'],
-        $service->forSessions($today, null, false, null, false)
-    );
+    $past = fixture_create_session($build, $DAY . ' 00:00:00', $DAY . ' 00:30:00', 20);
+    $upcomingIds = $idsOf($service->forSessions($DAY, $companyA, true, null, false));
+    $allIds      = $idsOf($service->forSessions($DAY, $companyA, false, null, false));
     $assert(!in_array($past, $upcomingIds, true),
         'a session that already finished is not shown to visitors');
     $assert(in_array($past, $allIds, true),
@@ -167,39 +189,70 @@ try {
     // event that can ONLY be reported this way could not be reported at all.
     $walkIn = $events->create($companyA, 'A社 随時受付の展示', null, 'ロビー', 0, true);
 
-    $ids = array_map(
-        static fn (array $r): int => (int) $r['id'],
-        $service->forEvents($DAY, $companyA, false)
-    );
+    $ids = $idsOf($service->forEvents($DAY, $companyA, false));
     $assert(in_array($walkIn, $ids, true),
         'a booth with no sessions is listed, because a current status is all it can have');
 
-    $counts = [];
-    foreach ($service->forEvents($DAY, $companyA, false) as $row) {
-        $counts[(int) $row['id']] = (int) $row['session_count'];
-    }
-    $assert($counts[$walkIn] === 0 && $counts[$tour] === 2,
-        'and session_count tells the screen which rows have a per-session form');
+    $rows = $rowsFor($companyA);
+    $assert($rows[$walkIn]['is_walk_in'] === true && $rows[$tour]['is_walk_in'] === false,
+        'and is_walk_in tells the screen which rows have no per-session form');
+    $assert((int) $rows[$walkIn]['session_count'] === 0 && (int) $rows[$tour]['session_count'] === 2,
+        'session_count still counts what the day actually holds');
 
     // An event whose sessions are all on other days is a different case: it is
     // not running today, so there is nothing to say about it today.
     $otherDay = $events->create($companyA, 'A社 来月だけ', null, null, 0, true);
-    fixture_create_session($otherDay, '2035-12-01 10:00:00', '2035-12-01 11:00:00', 10);
-    $ids = array_map(
-        static fn (array $r): int => (int) $r['id'],
-        $service->forEvents($DAY, $companyA, false)
-    );
-    $assert(!in_array($otherDay, $ids, true),
+    fixture_create_session($otherDay, $FAR . ' 10:00:00', $FAR . ' 11:00:00', 10);
+    $assert(!in_array($otherDay, $idsOf($service->forEvents($DAY, $companyA, false)), true),
         'a booth running only on other days stays off this day');
 
     $repo->add($walkIn, null, 'open', null, null, 'test:vacancy');
-    $byId = [];
-    foreach ($service->forEvents($DAY, $companyA, false) as $row) {
-        $byId[(int) $row['id']] = $row;
-    }
-    $assert($byId[$walkIn]['report'] !== null
-        && $byId[$walkIn]['report']['level'] === VacancyLevel::Open,
+    $rows = $rowsFor($companyA);
+    $assert($rows[$walkIn]['report'] !== null
+        && $rows[$walkIn]['report']['level'] === VacancyLevel::Open,
         'and its current status is published like any other');
+
+    // --- 予約不要 is a walk-up booth even with sessions -------------------------
+    // Reported as "treat 予約不要 as a same-day booth whether or not sessions
+    // are registered". Sessions on such a booth say when staff are there, not
+    // what can be reserved, so there is no per-slot number to report.
+    $standing = $events->create($companyA, 'A社 予約不要の工房', null, '工房', 0, true, false);
+    $sFree = fixture_create_session($standing, $DAY . ' 10:00:00', $DAY . ' 16:00:00', 0);
+
+    $rows = $rowsFor($companyA);
+    $assert(isset($rows[$standing]),
+        '予約不要 with sessions is listed on the day like any other booth');
+    $assert($rows[$standing]['is_walk_in'] === true,
+        'but it is a walk-up booth: a current status, and no per-session screen');
+    $assert((int) $rows[$standing]['session_count'] === 1,
+        'the sessions are still counted - the rule is 予約不要, not "has no sessions"');
+
+    $assert(!in_array($sFree, $idsOf($service->forSessions($DAY, $companyA, false, null, false)), true),
+        'and its sessions stay out of the per-session views, which is the same decision');
+
+    $repo->add($standing, null, 'ample', null, null, 'test:vacancy');
+    $assert($rowsFor($companyA)[$standing]['report']['level'] === VacancyLevel::Ample,
+        'a current status registered against it comes back out');
+
+    // It is a walk-up booth every day, not only on the days its sessions run.
+    $assert(in_array($standing, $idsOf($service->forEvents($FAR, $companyA, false)), true),
+        '予約不要 is listed whatever day is being looked at - it has no date to be off');
+
+    // --- finding the day that does have sessions ------------------------------
+    // Every day but the festival's own lists walk-up booths and nothing else,
+    // which reads as a broken screen. The input screen offers these instead.
+    $days = $service->sessionDaysNear($FAR, $companyA, 3);
+    $found = array_column($days, 'date');
+    $assert(in_array($DAY, $found, true) && in_array($NEXT, $found, true),
+        'the days that do have sessions are offered, nearest first');
+    $assert($found === array_values(array_unique($found))
+        && $found[0] <= $found[count($found) - 1],
+        'listed once each and in date order, which is how they are read');
+    foreach ($days as $day) {
+        if ($day['date'] === $NEXT) {
+            $assert($day['sessions'] === 1, 'each with how many sessions are on, so the right day is obvious');
+        }
+    }
 
     // --- the signage rehearsal -------------------------------------------------
     // Checking the wall display must not require the day it has to be right on.

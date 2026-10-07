@@ -11,6 +11,8 @@ use App\Service\VacancyService;
  * @var array<string, string>            $levels   value => label
  * @var array<int, array<string, mixed>> $recent
  * @var bool                             $isOffice
+ * @var array<int, array{date: string, sessions: int}> $otherDays
+ *        days that do have sessions; filled in only when this day has none
  */
 $dayUrl = static fn (string $d, int $eventId = 0): string => url('/admin/vacancy') . '?' . http_build_query(
     array_filter(['date' => $d, 'event' => $eventId > 0 ? $eventId : null])
@@ -59,6 +61,21 @@ $current = static function (?array $report): string {
   <?php endif; ?>
 </div>
 
+<?php if ($otherDays !== []): ?>
+  <?php /* Without this the screen just looks broken on any day but the
+           festival's own: the walk-up booths are all that is left, and
+           nothing says why or where the rest went. */ ?>
+  <div class="flash flash--info" style="margin-bottom:16px">
+    <strong><?= e(jp_date($date)) ?>は、開催回のある体験プログラムがありません。</strong><br>
+    下に出ているのは<strong>当日枠（予約不要）の体験プログラム</strong>だけです。
+    開催回があるのは次の日です。
+    <?php foreach ($otherDays as $day): ?>
+      <a class="btn btn--ghost btn--small" style="margin:4px 4px 0 0"
+         href="<?= e($dayUrl($day['date'])) ?>"><?= e(jp_date($day['date'])) ?>（<?= (int) $day['sessions'] ?> 回）</a>
+    <?php endforeach; ?>
+  </div>
+<?php endif; ?>
+
 <?php if ($events === []): ?>
   <p class="empty">この日に開催される体験プログラムはありません。</p>
 <?php else: ?>
@@ -106,13 +123,17 @@ $current = static function (?array $report): string {
           </form>
         </td>
         <td>
-          <?php /* A booth with no sessions today takes a current status and
-                   nothing else, so offering the per-session screen would open
-                   an empty one. */ ?>
-          <?php if ((int) $row['session_count'] > 0): ?>
+          <?php /* A walk-up booth takes a current status and nothing else,
+                   so offering the per-session screen would open an empty one.
+                   予約不要 counts as walk-up however many sessions it has:
+                   nothing can be reserved for a slot there, so a per-slot
+                   ticket count would be a number about nothing. */ ?>
+          <?php if (!$row['is_walk_in']): ?>
             <a class="btn btn--ghost btn--small" href="<?= e($dayUrl($date, (int) $row['id'])) ?>#sessions">
               開催回を入力（<?= (int) $row['session_count'] ?>）
             </a>
+          <?php elseif ((int) $row['booking_required'] === 0): ?>
+            <span class="badge badge--muted">当日枠（予約不要）</span>
           <?php else: ?>
             <span class="muted" style="font-size:12px">開催回なし</span>
           <?php endif; ?>

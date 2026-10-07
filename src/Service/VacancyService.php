@@ -41,6 +41,11 @@ final class VacancyService
     /**
      * One entry per booth running that day, in catalogue order.
      *
+     * Each row carries is_walk_in: true for a booth that takes a current
+     * status and nothing else. That is 予約不要 whatever sessions it has -
+     * nothing can be reserved for a slot there, so there is no per-slot
+     * number to report - and also any booth with no sessions that day.
+     *
      * @return array<int, array<string, mixed>>
      */
     public function forEvents(string $date, ?int $companyId = null, bool $publishedOnly = true): array
@@ -52,9 +57,22 @@ final class VacancyService
         foreach ($events as $event) {
             $report = $current[(int) $event['id']] ?? null;
             $event['report'] = $this->decorate($report);
+            $event['is_walk_in'] = (int) $event['booking_required'] === 0
+                || (int) $event['session_count'] === 0;
             $out[] = $event;
         }
         return $out;
+    }
+
+    /**
+     * Days with sessions, nearest $date first, for the "nothing on today"
+     * notice on the input screen.
+     *
+     * @return array<int, array{date: string, sessions: int}>
+     */
+    public function sessionDaysNear(string $date, ?int $companyId = null, int $limit = 3): array
+    {
+        return $this->reports->sessionDaysNear($date, $companyId, $limit);
     }
 
     /**

@@ -230,3 +230,112 @@ input[type=number] { max-width: 140px; }
 .same-day__list { margin: 6px 0 0; padding-left: 16px; font-size: 12px; color: var(--ink-soft); }
 .same-day__list li { margin-bottom: 3px; }
 .empty { color: var(--ink-soft); padding: 24px; text-align: center; background: var(--panel); border: 1px dashed var(--line); border-radius: var(--radius); }
+
+/* --- day-of availability, public page ----------------------------------- */
+/*
+ * Written for a phone held by someone already walking around the venue, and
+ * widened from there. Two things decide whether it works:
+ *
+ *   - every ◎ ◯ △ ✕ sits in a column of its own, so the marks line up down
+ *     the page and can be read without reading the words;
+ *   - each booth is a card, because without one the name of the next booth
+ *     butts straight onto the status of the last, and the two read as one
+ *     garbled entry.
+ */
+.vac-company {
+  font-size: 15px;
+  margin: 22px 0 8px;
+  padding: 0 0 4px;
+  border-bottom: 2px solid var(--line);
+  color: var(--ink-soft);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.vac-row {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+
+.vac-row__name { margin-bottom: 6px; }
+.vac-row__company { display: block; font-size: 12px; color: var(--ink-soft); }
+.vac-row__title { display: block; font-weight: 700; line-height: 1.45; }
+.vac-row__venue { display: block; font-size: 12px; color: var(--ink-soft); }
+
+/* The status. The mark gets its own grid column; everything else stacks in
+   the second one, so a long label can never push the mark out of line. */
+.vac-state {
+  display: grid;
+  grid-template-columns: 1.7em minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 10px;
+  row-gap: 1px;
+  margin: 0;
+}
+.vac-mark {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  align-self: center;
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 700;
+  text-align: center;
+}
+.vac-words { grid-column: 2; font-weight: 700; }
+.vac-remaining { grid-column: 2; font-variant-numeric: tabular-nums; }
+.vac-when { grid-column: 2; font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+/* The fallback label spans the whole width and pushes the rest down a row:
+   it changes what the mark below is a claim ABOUT, so it must not read as
+   part of the claim itself. */
+.vac-label {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin-bottom: 3px;
+}
+.vac-label ~ .vac-mark { grid-row: 2 / span 3; }
+
+.vac-state--open  .vac-mark { color: var(--ok); }
+.vac-state--ample .vac-mark { color: var(--ok); }
+.vac-state--few   .vac-mark { color: var(--warn); }
+.vac-state--none  .vac-mark,
+.vac-state--none  .vac-words { color: var(--bad); }
+
+/* Unreported: quiet on purpose. It is the absence of news, not bad news, and
+   the page says so in as many words at the bottom. */
+.vac-state--unreported .vac-mark { color: var(--ink-soft); }
+.vac-state--unreported .vac-words { color: var(--ink-soft); font-weight: 400; }
+
+.vac-stale {
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  border-radius: var(--radius);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (min-width: 620px) {
+  /* Room for two columns: name on the left, status on the right, which puts
+     every mark on the page into one vertical line. */
+  .vac-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+    align-items: start;
+    column-gap: 20px;
+  }
+  .vac-row__name { margin-bottom: 0; }
+  .vac-stale { grid-column: 2; }
+}
+/* The dash is a rule, not a mark: at the mark's size it shouts louder than
+   the ◎ it sits next to. */
+.vac-state--unreported .vac-mark { font-size: 17px; }

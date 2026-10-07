@@ -14,24 +14,40 @@ $tab = static fn (string $v): string => url('/vacancy') . '?' . http_build_query
     'date' => $date === VacancyService::today() ? null : $date,
 ]));
 
-/** One report, as a mark plus the words and the ticket count. */
+/**
+ * One report: the mark in a column of its own, then the words, the ticket
+ * count and the time.
+ *
+ * The mark is a separate element rather than the first character of a badge
+ * so that every ◎ ◯ △ ✕ on the page sits at the same place on the line.
+ * Most of this page is read by someone walking, holding a phone, glancing
+ * down a column - and a column of marks that do not line up is the one thing
+ * that makes that impossible.
+ */
 $status = static function (?array $report, string $prefix = ''): string {
     if ($report === null) {
-        return '<span class="vac-none">—</span>';
+        // Not "vac-state--none": ✕ already owns that value, and an unreported
+        // booth must not be dressed up as a full one.
+        return '<p class="vac-state vac-state--unreported"><span class="vac-mark">—</span>'
+             . '<span class="vac-words">未報告</span></p>';
     }
     $level = $report['level'];
-    $out = '<span class="badge ' . e($level->badgeClass()) . '">'
-         . e($level->mark()) . ' ' . e($level->label()) . '</span>';
-    if ($report['remaining'] !== null) {
-        $out .= ' <span class="vac-remaining">残り ' . (int) $report['remaining'] . ' 枚</span>';
-    }
-    $out .= ' <span class="vac-when">' . e(substr((string) $report['reported_at'], 11, 5)) . ' 現在</span>';
+
+    $out = '<p class="vac-state vac-state--' . e($level->value) . '">';
     if ($prefix !== '') {
-        $out = '<span class="vac-label">' . e($prefix) . '</span> ' . $out;
+        $out .= '<span class="vac-label">' . e($prefix) . '</span>';
     }
+    $out .= '<span class="vac-mark">' . e($level->mark()) . '</span>'
+          . '<span class="vac-words">' . e($level->label()) . '</span>';
+    if ($report['remaining'] !== null) {
+        $out .= '<span class="vac-remaining">残り ' . (int) $report['remaining'] . ' 枚</span>';
+    }
+    $out .= '<span class="vac-when">' . e(substr((string) $report['reported_at'], 11, 5)) . ' 現在</span>'
+          . '</p>';
+
     if ($report['is_stale']) {
-        $out .= '<br><span class="vac-stale">⚠ ' . (int) floor($report['age_minutes'] / 60)
-              . ' 時間以上更新がありません。情報が古い可能性があります</span>';
+        $out .= '<p class="vac-stale">⚠ ' . (int) floor($report['age_minutes'] / 60)
+              . ' 時間以上更新がありません。情報が古い可能性があります</p>';
     }
     return $out;
 };
@@ -70,9 +86,9 @@ $status = static function (?array $report, string $prefix = ''): string {
     <?php endif; ?>
     <div class="vac-row">
       <div class="vac-row__name">
-        <?= e($row['title']) ?>
+        <span class="vac-row__title"><?= e($row['title']) ?></span>
         <?php if (($row['venue'] ?? '') !== ''): ?>
-          <br><span class="muted" style="font-size:12px"><?= e($row['venue']) ?></span>
+          <span class="vac-row__venue"><?= e($row['venue']) ?></span>
         <?php endif; ?>
       </div>
       <div class="vac-row__status"><?= $status($row['report']) ?></div>
@@ -92,8 +108,8 @@ $status = static function (?array $report, string $prefix = ''): string {
     <?php endif; ?>
     <div class="vac-row">
       <div class="vac-row__name">
-        <span class="muted"><?= e($row['company_name']) ?></span><br>
-        <?= e($row['event_title']) ?>
+        <span class="vac-row__company"><?= e($row['company_name']) ?></span>
+        <span class="vac-row__title"><?= e($row['event_title']) ?></span>
       </div>
       <div class="vac-row__status">
         <?php if ($row['report'] !== null): ?>
@@ -101,9 +117,9 @@ $status = static function (?array $report, string $prefix = ''): string {
         <?php elseif ($row['fallback'] !== null): ?>
           <?php /* Nothing about this slot. The booth's own state is still
                    worth showing, under a label that says what it is. */ ?>
-          <?= $status($row['fallback'], 'この回の情報はありません。現在の状況:') ?>
+          <?= $status($row['fallback'], 'この回の情報はありません。現在の状況') ?>
         <?php else: ?>
-          <span class="vac-none">—</span>
+          <?= $status(null) ?>
         <?php endif; ?>
       </div>
     </div>
