@@ -1,0 +1,194 @@
+/*
+ * The wall display.
+ *
+ * Separate from app.css on purpose: this is the only screen read from several
+ * metres away, and nothing here should be able to affect the booking site.
+ *
+ * Sizes are in vw/vh rather than pixels so one stylesheet serves a 1920x1080
+ * display, a portrait 1080x1920 one, and whatever the venue actually turns out
+ * to have. The marks stay legible because they scale with the screen.
+ */
+
+:root {
+  --sg-ink: #0f172a;
+  --sg-bg: #f1f5f9;
+  --sg-card: #ffffff;
+  --sg-muted: #64748b;
+  --sg-line: #cbd5e1;
+
+  --sg-open: #15803d;
+  --sg-ample: #0369a1;
+  --sg-few: #b45309;
+  --sg-none: #b91c1c;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--sg-bg);
+  color: var(--sg-ink);
+  font-family: "Meiryo", "Yu Gothic UI", "Hiragino Kaku Gothic ProN", sans-serif;
+  /* No scrollbars: nobody is here to scroll, and a cut-off row is a lie. */
+  overflow: hidden;
+}
+
+.sg {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ---------------------------------------------------------------- header */
+
+.sg-head {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 1.6vh 2vw;
+  background: var(--sg-ink);
+  color: #fff;
+}
+
+.sg-head__title { font-size: 3.4vh; font-weight: 700; }
+.sg-head__sub   { font-size: 2.2vh; font-weight: 400; opacity: .8; margin-left: .8vw; }
+.sg-head__meta  { display: flex; gap: 2vw; align-items: baseline; }
+.sg-head__asof  { font-size: 3vh; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sg-head__page  { font-size: 2.2vh; opacity: .75; font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------------ grid */
+
+.sg-grid {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.4vh 1.4vw;
+  padding: 1.4vh 1.4vw;
+  min-height: 0;
+}
+
+/* Portrait screens get one column: two would leave the marks too small. */
+@media (orientation: portrait) {
+  .sg-grid { grid-template-columns: 1fr; }
+}
+
+.sg-card {
+  background: var(--sg-card);
+  border: 0.3vh solid var(--sg-line);
+  border-radius: 1.2vh;
+  padding: 1.4vh 1.6vw;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr auto;
+  align-items: center;
+  column-gap: 1.5vw;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sg-card__company {
+  grid-column: 1;
+  font-size: 2.1vh;
+  color: var(--sg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sg-card__slot {
+  margin-left: 1vw;
+  font-weight: 700;
+  color: var(--sg-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.sg-card__event {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: 3.4vh;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+/*
+ * The mark spans the card's full height on the right. It is the one thing a
+ * passer-by reads, so it gets the room - and it carries the meaning without
+ * the colour, which is why the words below it repeat it rather than replace it.
+ */
+.sg-card__mark {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  font-size: 12.5vh;
+  line-height: 1;
+  text-align: center;
+  min-width: 12.5vh;
+}
+
+.sg-card__label {
+  grid-column: 1;
+  grid-row: 3;
+  font-size: 2.4vh;
+  font-weight: 700;
+}
+
+.sg-card__remaining {
+  margin-left: .8vw;
+  font-weight: 400;
+  color: var(--sg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sg-card__when {
+  grid-column: 2;
+  grid-row: 3;
+  font-size: 1.7vh;
+  color: var(--sg-muted);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.sg-card__stale { display: block; color: var(--sg-few); font-weight: 700; }
+
+/* --------------------------------------------------------------- levels */
+
+.sg--open  { border-color: var(--sg-open); }
+.sg--ample { border-color: var(--sg-ample); }
+.sg--few   { border-color: var(--sg-few); }
+.sg--none  { border-color: var(--sg-none); }
+
+.sg--open  .sg-card__mark, .sg--open  .sg-card__label { color: var(--sg-open); }
+.sg--ample .sg-card__mark, .sg--ample .sg-card__label { color: var(--sg-ample); }
+.sg--few   .sg-card__mark, .sg--few   .sg-card__label { color: var(--sg-few); }
+.sg--none  .sg-card__mark, .sg--none  .sg-card__label { color: var(--sg-none); }
+
+/*
+ * A report nobody has refreshed for an hour and a half is drained of colour.
+ * On a wall this matters more than anywhere else: the screen is unattended for
+ * long stretches, so a stale ◎ has hours to send people to a full booth.
+ */
+.sg-card--stale,
+.sg-card--stale .sg-card__mark,
+.sg-card--stale .sg-card__label { color: var(--sg-muted); border-color: var(--sg-line); }
+
+/* ---------------------------------------------------------------- footer */
+
+.sg-foot {
+  flex: none;
+  padding: 1.1vh 2vw;
+  background: #e2e8f0;
+  color: var(--sg-muted);
+  font-size: 1.7vh;
+}
+
+.sg-empty {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4vh;
+  color: var(--sg-muted);
+}

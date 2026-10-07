@@ -34,6 +34,7 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 | [`booking_events`](#booking_events) | 予約の状態遷移の監査ログ。「誰がいつキャンセルしたか」に答える。 |
 | [`mail_queue`](#mail_queue) | 送信待ちメール（トランザクショナル・アウトボックス）。予約と同じトランザクションで積むので、ロールバックした予約のメールは残らない。 |
 | [`admin_users`](#admin_users) | 管理画面のアカウント。事務局（全社）と会社担当者（自社のみ）の 2 種類。 |
+| [`vacancy_reports`](#vacancy_reports) | 当日の空き状況の報告。**追記のみで、上書きしない**（現在値は (event_id, session_id) ごとの最新 1 件）。当日券は紙で配るため予約システムの残席数は当日の実態と合わず、公開ページはここに入った報告だけを出す。 |
 | [`settings`](#settings) | アプリ全体の設定（今は予約受付の開閉のみ）。**行が無いときは App\Core\Settings の既定値が効き、その既定は「受付中」**。だからマイグレーション 010 を本番に当てても挙動は変わらない。 |
 | [`schema_migrations`](#schema_migrations) | 適用済みマイグレーションの記録。bin/migrate.php が管理する。 |
 
@@ -293,6 +294,36 @@ companies ──< events ──< event_sessions ──< bookings ──< booking
 **外部キー**
 
 - `company_id` → `companies.id`（ON DELETE RESTRICT / ON UPDATE CASCADE）
+
+---
+
+## vacancy_reports
+
+当日の空き状況の報告。**追記のみで、上書きしない**（現在値は (event_id, session_id) ごとの最新 1 件）。当日券は紙で配るため予約システムの残席数は当日の実態と合わず、公開ページはここに入った報告だけを出す。
+
+| 列 | 型 | NULL | 既定値 | 説明 |
+|---|---|---|---|---|
+| `id` | bigint(20) unsigned AI | 不可 | — |  |
+| `event_id` | int(10) unsigned | 不可 | — |  |
+| `session_id` | int(10) unsigned | 可 | NULL | NULL ならその体験の「現在の」空き状況（チャットで届く経路）。値があればその開催回（整理券を貼った一覧表の写真から転記する経路）。 |
+| `level` | varchar(8) | 不可 | — | open / ample / few / none（◎ ◯ △ ✕）。CHECK を張らないのは MariaDB 11.8 が受け付けないためで、値の妥当性は App\Domain\VacancyLevel が持つ。 |
+| `remaining` | smallint(5) unsigned | 可 | NULL | 整理券の残数。任意。記号が主で、これは併記される従（登録直後に変わりうるため）。0 なら level は自動的に none になる。 |
+| `note` | varchar(200) | 可 | NULL |  |
+| `reported_at` | datetime | 不可 | — | 「何時何分現在」として表示する時刻。90 分以上前なら公開側で「情報が古い可能性があります」を添える。 |
+| `reported_by` | varchar(100) | 不可 | — |  |
+| `created_at` | datetime | 不可 | current_timestamp() |  |
+
+**索引**
+
+- `fk_vacancy_session` — `session_id`
+- `idx_vacancy_latest` — `event_id`, `session_id`, `id`
+- `idx_vacancy_reported` — `reported_at`
+- `PRIMARY`（UNIQUE） — `id`
+
+**外部キー**
+
+- `event_id` → `events.id`（ON DELETE CASCADE / ON UPDATE RESTRICT）
+- `session_id` → `event_sessions.id`（ON DELETE CASCADE / ON UPDATE RESTRICT）
 
 ---
 

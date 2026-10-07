@@ -17,6 +17,10 @@ return static function (Router $router): void {
     $router->get('/',            [App\Http\Controller\Pub\EventController::class, 'index']);
     $router->get('/events/{id}', [App\Http\Controller\Pub\EventController::class, 'show']);
 
+    // Day-of availability. No auth: it is read by visitors on their phones
+    // and by the signage on the wall, which nobody signs in to.
+    $router->get('/vacancy', [App\Http\Controller\Pub\VacancyController::class, 'index']);
+
     // --- public booking flow ----------------------------------------------
     $router->get('/sessions/{id}/apply',    [App\Http\Controller\Pub\BookingController::class, 'apply']);
     $router->post('/sessions/{id}/confirm', [App\Http\Controller\Pub\BookingController::class, 'confirm']);
@@ -84,6 +88,12 @@ return static function (Router $router): void {
 
     // The reminder is one message per person covering the whole site, so
     // there is no company-scoped view of it: $office throughout.
+    // Availability is $auth, not $office: a company reports its own booth.
+    // The scoping comes from the session, as it does for bulk mail.
+    $router->get('/admin/vacancy',           [App\Http\Controller\Admin\VacancyController::class, 'index'], $auth);
+    $router->post('/admin/vacancy',          [App\Http\Controller\Admin\VacancyController::class, 'store'], $auth);
+    $router->post('/admin/vacancy/sessions', [App\Http\Controller\Admin\VacancyController::class, 'storeSessions'], $auth);
+
     $router->get('/admin/reminders',           [App\Http\Controller\Admin\ReminderController::class, 'index'], $office);
     $router->post('/admin/reminders/settings', [App\Http\Controller\Admin\ReminderController::class, 'saveSettings'], $office);
     $router->post('/admin/reminders/notice',   [App\Http\Controller\Admin\ReminderController::class, 'saveNotice'], $office);

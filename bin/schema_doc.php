@@ -42,6 +42,7 @@ $tableNotes = [
     'booking_events' => '予約の状態遷移の監査ログ。「誰がいつキャンセルしたか」に答える。',
     'mail_queue' => '送信待ちメール（トランザクショナル・アウトボックス）。予約と同じトランザクションで積むので、ロールバックした予約のメールは残らない。',
     'admin_users' => '管理画面のアカウント。事務局（全社）と会社担当者（自社のみ）の 2 種類。',
+    'vacancy_reports' => '当日の空き状況の報告。**追記のみで、上書きしない**（現在値は (event_id, session_id) ごとの最新 1 件）。当日券は紙で配るため予約システムの残席数は当日の実態と合わず、公開ページはここに入った報告だけを出す。',
     'settings' => 'アプリ全体の設定（今は予約受付の開閉のみ）。**行が無いときは App\\Core\\Settings の既定値が効き、その既定は「受付中」**。だからマイグレーション 010 を本番に当てても挙動は変わらない。',
     'schema_migrations' => '適用済みマイグレーションの記録。bin/migrate.php が管理する。',
 ];
@@ -89,6 +90,10 @@ $columnNotes = [
     'mail_queue.booking_id' => '関連する予約。外部キーは張っていない（予約が消えてもメール履歴は残す）。一斉送信は NULL（予約「について」のメールであって、予約「から」出たメールではない）。',
     'mail_queue.category' => "transactional（予約確定・キャンセルなど、相手が待っているメール）か bulk（一斉送信）。**予約完了直後のインライン送信は transactional だけを送る**ので、一斉送信をキューに積んでも予約した人が待たされない。",
 
+    'vacancy_reports.session_id' => 'NULL ならその体験の「現在の」空き状況（チャットで届く経路）。値があればその開催回（整理券を貼った一覧表の写真から転記する経路）。',
+    'vacancy_reports.level' => "open / ample / few / none（◎ ◯ △ ✕）。CHECK を張らないのは MariaDB 11.8 が受け付けないためで、値の妥当性は App\\Domain\\VacancyLevel が持つ。",
+    'vacancy_reports.remaining' => '整理券の残数。任意。記号が主で、これは併記される従（登録直後に変わりうるため）。0 なら level は自動的に none になる。',
+    'vacancy_reports.reported_at' => '「何時何分現在」として表示する時刻。90 分以上前なら公開側で「情報が古い可能性があります」を添える。',
     'settings.name' => "設定キー。App\\Core\\Settings が知っているキーだけを受け付ける（booking.enabled / booking.opens_at / booking.closes_at / booking.closed_message）。key は MySQL の予約語なので name。",
     'settings.value' => '真偽値は 1/0、日時は Y-m-d H:i:s（JST）、案内文はそのまま。NULL と行が無いのはどちらも「未設定」。',
     'admin_users.role' => 'superadmin=事務局（全社）/ company=会社担当者（自社のみ）。company_id との対応は AdminUserRepository が強制する（MariaDB 11.8 が CHECK を受け付けないため）。',

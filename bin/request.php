@@ -35,7 +35,12 @@ $showHead = false;
 foreach ($argvRest as $arg) {
     if (str_starts_with($arg, '--post=')) {
         [$k, $v] = array_pad(explode('=', substr($arg, 7), 2), 2, '');
-        if (str_ends_with($k, '[]')) {
+        if (preg_match('/^(.+)\[([^\]]+)\]$/', $k, $m) === 1) {
+            // A keyed field: --post=level[42]=few arrives as
+            // $_POST['level'][42]. The transcription form posts one
+            // entry per session id this way.
+            $post[$m[1]][$m[2]] = $v;
+        } elseif (str_ends_with($k, '[]')) {
             // A repeated field, as checkboxes post it: --post=sessions[]=1
             // --post=sessions[]=2 arrives as $_POST['sessions'] = ['1','2'].
             $post[substr($k, 0, -2)][] = $v;
