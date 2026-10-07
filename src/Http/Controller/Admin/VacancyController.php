@@ -243,24 +243,33 @@ final class VacancyController
     }
 
     /**
-     * The programme, if this account may touch it.
+     * The programme, if this account may touch it and this board carries it.
      *
      * 404 rather than 403 for another company's id, as everywhere else in the
      * admin - an id should not be probeable for existence.
+     *
+     * 予約必要 is refused here as well as left off the screen, so the write
+     * side agrees with the read side. A report saved against a programme that
+     * nothing will ever display is worse than a refusal: the operator is told
+     * it worked, and then it is never seen again.
      *
      * @return array<string, mixed>
      */
     private function loadEvent(int $eventId, ?int $companyId): array
     {
         $row = Db::selectOne(
-            'SELECT e.id, e.title, e.venue, c.id AS company_id, c.name AS company_name
+            'SELECT e.id, e.title, e.venue, e.booking_required,
+                    c.id AS company_id, c.name AS company_name
                FROM events e
                JOIN companies c ON c.id = e.company_id
               WHERE e.id = ?',
             [$eventId]
         );
 
-        if ($row === null || ($companyId !== null && (int) $row['company_id'] !== $companyId)) {
+        if ($row === null
+            || ($companyId !== null && (int) $row['company_id'] !== $companyId)
+            || (int) $row['booking_required'] !== 0
+        ) {
             throw new NotFoundException('お探しの体験プログラムは見つかりませんでした。');
         }
         return $row;

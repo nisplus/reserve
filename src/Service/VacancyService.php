@@ -42,9 +42,11 @@ final class VacancyService
      * One entry per booth running that day, in catalogue order.
      *
      * Each row carries is_walk_in: true for a booth that takes a current
-     * status and nothing else. That is 予約不要 whatever sessions it has -
-     * nothing can be reserved for a slot there, so there is no per-slot
-     * number to report - and also any booth with no sessions that day.
+     * status and nothing else, which is a booth with no sessions registered
+     * that day. 予約不要 does NOT decide this - a programme that hands its
+     * tickets out on the door can still run in rounds, and whether it does
+     * is recorded in event_sessions. What 予約不要 does decide is that the
+     * booth is listed at all (eventsOn), on any day it might be asked about.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -57,8 +59,7 @@ final class VacancyService
         foreach ($events as $event) {
             $report = $current[(int) $event['id']] ?? null;
             $event['report'] = $this->decorate($report);
-            $event['is_walk_in'] = (int) $event['booking_required'] === 0
-                || (int) $event['session_count'] === 0;
+            $event['is_walk_in'] = (int) $event['session_count'] === 0;
             $out[] = $event;
         }
         return $out;

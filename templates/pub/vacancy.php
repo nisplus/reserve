@@ -65,8 +65,10 @@ $status = static function (?array $report, string $prefix = ''): string {
 </p>
 
 <p class="muted">
-  各社からご連絡いただいた状況を掲載しています。<strong>当日券は紙でお渡ししているため、
-  予約システムの残席数とは異なります。</strong>お越しの際は現地の表示をご確認ください。
+  <strong>予約不要の体験</strong>について、各社からご連絡いただいた状況を掲載しています。
+  当日券は紙でお渡ししているため、<strong>予約システムの残席数とは異なります。</strong>
+  お越しの際は現地の表示をご確認ください。<br>
+  ご予約が必要な体験の空き状況は、<a href="<?= url('/') ?>">体験内容一覧</a>をご覧ください。
 </p>
 
 <div class="filter-bar" style="margin-bottom:16px">

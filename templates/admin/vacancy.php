@@ -47,6 +47,13 @@ $current = static function (?array $report): string {
   <?php if (!$isOffice): ?>登録できるのは<strong>自社の体験プログラム</strong>のみです。<?php endif; ?>
 </p>
 
+<?php /* Stated up front rather than left to be noticed: an operator looking
+         for a programme that is not here needs to know it is not missing. */ ?>
+<p class="muted">
+  この画面に出るのは<strong>「予約不要」の体験プログラム</strong>だけです。
+  予約が必要なものは<a href="<?= url('/admin/events') ?>">体験内容</a>・<a href="<?= url('/admin/bookings') ?>">予約一覧</a>で残席がわかるため、ここでは扱いません。
+</p>
+
 <div class="filter-bar" style="margin-bottom:16px">
   <a class="btn btn--ghost btn--small" href="<?= e($dayUrl($shift(-1))) ?>">← 前の日</a>
   <strong style="font-size:17px"><?= e(jp_date($date)) ?></strong>
@@ -67,7 +74,7 @@ $current = static function (?array $report): string {
            nothing says why or where the rest went. */ ?>
   <div class="flash flash--info" style="margin-bottom:16px">
     <strong><?= e(jp_date($date)) ?>は、開催回のある体験プログラムがありません。</strong><br>
-    下に出ているのは<strong>当日枠（予約不要）の体験プログラム</strong>だけです。
+    下の体験プログラムには<strong>記号（◎◯△✕）だけ</strong>を登録できます。
     開催回があるのは次の日です。
     <?php foreach ($otherDays as $day): ?>
       <a class="btn btn--ghost btn--small" style="margin:4px 4px 0 0"
@@ -123,17 +130,13 @@ $current = static function (?array $report): string {
           </form>
         </td>
         <td>
-          <?php /* A walk-up booth takes a current status and nothing else,
-                   so offering the per-session screen would open an empty one.
-                   予約不要 counts as walk-up however many sessions it has:
-                   nothing can be reserved for a slot there, so a per-slot
-                   ticket count would be a number about nothing. */ ?>
+          <?php /* Rounds come from event_sessions. With none registered that
+                   day there is nothing to open a per-session screen onto, so
+                   the marks above are the whole of what can be said. */ ?>
           <?php if (!$row['is_walk_in']): ?>
             <a class="btn btn--ghost btn--small" href="<?= e($dayUrl($date, (int) $row['id'])) ?>#sessions">
               開催回を入力（<?= (int) $row['session_count'] ?>）
             </a>
-          <?php elseif ((int) $row['booking_required'] === 0): ?>
-            <span class="badge badge--muted">当日枠（予約不要）</span>
           <?php else: ?>
             <span class="muted" style="font-size:12px">開催回なし</span>
           <?php endif; ?>

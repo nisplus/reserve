@@ -61,8 +61,16 @@ final class VacancyRepository
      */
     public function currentByEvent(string $date, ?int $companyId = null): array
     {
-        [$scope, $params] = $this->scope($date, $companyId);
-        array_unshift($params, $date);
+        // The same events as eventsOn(), and it must stay in step with it: an
+        // event the input screen lists but this query drops can be reported
+        // on, and the report never comes back out - a worse failure than
+        // refusing the report would have been.
+        $scope = 'AND e.booking_required = 0';
+        $params = [$date];
+        if ($companyId !== null) {
+            $scope .= ' AND e.company_id = ?';
+            $params[] = $companyId;
+        }
 
         $rows = Db::select(
             "SELECT v.event_id, v.level, v.remaining, v.note, v.reported_at, v.reported_by
@@ -126,26 +134,20 @@ final class VacancyRepository
      * Booths to show for $date, in the order the public catalogue uses: area,
      * then company, then the event's own sort order.
      *
-     * Three kinds of event belong here:
+     * ONLY 予約不要 (booking_required = 0). A programme that takes bookings
+     * already has a seat count the booking system can answer with, and a
+     * second, hand-typed number beside it would only disagree with it. This
+     * board is for the walk-up programmes, where nothing but a person at the
+     * booth knows how full it is.
      *
-     *   - 予約不要 (booking_required = 0), WHATEVER sessions it has. A booth
-     *     that takes no bookings is a walk-up booth all day, so its sessions
-     *     describe when staff are there, not what can be reserved. There is
-     *     no per-slot ticket count to report, only "how is it right now" -
-     *     and sessionsOn() leaves these out for the same reason.
-     *   - those with a session that day, listed per session as well;
-     *   - those with NO sessions at all, which also take a single current
-     *     status and nothing else.
+     * Every 予約不要 booth is listed on every day. It has no session to take
+     * a date from, so there is no day it is not worth asking about.
      *
-     * An event that takes bookings and whose sessions are all on OTHER days
-     * is deliberately not here: it is not running today, so there is nothing
-     * to report about it. That is also why a day outside the festival shows
-     * only the walk-up booths - see sessionDaysNear(), which the input screen
-     * uses to point at the days that do have sessions.
-     *
-     * session_count is how many sessions this booth has on $date; the input
-     * screen reads it, together with booking_required, to decide whether a
-     * per-session screen exists for a row.
+     * session_count is how many sessions the booth has on $date, straight
+     * from event_sessions. Taking no bookings does not mean having no rounds:
+     * a workshop can run 10:00 / 13:00 / 15:00 and hand its tickets out on
+     * the door. Where there are rounds, the input screen offers the
+     * per-session form; where there are none, the marks and nothing else.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -171,12 +173,7 @@ final class VacancyRepository
                JOIN companies c ON c.id = e.company_id
                LEFT JOIN event_sessions today
                       ON today.event_id = e.id AND DATE(today.starts_at) = ?
-              WHERE (
-                      e.booking_required = 0
-                      OR today.id IS NOT NULL
-                      OR NOT EXISTS (SELECT 1 FROM event_sessions any_s
-                                      WHERE any_s.event_id = e.id)
-                    )
+              WHERE e.booking_required = 0
                     {$where}
               GROUP BY e.id, e.title, e.venue, e.booking_required,
                        c.id, c.name, c.area, e.sort_order, c.sort_order
@@ -188,17 +185,18 @@ final class VacancyRepository
     /**
      * Sessions running on $date, in time order.
      *
-     * 予約不要 booths are left out even when they have sessions: nothing can
-     * be reserved for a slot there, so a per-slot ticket count would be a
-     * number about nothing. They are walk-up booths, reported once through
-     * eventsOn() as a current status.
+     * 予約不要 only, to match eventsOn(). Taking no bookings does not mean
+     * having no rounds: a workshop that runs 10:00, 13:00 and 15:00 and hands
+     * its tickets out on the door has three separate things to say about, and
+     * event_sessions is where that is recorded - so that is where the rounds
+     * come from, rather than being inferred from anything else.
      *
      * @return array<int, array<string, mixed>>
      */
     public function sessionsOn(string $date, ?int $companyId = null, ?int $eventId = null, bool $publishedOnly = true): array
     {
         $params = [$date];
-        $where = ' AND e.booking_required = 1';
+        $where = ' AND e.booking_required = 0';
         if ($companyId !== null) {
             $where .= ' AND e.company_id = ?';
             $params[] = $companyId;
@@ -227,18 +225,17 @@ final class VacancyRepository
     /**
      * Days that have sessions, the ones nearest $date first.
      *
-     * The input screen opens on today, and on every day but the festival's
-     * own that leaves nothing but the walk-up booths on screen. Reported as
-     * "only the booths with no sessions are showing" - which was two faults
-     * at once, and this is the half that is not a bug: the office needs to be
-     * told which day to go to, not left to guess with the arrows.
+     * 予約不要 only, so the days offered are days this screen can actually
+     * show something for. The input screen opens on today, and on a day with
+     * no rounds on it there is nothing but the marks; the office needs to be
+     * told which day to go to rather than left to guess with the arrows.
      *
      * @return array<int, array{date: string, sessions: int}>
      */
     public function sessionDaysNear(string $date, ?int $companyId = null, int $limit = 3): array
     {
         $params = [];
-        $where = 'WHERE e.booking_required = 1';
+        $where = 'WHERE e.booking_required = 0';
         if ($companyId !== null) {
             $where .= ' AND e.company_id = ?';
             $params[] = $companyId;
@@ -310,27 +307,4 @@ final class VacancyRepository
         return $statement->fetchAll();
     }
 
-    /** @return array{0: string, 1: array<int, mixed>} */
-    private function scope(string $date, ?int $companyId): array
-    {
-        $params = [];
-        /*
-         * The same three kinds as eventsOn(), and for the same reason it must
-         * stay in step with it: an event the input screen lists but this
-         * scope drops can be reported on, and the report never comes back
-         * out - a worse failure than refusing the report would have been.
-         */
-        $scope = 'AND (e.booking_required = 0
-                      OR EXISTS (SELECT 1 FROM event_sessions s
-                                  WHERE s.event_id = e.id AND DATE(s.starts_at) = ?)
-                      OR NOT EXISTS (SELECT 1 FROM event_sessions any_s
-                                      WHERE any_s.event_id = e.id))';
-        $params[] = $date;
-
-        if ($companyId !== null) {
-            $scope .= ' AND e.company_id = ?';
-            $params[] = $companyId;
-        }
-        return [$scope, $params];
-    }
 }

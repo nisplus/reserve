@@ -15,9 +15,11 @@ declare(strict_types=1);
  *     flagged as a different claim rather than passed off as its own
  *   - a report nobody has refreshed in ninety minutes says so, because a stale
  *     ◎ on a wall sends people to a booth that filled up an hour ago
- *   - 予約不要 is a walk-up booth whatever sessions it has: a current status
- *     and no per-session screen, because nothing can be reserved for a slot
- *     there and a per-slot ticket count would be a number about nothing
+ *   - only 予約不要 is here at all. A programme that takes bookings already
+ *     has a seat count the booking system can answer with, and a second
+ *     hand-typed number beside it would only disagree with it
+ *   - and a 予約不要 booth WITH rounds registered gets them from
+ *     event_sessions: taking no bookings does not mean having no rounds
  *
  * And one that is structural: this writes to vacancy_reports and nothing else.
  *
@@ -33,6 +35,8 @@ require __DIR__ . '/_fixture.php';
 
 use App\Core\Db;
 use App\Domain\VacancyLevel;
+use App\Exception\NotFoundException;
+use App\Http\Controller\Admin\VacancyController as AdminVacancyController;
 use App\Repository\EventRepository;
 use App\Repository\VacancyRepository;
 use App\Service\VacancyService;
@@ -81,9 +85,10 @@ try {
     $companyA = fixture_create_company('vacA');
     $companyB = fixture_create_company('vacB');
 
-    $tour  = $events->create($companyA, 'A社 見学', null, 'A棟 受付', 0, true);
-    $build = $events->create($companyA, 'A社 体験', null, null, 0, true);
-    $other = $events->create($companyB, 'B社 説明', null, null, 0, true);
+    // 予約不要 throughout: that is the only kind this board carries.
+    $tour  = $events->create($companyA, 'A社 見学', null, 'A棟 受付', 0, true, false);
+    $build = $events->create($companyA, 'A社 体験', null, null, 0, true, false);
+    $other = $events->create($companyB, 'B社 説明', null, null, 0, true, false);
 
     $s1 = fixture_create_session($tour, $DAY . ' 10:00:00', $DAY . ' 11:00:00', 20);
     $s2 = fixture_create_session($tour, $DAY . ' 13:00:00', $DAY . ' 14:00:00', 20);
@@ -153,11 +158,18 @@ try {
     $assert($sessions[$s2]['fallback']['level'] === VacancyLevel::Few,
         'showing what the booth last said, which is a different claim and is labelled as one');
 
-    // --- the date filter -----------------------------------------------------
-    $assert($idsOf($service->forEvents($NEXT, $companyA, false)) === [$tour],
-        'the next day lists the booth that runs then, and only that one');
-    $assert($service->forEvents($FAR, $companyB, false) === [],
-        'and a day with nothing on returns nothing');
+    // --- what the date decides ------------------------------------------------
+    // Not whether a booth is listed - a 予約不要 booth has no date of its own
+    // and is always worth asking about - but whether it has rounds that day.
+    $nextDay = $rowsFor($companyA, $NEXT);
+    $assert((int) $nextDay[$tour]['session_count'] === 1 && $nextDay[$tour]['is_walk_in'] === false,
+        'the booth with a round the next day offers its per-session screen then');
+    $assert($nextDay[$build]['is_walk_in'] === true,
+        'and the one without takes the marks and nothing else');
+
+    $far = $rowsFor($companyB, $FAR);
+    $assert(isset($far[$other]) && $far[$other]['is_walk_in'] === true,
+        'on a day with no rounds at all the booths are still there, with the marks only');
 
     // --- company scope -------------------------------------------------------
     $ids = $idsOf($service->forEvents($DAY, $companyA, false));
@@ -187,7 +199,7 @@ try {
     // The design always said these take a "current status" and nothing else.
     // An inner join on event_sessions quietly dropped them, so the one kind of
     // event that can ONLY be reported this way could not be reported at all.
-    $walkIn = $events->create($companyA, 'A社 随時受付の展示', null, 'ロビー', 0, true);
+    $walkIn = $events->create($companyA, 'A社 随時受付の展示', null, 'ロビー', 0, true, false);
 
     $ids = $idsOf($service->forEvents($DAY, $companyA, false));
     $assert(in_array($walkIn, $ids, true),
@@ -201,10 +213,10 @@ try {
 
     // An event whose sessions are all on other days is a different case: it is
     // not running today, so there is nothing to say about it today.
-    $otherDay = $events->create($companyA, 'A社 来月だけ', null, null, 0, true);
+    $otherDay = $events->create($companyA, 'A社 来月だけ', null, null, 0, true, false);
     fixture_create_session($otherDay, $FAR . ' 10:00:00', $FAR . ' 11:00:00', 10);
-    $assert(!in_array($otherDay, $idsOf($service->forEvents($DAY, $companyA, false)), true),
-        'a booth running only on other days stays off this day');
+    $assert($rowsFor($companyA)[$otherDay]['is_walk_in'] === true,
+        'a booth whose rounds are all on other days takes the marks and nothing else today');
 
     $repo->add($walkIn, null, 'open', null, null, 'test:vacancy');
     $rows = $rowsFor($companyA);
@@ -212,31 +224,71 @@ try {
         && $rows[$walkIn]['report']['level'] === VacancyLevel::Open,
         'and its current status is published like any other');
 
-    // --- 予約不要 is a walk-up booth even with sessions -------------------------
-    // Reported as "treat 予約不要 as a same-day booth whether or not sessions
-    // are registered". Sessions on such a booth say when staff are there, not
-    // what can be reserved, so there is no per-slot number to report.
+    // --- 予約不要 with rounds registered ----------------------------------------
+    // Taking no bookings does not mean having no rounds: a workshop can run
+    // 10:00 / 13:00 / 15:00 and hand its tickets out on the door. Where there
+    // are rounds, they come from event_sessions like anything else.
     $standing = $events->create($companyA, 'A社 予約不要の工房', null, '工房', 0, true, false);
-    $sFree = fixture_create_session($standing, $DAY . ' 10:00:00', $DAY . ' 16:00:00', 0);
+    $f1 = fixture_create_session($standing, $DAY . ' 10:00:00', $DAY . ' 11:00:00', 0);
+    $f2 = fixture_create_session($standing, $DAY . ' 13:00:00', $DAY . ' 14:00:00', 0);
 
     $rows = $rowsFor($companyA);
-    $assert(isset($rows[$standing]),
-        '予約不要 with sessions is listed on the day like any other booth');
-    $assert($rows[$standing]['is_walk_in'] === true,
-        'but it is a walk-up booth: a current status, and no per-session screen');
-    $assert((int) $rows[$standing]['session_count'] === 1,
-        'the sessions are still counted - the rule is 予約不要, not "has no sessions"');
+    $assert(isset($rows[$standing]), '予約不要 with rounds is listed on the day');
+    $assert($rows[$standing]['is_walk_in'] === false && (int) $rows[$standing]['session_count'] === 2,
+        'and it has a per-session screen, because the rounds exist in event_sessions');
 
-    $assert(!in_array($sFree, $idsOf($service->forSessions($DAY, $companyA, false, null, false)), true),
-        'and its sessions stay out of the per-session views, which is the same decision');
+    $freeSessions = $idsOf($service->forSessions($DAY, $companyA, false, $standing, false));
+    $assert($freeSessions === [$f1, $f2],
+        'its rounds come back from the database, in time order, like any other');
 
-    $repo->add($standing, null, 'ample', null, null, 'test:vacancy');
-    $assert($rowsFor($companyA)[$standing]['report']['level'] === VacancyLevel::Ample,
-        'a current status registered against it comes back out');
+    $repo->add($standing, $f2, 'few', 3, null, 'test:vacancy');
+    $byFree = [];
+    foreach ($service->forSessions($DAY, $companyA, false, $standing, false) as $row) {
+        $byFree[(int) $row['id']] = $row;
+    }
+    $assert($byFree[$f2]['report']['level'] === VacancyLevel::Few,
+        'a round of one can be reported on by itself');
+    $assert($byFree[$f1]['report'] === null,
+        'without that becoming a claim about the round beside it');
 
-    // It is a walk-up booth every day, not only on the days its sessions run.
+    // A 予約不要 booth is listed on every day: it has no date of its own, so
+    // there is no day it is not worth asking about.
     $assert(in_array($standing, $idsOf($service->forEvents($FAR, $companyA, false)), true),
-        '予約不要 is listed whatever day is being looked at - it has no date to be off');
+        '予約不要 is listed whatever day is being looked at');
+    $assert($rowsFor($companyA, $FAR)[$standing]['is_walk_in'] === true,
+        'but only with the marks on a day none of its rounds run');
+
+    // --- 予約必要 is not on this board at all -----------------------------------
+    // It has a seat count the booking system can answer with. A second,
+    // hand-typed number beside it could only disagree with the first.
+    $booked = $events->create($companyA, 'A社 要予約の見学', null, null, 0, true, true);
+    $bs = fixture_create_session($booked, $DAY . ' 10:00:00', $DAY . ' 11:00:00', 20);
+
+    $assert(!in_array($booked, $idsOf($service->forEvents($DAY, $companyA, false)), true),
+        'a programme that takes bookings is not listed');
+    $assert(!in_array($bs, $idsOf($service->forSessions($DAY, $companyA, false, null, false)), true),
+        'nor are its rounds, so no per-session screen can be opened onto it');
+
+    // Even a report written against it directly stays off the screen - the
+    // read side agrees with the write side rather than stranding the row.
+    $repo->add($booked, null, 'open', null, null, 'test:vacancy');
+    $assert(!in_array($booked, $idsOf($service->forEvents($DAY, $companyA, false)), true),
+        'and a report left on one from before does not drag it back on');
+
+    $assert(!in_array($DAY, array_column($service->sessionDaysNear($FAR, $companyA, 5), 'date'), true)
+        || $idsOf($service->forSessions($DAY, $companyA, false, null, false)) !== [],
+        'the days offered are days this screen can actually show rounds for');
+
+    // The write side agrees with the read side: a posted form naming one is
+    // refused rather than saved somewhere nothing will ever display it.
+    $refused = false;
+    try {
+        (new ReflectionMethod(AdminVacancyController::class, 'loadEvent'))
+            ->invoke(new AdminVacancyController(), $booked, null);
+    } catch (NotFoundException) {
+        $refused = true;
+    }
+    $assert($refused, 'and a form posted against one is refused, not quietly stranded');
 
     // --- finding the day that does have sessions ------------------------------
     // Every day but the festival's own lists walk-up booths and nothing else,
