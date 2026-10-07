@@ -5,7 +5,10 @@
 
 **日時はすべて日本時間です。**
 
-> 研修や配布に使えるスライド版があります → **[manual-company.pptx](manual-company.pptx)**（PowerPoint、17 ページ）。内容はこの文書と同じです。
+> 研修や配布に使えるスライド版があります → **[manual-company.pptx](manual-company.pptx)**（PowerPoint、22 ページ）。内容はこの文書と同じです。
+
+> **当日の空き状況**（公開ページとサイネージ）については、別冊の
+> **[操作マニュアル（当日の空き状況）](manual-vacancy.md)** をご覧ください。
 
 ---
 
