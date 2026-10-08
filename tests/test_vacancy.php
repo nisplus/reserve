@@ -306,6 +306,76 @@ try {
         }
     }
 
+    // --- the order the board shows things in -----------------------------------
+    // ◎ ◯ △ ✕, then earliest first. Someone reading it from across a room is
+    // asking "where can I go", so the places they can go come first.
+    $assert(VacancyLevel::Open->rank() < VacancyLevel::Ample->rank()
+        && VacancyLevel::Ample->rank() < VacancyLevel::Few->rank()
+        && VacancyLevel::Few->rank() < VacancyLevel::None->rank(),
+        'the marks rank ◎ ◯ △ ✕, which is the order a visitor wants them in');
+
+    $level = static fn (string $v, bool $stale = false): array => [
+        'level' => VacancyLevel::from($v), 'remaining' => null, 'is_stale' => $stale,
+        'age_minutes' => 0, 'reported_at' => date('Y-m-d H:i:s'),
+    ];
+    $board = $service->sortByAvailability([
+        ['id' => 1, 'starts_at' => $DAY . ' 09:00:00', 'report' => $level('none')],
+        ['id' => 2, 'starts_at' => $DAY . ' 15:00:00', 'report' => $level('open')],
+        ['id' => 3, 'starts_at' => $DAY . ' 11:00:00', 'report' => $level('few')],
+        ['id' => 4, 'starts_at' => $DAY . ' 10:00:00', 'report' => $level('open')],
+        ['id' => 5, 'starts_at' => $DAY . ' 12:00:00', 'report' => null, 'fallback' => $level('ample')],
+        ['id' => 6, 'starts_at' => $DAY . ' 08:00:00', 'report' => null, 'fallback' => null],
+    ]);
+    $assert($idsOf($board) === [4, 2, 5, 3, 1, 6],
+        'the board sorts by mark first, then by the earliest round within each mark');
+    $assert((int) $board[2]['id'] === 5,
+        'a row showing the booth state in place of a missing round sorts on what it displays');
+    $assert((int) $board[5]['id'] === 6,
+        'and an unreported row goes last - it is not full, it is unknown, which beats neither');
+
+    // Ties keep catalogue order, which is what the printed programme uses.
+    $sameMark = $service->sortByAvailability([
+        ['id' => 7, 'first_starts_at' => null, 'report' => $level('open')],
+        ['id' => 8, 'first_starts_at' => null, 'report' => $level('open')],
+    ]);
+    $assert($idsOf($sameMark) === [7, 8],
+        'two rows that cannot be told apart stay in the order they came in');
+
+    // A booth with no rounds has no time to sort on.
+    $mixed = $service->sortByAvailability([
+        ['id' => 9,  'first_starts_at' => null,              'report' => $level('open')],
+        ['id' => 10, 'first_starts_at' => $DAY . ' 10:00:00', 'report' => $level('open')],
+    ]);
+    $assert($idsOf($mixed) === [10, 9],
+        'a booth with no rounds sorts after the timed ones rather than in front of them all');
+
+    // --- ✕ on or off ------------------------------------------------------------
+    $kept = $service->withoutFull([
+        ['id' => 1, 'report' => $level('open')],
+        ['id' => 2, 'report' => $level('none')],
+        ['id' => 3, 'report' => null, 'fallback' => $level('none')],
+        ['id' => 4, 'report' => null, 'fallback' => null],
+    ]);
+    $assert($idsOf($kept) === [1, 4],
+        '✕ can be dropped when its card is worth more to a programme somebody can get into');
+    $assert(in_array(4, $idsOf($kept), true),
+        'but unreported stays - it is unknown, not full, and dropping it would be a guess');
+
+    // --- the board can link out ---------------------------------------------------
+    // Pressing a card goes to the programme's own 外部リンクURL. The column has
+    // to reach the template, and nothing else here would notice if it stopped.
+    Db::execute('UPDATE events SET external_url = ? WHERE id = ?', ['https://example.test/x', $standing]);
+    $linked = null;
+    foreach ($repo->eventsOn($DAY, $companyA, false) as $row) {
+        if ((int) $row['id'] === $standing) {
+            $linked = $row;
+        }
+    }
+    $assert($linked !== null && (string) $linked['external_url'] === 'https://example.test/x',
+        "the programme's external link is carried to the board");
+    $assert(array_key_exists('external_url', $repo->sessionsOn($DAY, $companyA, $standing, false)[0] ?? []),
+        'and to the per-round view, where the cards link out the same way');
+
     // --- the signage rehearsal -------------------------------------------------
     // Checking the wall display must not require the day it has to be right on.
     $before = (int) Db::scalar('SELECT COUNT(*) FROM vacancy_reports');

@@ -65,6 +65,8 @@ $current = static function (?array $report): string {
              morning it has to be right. */ ?>
     <a class="btn btn--ghost btn--small" href="<?= url('/admin/vacancy/signage') ?>"
        target="_blank" rel="noopener">サイネージの表示テスト</a>
+    <a class="btn btn--ghost btn--small" href="<?= url('/admin/vacancy/signage') ?>?display=embed"
+       target="_blank" rel="noopener">埋め込み表示のテスト</a>
   <?php endif; ?>
 </div>
 

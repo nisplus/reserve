@@ -49,20 +49,32 @@ final class VacancyController
         Authz::requireSuperadmin();
 
         $per = max(1, min(40, $request->queryInt('per', 8)));
-        $interval = max(5, min(600, $request->queryInt('interval', 20)));
-        $rows = (new VacancyService())->sampleRows($per);
+        $interval = max(5, min(600, $request->queryInt('interval', 30)));
+
+        // Whichever of the two layouts is being rehearsed. They are the same
+        // board, and the wall one is the one that has to be right on the day,
+        // so it is what this defaults to.
+        $display = $request->query('display') === 'embed' ? 'embed' : 'signage';
+
+        $service = new VacancyService();
+        // Sorted the same way the real board is, or the rehearsal would not
+        // be showing what the day will show.
+        $rows = $service->sortByAvailability($service->sampleRows($per));
 
         return Response::html(View::renderPartial('pub/vacancy_signage', [
             'rows' => $rows,
             'date' => VacancyService::today(),
             'view' => 'now',
+            'display' => $display,
             'asOf' => date('H:i'),
             'page' => 1,
             'pages' => 1,
             'interval' => $interval,
             // Refreshes onto itself: a rehearsal has one page, and the
             // reload still proves the screen comes back by itself.
-            'nextUrl' => url('/admin/vacancy/signage') . '?per=' . $per . '&interval=' . $interval,
+            'nextUrl' => url('/admin/vacancy/signage')
+                . '?per=' . $per . '&interval=' . $interval
+                . ($display === 'embed' ? '&display=embed' : ''),
             'preview' => true,
         ]));
     }

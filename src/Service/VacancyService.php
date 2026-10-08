@@ -153,6 +153,69 @@ final class VacancyService
     }
 
     /**
+     * The order the board shows things in: ◎ ◯ △ ✕, then earliest first.
+     *
+     * Only the board. The public page keeps its headings - one per company on
+     * the "now" tab, one per time on the "rounds" tab - and sorting by mark
+     * would scatter the rows out from under them. The board has no headings
+     * to break, and somebody reading it from across a room is asking "where
+     * can I go", not "what is this company running".
+     *
+     * A row showing the booth's state in place of a missing round sorts on
+     * what it displays, because that is what the reader sees.
+     *
+     * Ties keep the order they arrived in - catalogue order - because usort
+     * has been stable since PHP 8.0, and that is the order the office and
+     * the printed programme both use.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    public function sortByAvailability(array $rows): array
+    {
+        $key = static function (array $row): array {
+            $report = $row['report'] ?? $row['fallback'] ?? null;
+
+            // Unreported last: it is the absence of an answer, so it cannot
+            // come before ✕, which is one.
+            $when = (string) ($row['starts_at'] ?? $row['first_starts_at'] ?? '');
+
+            return [
+                $report === null ? 1 : 0,
+                $report === null ? 0 : $report['level']->rank(),
+                // A booth with no rounds has no time to sort on; it goes
+                // after the timed ones rather than in front of all of them.
+                $when === '' ? '9999-12-31 23:59:59' : $when,
+            ];
+        };
+
+        usort($rows, static fn (array $a, array $b): int => $key($a) <=> $key($b));
+        return $rows;
+    }
+
+    /**
+     * Drop the ✕ rows.
+     *
+     * ✕ costs a card's worth of room to say "do not come here". Worth it by
+     * default - "full" is an answer, and without it a reader cannot tell a
+     * full programme from one nobody has reported on - but on a wall with
+     * more programmes than fit, that room is better spent on the ones
+     * somebody can still get into.
+     *
+     * Unreported rows are left alone: they are not full, they are unknown.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    public function withoutFull(array $rows): array
+    {
+        return array_values(array_filter($rows, static function (array $row): bool {
+            $report = $row['report'] ?? $row['fallback'] ?? null;
+            return $report === null || $report['level'] !== VacancyLevel::None;
+        }));
+    }
+
+    /**
      * Rows that look like a busy day, for checking the wall display before
      * there is a day to check it on.
      *

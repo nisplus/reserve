@@ -1,23 +1,29 @@
 <?php
 
 /**
- * The wall display. A whole document, not a page inside the public layout.
+ * The board. A whole document, not a page inside the public layout.
  *
- * Nobody operates this screen, so everything it needs to keep working for a
- * day unattended is here: it reloads itself, it advances its own page, and it
- * carries no link, tab or control that somebody would have to press.
+ * Two readers, one markup:
+ *
+ *   signage  a wall nobody operates. It reloads itself, advances its own
+ *            page, and carries nothing anybody would have to press.
+ *   embed    an iframe on another site, or a phone. The box scrolls, so
+ *            every row is here at once and nothing moves under the reader.
  *
  * @var array<int, array<string, mixed>> $rows   this page's slice
- * @var string $date
- * @var string $view     'now' | 'sessions'
- * @var string $asOf     H:i this page was built
- * @var int    $page
- * @var int    $pages
- * @var int    $interval seconds before moving to the next page
- * @var string $nextUrl  where the refresh goes: the next page, wrapping
- * @var bool   $preview  true for the rehearsal; the data is invented
+ * @var string      $date
+ * @var string      $view     'now' | 'sessions'
+ * @var string      $display  'signage' | 'embed'
+ * @var string      $asOf     H:i this page was built
+ * @var int         $page
+ * @var int         $pages
+ * @var int         $interval seconds before it reloads
+ * @var string|null $nextUrl  where the reload goes; null reloads in place
+ * @var bool        $preview  true for the rehearsal; the data is invented
  */
 $preview ??= false;
+$display ??= 'signage';
+$nextUrl ??= null;
 ?><!doctype html>
 <html lang="ja">
 <head>
@@ -26,14 +32,15 @@ $preview ??= false;
 <meta name="robots" content="noindex">
 <title>当日の空き状況</title>
 <?php /*
-  The refresh target is the NEXT page rather than this one. That single line
-  is the entire paging mechanism: no JavaScript, no stored state, and a reload
-  from any cause - power cut, browser restart - resumes somewhere valid.
+  With a url= the refresh target is the NEXT page, and that single line is the
+  entire paging mechanism: no JavaScript, no stored state, and a reload from
+  any cause - power cut, browser restart - resumes somewhere valid. Without
+  one it reloads in place, which is all an embedded board needs.
 */ ?>
-<meta http-equiv="refresh" content="<?= (int) $interval ?>; url=<?= e($nextUrl) ?>">
+<meta http-equiv="refresh" content="<?= (int) $interval ?><?= $nextUrl !== null ? '; url=' . e($nextUrl) : '' ?>">
 <link rel="stylesheet" href="<?= url('/assets/css/signage.css') ?>">
 </head>
-<body class="sg">
+<body class="sg sg--<?= e($display) ?>">
 
 <?php if ($preview): ?>
   <?php /* Unmissable, and only ever rendered behind the admin login. A
@@ -57,7 +64,14 @@ $preview ??= false;
 <?php if ($rows === []): ?>
   <main class="sg-empty">ただいま掲載できる情報がありません</main>
 <?php else: ?>
-<main class="sg-grid">
+<?php /*
+  --sg-per is how many cards this page holds. The stylesheet divides it by
+  the column count it picked for the screen and sizes everything from the
+  height that leaves. Without it a card was a fixed 12.5vh tall whatever room
+  it had, which in one column was right for five cards and overlapped itself
+  for any more - on a portrait wall exactly as badly as on a phone.
+*/ ?>
+<main class="sg-grid" style="--sg-per: <?= count($rows) ?>">
   <?php foreach ($rows as $row): ?>
     <?php
       // A slot with no report of its own falls back to the booth's state. The
@@ -70,8 +84,21 @@ $preview ??= false;
       }
       $level = $report['level'];
       $classes = 'sg-card ' . $level->signageClass() . ($report['is_stale'] ? ' sg-card--stale' : '');
+
+      /*
+       * Where the card goes when pressed: the programme's own 外部リンクURL,
+       * and its page here when it has none - so every card leads somewhere
+       * rather than a reader finding out by trial which ones are pressable.
+       * Inert on a wall, which costs nothing.
+       */
+      $eventId = (int) ($row['event_id'] ?? $row['id']);
+      $href = trim((string) ($row['external_url'] ?? ''));
+      if ($href === '' && $eventId > 0) {
+          $href = url('/events/' . $eventId);
+      }
+      $tag = $href !== '' ? 'a' : 'section';
     ?>
-    <section class="<?= e($classes) ?>">
+    <<?= $tag ?> class="<?= e($classes) ?>"<?= $href !== '' ? ' href="' . e($href) . '" target="_blank" rel="noopener noreferrer"' : '' ?>>
       <div class="sg-card__company">
         <?= e($row['company_name']) ?>
         <?php if ($view === 'sessions'): ?>
@@ -97,13 +124,13 @@ $preview ??= false;
           <span class="sg-card__stale">情報が古い可能性があります</span>
         <?php endif; ?>
       </div>
-    </section>
+    </<?= $tag ?>>
   <?php endforeach; ?>
 </main>
 <?php endif; ?>
 
 <footer class="sg-foot">
-  当日券は紙でお渡ししています。表示は各社からのご連絡によるもので、予約システムの残席数とは異なります。
+  当日券は各参加企業にてお渡ししています。表示は必ずしも最新の状況とは限りません
 </footer>
 
 </body>

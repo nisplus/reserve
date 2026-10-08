@@ -1,12 +1,17 @@
 /*
- * The wall display.
+ * The board: a wall display, and the same board inside somebody else's page.
  *
  * Separate from app.css on purpose: this is the only screen read from several
  * metres away, and nothing here should be able to affect the booking site.
  *
- * Sizes are in vw/vh rather than pixels so one stylesheet serves a 1920x1080
- * display, a portrait 1080x1920 one, and whatever the venue actually turns out
- * to have. The marks stay legible because they scale with the screen.
+ * Two modes, set as a class on <body>:
+ *
+ *   .sg--signage  exactly one screenful, never scrolls, pages itself. Sizes
+ *                 are in vh so one stylesheet serves 1920x1080, a portrait
+ *                 1080x1920, a 4K panel and whatever the venue turns up with.
+ *   .sg--embed    as tall as its content, scrolls, never pages. Sizes are in
+ *                 px, because the height it has is not known and a card an
+ *                 eighth of the viewport tall is meaningless in an iframe.
  */
 
 :root {
@@ -27,19 +32,12 @@
 html, body {
   margin: 0;
   padding: 0;
-  height: 100%;
   background: var(--sg-bg);
   color: var(--sg-ink);
   font-family: "Meiryo", "Yu Gothic UI", "Hiragino Kaku Gothic ProN", sans-serif;
-  /* No scrollbars: nobody is here to scroll, and a cut-off row is a lie. */
-  overflow: hidden;
 }
 
-.sg {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-}
+.sg { display: flex; flex-direction: column; }
 
 /* ---------------------------------------------------------------- header */
 
@@ -48,6 +46,7 @@ html, body {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  gap: 1em;
   padding: 1.6vh 2vw;
   background: var(--sg-ink);
   color: #fff;
@@ -55,43 +54,39 @@ html, body {
 
 .sg-head__title { font-size: 3.4vh; font-weight: 700; }
 .sg-head__sub   { font-size: 2.2vh; font-weight: 400; opacity: .8; margin-left: .8vw; }
-.sg-head__meta  { display: flex; gap: 2vw; align-items: baseline; }
-.sg-head__asof  { font-size: 3vh; font-weight: 700; font-variant-numeric: tabular-nums; }
-.sg-head__page  { font-size: 2.2vh; opacity: .75; font-variant-numeric: tabular-nums; }
+.sg-head__meta  { display: flex; gap: 2vw; align-items: baseline; flex: none; }
+.sg-head__asof  { font-size: 3vh; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sg-head__page  { font-size: 2.2vh; opacity: .75; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* ------------------------------------------------------------------ grid */
 
 .sg-grid {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
   gap: 1.4vh 1.4vw;
   padding: 1.4vh 1.4vw;
   min-height: 0;
-}
-
-/* Portrait screens get one column: two would leave the marks too small. */
-@media (orientation: portrait) {
-  .sg-grid { grid-template-columns: 1fr; }
 }
 
 .sg-card {
   background: var(--sg-card);
   border: 0.3vh solid var(--sg-line);
   border-radius: 1.2vh;
-  padding: 1.4vh 1.6vw;
+  padding: 1.2vh 1.6vw;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto 1fr auto;
   align-items: center;
   column-gap: 1.5vw;
   min-height: 0;
   overflow: hidden;
+  /* Every card is a link now; none of them should look like one. */
+  text-decoration: none;
+  color: inherit;
 }
 
 .sg-card__company {
   grid-column: 1;
-  font-size: 2.1vh;
   color: var(--sg-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -108,36 +103,28 @@ html, body {
 .sg-card__event {
   grid-column: 1;
   grid-row: 2;
-  font-size: 3.4vh;
   font-weight: 700;
   line-height: 1.2;
   overflow: hidden;
 }
 
 /*
- * The mark spans the card's full height on the right. It is the one thing a
+ * The mark spans the card's upper rows on the right. It is the one thing a
  * passer-by reads, so it gets the room - and it carries the meaning without
- * the colour, which is why the words below it repeat it rather than replace it.
+ * the colour, which is why the words below repeat it rather than replace it.
+ *
+ * Rows 1-2 only: spanning all three put it on top of the timestamp in row 3,
+ * which is exactly the line a reader needs when the mark is greyed for age.
  */
 .sg-card__mark {
   grid-column: 2;
-  /* Rows 1-2 only. Spanning all three put the mark on top of the
-     timestamp in row 3, which is exactly the line a reader needs when
-     the mark is greyed out for being old. */
   grid-row: 1 / span 2;
   align-self: center;
-  font-size: 12.5vh;
   line-height: 1;
   text-align: center;
-  min-width: 12.5vh;
 }
 
-.sg-card__label {
-  grid-column: 1;
-  grid-row: 3;
-  font-size: 2.4vh;
-  font-weight: 700;
-}
+.sg-card__label { grid-column: 1; grid-row: 3; font-weight: 700; }
 
 .sg-card__remaining {
   margin-left: .8vw;
@@ -149,17 +136,130 @@ html, body {
 .sg-card__when {
   grid-column: 2;
   grid-row: 3;
-  /* Bottom-aligned, and with room for the stale line to sit under the
-     time rather than climbing into the mark above it. */
+  /* Bottom-aligned, with room for the stale line to sit under the time
+     rather than climbing into the mark above it. */
   align-self: end;
-  font-size: 1.7vh;
   line-height: 1.35;
   color: var(--sg-muted);
   text-align: center;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.sg-card__stale { display: block; margin-top: .3vh; font-size: 1.45vh; color: var(--sg-few); font-weight: 700; }
+.sg-card__stale { display: block; color: var(--sg-few); font-weight: 700; }
+
+/* ---------------------------------------------------- the wall: scaling */
+/*
+ * A card used to be a fixed 12.5vh tall however much room the grid gave it.
+ * In two columns that happened to suit eight cards; in one column it suited
+ * five and overlapped itself for any more - which is what a portrait panel
+ * and a phone both got.
+ *
+ * So the card is sized from the room it actually has. --sg-per comes from the
+ * template (cards on this page), --sg-cols from the media queries below, and
+ * --sg-unit is what one card gets once the header, footer and gaps are out.
+ * The +0.5 stops an odd count under-counting its rows: 7 cards in 2 columns
+ * is 4 rows, not 3.5.
+ */
+.sg--signage { height: 100vh; }
+/* No scrollbars: nobody is here to scroll, and a cut-off row is a lie. */
+.sg--signage, body.sg--signage { overflow: hidden; }
+
+.sg--signage .sg-grid {
+  --sg-cols: 2;
+  --sg-rows: calc(var(--sg-per, 8) / var(--sg-cols) + 0.5);
+  --sg-unit: calc(84vh / var(--sg-rows));
+  grid-template-columns: repeat(var(--sg-cols), minmax(0, 1fr));
+}
+
+/* One column where there is no width for two: a portrait panel, or a phone
+   that found its way to the wall URL. */
+@media (orientation: portrait), (max-width: 900px) {
+  .sg--signage .sg-grid { --sg-cols: 1; }
+}
+/*
+ * Two columns at 4K as well as at 1920. More pixels on a wall buy legibility,
+ * not density: a third column takes the width back off the titles and wraps
+ * them, and the mark - the one thing read from across a room - gets smaller
+ * for it. Where a venue does want more programmes at once, &per= says so and
+ * the sizes follow.
+ */
+
+/* A phone that reached the wall URL. The header is sized for a wall, where
+   there is width to spare; here the title and the clock collide and wrap. */
+@media (max-width: 600px) {
+  .sg--signage .sg-head { padding: 8px 12px; }
+  .sg--signage .sg-head__title { font-size: 17px; }
+  .sg--signage .sg-head__sub   { font-size: 13px; }
+  .sg--signage .sg-head__asof  { font-size: 16px; }
+  .sg--signage .sg-head__page  { font-size: 12px; }
+  .sg--signage .sg-head__meta  { gap: 8px; }
+  .sg--signage .sg-foot { font-size: 11px; padding: 8px 12px; }
+}
+
+/* Fallbacks first, for a browser that will not divide inside calc(). */
+.sg--signage .sg-card__company { font-size: 2.1vh; }
+.sg--signage .sg-card__event   { font-size: 3.4vh; }
+.sg--signage .sg-card__mark    { font-size: 11vh; min-width: 11vh; }
+.sg--signage .sg-card__label   { font-size: 2.4vh; }
+.sg--signage .sg-card__when    { font-size: 1.7vh; }
+.sg--signage .sg-card__stale   { font-size: 1.45vh; margin-top: .3vh; }
+
+.sg--signage .sg-card__company { font-size: calc(var(--sg-unit) * 0.100); }
+.sg--signage .sg-card__event   { font-size: calc(var(--sg-unit) * 0.165); }
+.sg--signage .sg-card__mark    { font-size: calc(var(--sg-unit) * 0.520);
+                                 min-width: calc(var(--sg-unit) * 0.560); }
+.sg--signage .sg-card__label   { font-size: calc(var(--sg-unit) * 0.115); }
+.sg--signage .sg-card__when    { font-size: calc(var(--sg-unit) * 0.082); }
+.sg--signage .sg-card__stale   { font-size: calc(var(--sg-unit) * 0.070); }
+
+/* -------------------------------------------- the embed: scroll, not page */
+/*
+ * For an iframe on somebody's site, and for a phone. The height is whatever
+ * the content needs, so nothing is sized against the viewport: vh here would
+ * make a card an eighth of a screen the board does not own.
+ */
+.sg--embed { min-height: 100%; }
+
+.sg--embed .sg-head { padding: 10px 14px; }
+.sg--embed .sg-head__title { font-size: 17px; }
+.sg--embed .sg-head__sub   { font-size: 13px; margin-left: 6px; }
+.sg--embed .sg-head__asof  { font-size: 16px; }
+.sg--embed .sg-head__meta  { gap: 10px; }
+
+.sg--embed .sg-grid {
+  /* auto-fit, so the one narrow column on a phone becomes two or three in a
+     wide frame without anybody having to choose a number. */
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+.sg--embed .sg-card {
+  border-width: 2px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  column-gap: 12px;
+  min-height: 92px;
+}
+
+.sg--embed .sg-card__company   { font-size: 12px; }
+.sg--embed .sg-card__event     { font-size: 17px; }
+.sg--embed .sg-card__mark      { font-size: 44px; min-width: 50px; }
+.sg--embed .sg-card__label     { font-size: 13px; }
+.sg--embed .sg-card__remaining { margin-left: 6px; }
+.sg--embed .sg-card__slot      { margin-left: 6px; }
+.sg--embed .sg-card__when      { font-size: 11px; white-space: normal; }
+.sg--embed .sg-card__stale     { font-size: 10px; margin-top: 2px; }
+.sg--embed .sg-foot            { font-size: 11px; padding: 8px 14px; }
+.sg--embed .sg-preview         { font-size: 13px; padding: 6px 14px; }
+.sg--embed .sg-empty           { font-size: 16px; padding: 40px 14px; }
+
+/* A card that can be pressed should say so where there is a pointer. */
+@media (hover: hover) {
+  a.sg-card:hover { border-color: var(--sg-ink); }
+}
+a.sg-card:focus-visible { outline: 3px solid var(--sg-ink); outline-offset: 2px; }
 
 /* --------------------------------------------------------------- levels */
 
@@ -175,15 +275,15 @@ html, body {
 
 /*
  * A report nobody has refreshed for an hour and a half is drained of colour.
- * On a wall this matters more than anywhere else: the screen is unattended for
- * long stretches, so a stale ◎ has hours to send people to a full booth.
+ * On a wall this matters more than anywhere else: the screen is unattended
+ * for long stretches, so a stale ◎ has hours to send people to a full booth.
  */
 .sg-card--stale,
 .sg-card--stale .sg-card__mark,
 .sg-card--stale .sg-card__label { color: var(--sg-muted); border-color: var(--sg-line); }
 
-/* The rehearsal banner. Loud on purpose: a test screen left on the wall
-   is worse than no screen, so it should be impossible to miss. */
+/* The rehearsal banner. Loud on purpose: a test screen left on the wall is
+   worse than no screen, so it should be impossible to miss. */
 .sg-preview {
   flex: none;
   padding: 1vh 2vw;
@@ -209,6 +309,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
   font-size: 4vh;
   color: var(--sg-muted);
 }

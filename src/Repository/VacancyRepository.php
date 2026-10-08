@@ -164,7 +164,7 @@ final class VacancyRepository
         }
 
         return Db::select(
-            "SELECT e.id, e.title, e.venue, e.booking_required,
+            "SELECT e.id, e.title, e.venue, e.booking_required, e.external_url,
                     c.id AS company_id, c.name AS company_name, c.area,
                     MIN(today.starts_at) AS first_starts_at,
                     MAX(today.ends_at)   AS last_ends_at,
@@ -175,7 +175,7 @@ final class VacancyRepository
                       ON today.event_id = e.id AND DATE(today.starts_at) = ?
               WHERE e.booking_required = 0
                     {$where}
-              GROUP BY e.id, e.title, e.venue, e.booking_required,
+              GROUP BY e.id, e.title, e.venue, e.booking_required, e.external_url,
                        c.id, c.name, c.area, e.sort_order, c.sort_order
               ORDER BY c.sort_order, c.id, e.sort_order, e.id",
             $params
@@ -211,7 +211,7 @@ final class VacancyRepository
 
         return Db::select(
             "SELECT s.id, s.starts_at, s.ends_at, s.status,
-                    e.id AS event_id, e.title AS event_title, e.venue,
+                    e.id AS event_id, e.title AS event_title, e.venue, e.external_url,
                     c.id AS company_id, c.name AS company_name, c.area
                FROM event_sessions s
                JOIN events e    ON e.id = s.event_id

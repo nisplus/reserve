@@ -62,6 +62,23 @@ enum VacancyLevel: string
         };
     }
 
+    /**
+     * Sort position on the board: ◎ ◯ △ ✕.
+     *
+     * Not the order the catalogue uses. Somebody standing in front of the
+     * screen is asking "where can I go now", so the places they can go come
+     * first and the full ones go last - they answer a question nobody asked.
+     */
+    public function rank(): int
+    {
+        return match ($this) {
+            self::Open  => 0,
+            self::Ample => 1,
+            self::Few   => 2,
+            self::None  => 3,
+        };
+    }
+
     public function badgeClass(): string
     {
         return match ($this) {
