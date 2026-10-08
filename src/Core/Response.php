@@ -6,12 +6,31 @@ namespace App\Core;
 
 final class Response
 {
+    /**
+     * The last response sent, for the command-line driver to look at.
+     *
+     * header() does nothing under the CLI SAPI and headers_list() always
+     * comes back empty, so bin/request.php could report a status but never a
+     * Location - and a redirect is mostly its Location. Two faults that
+     * reached the office were a redirect pointing at the wrong place, and
+     * neither was testable while the only way to see one was a browser.
+     *
+     * Set on every send; read by bin/request.php and the tests that drive it.
+     */
+    private static ?self $lastSent = null;
+
     /** @param array<string, string> $headers */
     private function __construct(
         public readonly int $status,
         public readonly string $body,
         public readonly array $headers = [],
     ) {
+    }
+
+    /** The last response this process sent, or null if it has sent none. */
+    public static function lastSent(): ?self
+    {
+        return self::$lastSent;
     }
 
     public static function html(string $body, int $status = 200): self
@@ -48,6 +67,8 @@ final class Response
 
     public function send(): void
     {
+        self::$lastSent = $this;
+
         if (!headers_sent()) {
             http_response_code($this->status);
             foreach ($this->headers as $name => $value) {

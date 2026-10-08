@@ -226,7 +226,7 @@ final class VacancyController
         $actor = Auth::actor();
         $stamp = VacancyService::stampFor($date);
         $repo = new VacancyRepository();
-        $count = Db::transaction(static function () use ($reports, $eventId, $actor, $repo): int {
+        $count = Db::transaction(static function () use ($reports, $eventId, $actor, $repo, $stamp): int {
             foreach ($reports as $report) {
                 $repo->add(
                     $eventId,

@@ -90,8 +90,14 @@ $body = (string) ob_get_clean();
 
 if ($showHead) {
     fwrite(STDERR, 'HTTP ' . http_response_code() . "\n");
-    foreach (headers_list() as $header) {
-        fwrite(STDERR, $header . "\n");
+    /*
+     * From the Response rather than headers_list(): the CLI SAPI keeps no
+     * header list, so that function is always empty here and a redirect would
+     * arrive with its Location missing - which is the half of a redirect
+     * worth looking at, and the half that has been wrong twice.
+     */
+    foreach (App\Core\Response::lastSent()?->headers ?? [] as $name => $value) {
+        fwrite(STDERR, $name . ': ' . $value . "\n");
     }
     fwrite(STDERR, str_repeat('-', 40) . "\n");
 }
