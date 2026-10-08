@@ -74,7 +74,22 @@ final class VacancyController
 
         $service = new VacancyService();
 
-        if ($view === 'sessions') {
+        /*
+         * preview=1 puts the day's real programme list on the board with
+         * invented marks, so a wall can be judged before the day it is for.
+         * Unauthenticated on purpose: the screen it is checked on is the one
+         * at the venue, which nobody signs in to. What makes that safe is
+         * that it is never quiet about it - the banner is part of the page,
+         * not a flag that can be left off.
+         *
+         * The board only. The public page is prose about real reports, and
+         * invented ones underneath it would read as real.
+         */
+        $preview = $display !== 'page' && $request->query('preview') === '1';
+
+        if ($preview) {
+            $rows = $service->previewRows($date, $view);
+        } elseif ($view === 'sessions') {
             $rows = $service->forSessions(
                 $date,
                 null,
@@ -93,7 +108,7 @@ final class VacancyController
 
         return $display === 'page'
             ? $this->page($rows, $date, $view)
-            : $this->board($request, $rows, $date, $view, $display);
+            : $this->board($request, $rows, $date, $view, $display, $preview);
     }
 
     /**
@@ -116,8 +131,14 @@ final class VacancyController
      *
      * @param array<int, array<string, mixed>> $rows
      */
-    private function board(Request $request, array $rows, string $date, string $view, string $display): Response
-    {
+    private function board(
+        Request $request,
+        array $rows,
+        string $date,
+        string $view,
+        string $display,
+        bool $preview = false,
+    ): Response {
         /*
          * A wall of dashes is not worth the room it takes from the rows that
          * say something, and nobody can press anything to skip past it - so
@@ -129,6 +150,8 @@ final class VacancyController
                 || ($row['fallback'] ?? null) !== null
         ));
 
+        $note = $preview ? $this->previewNote($date, $rows) : null;
+
         $rows = (new VacancyService())->sortByAvailability($rows);
 
         $interval = $this->bounded($request->queryInt('interval', self::DEFAULT_INTERVAL), 5, 600);
@@ -138,7 +161,7 @@ final class VacancyController
             // Nothing to page to - the box scrolls. It still re-reads itself,
             // because an embedded board left open all day should not still be
             // showing the morning.
-            return $this->render($rows, $date, $view, 'embed', 1, 1, $reload, null);
+            return $this->render($rows, $date, $view, 'embed', 1, 1, $reload, null, $note);
         }
 
         $perPage = $this->bounded($request->queryInt('per', self::DEFAULT_PER_PAGE), 1, 40);
@@ -158,6 +181,7 @@ final class VacancyController
             'view'     => $view === 'sessions' ? 'sessions' : null,
             'date'     => $date === VacancyService::today() ? null : $date,
             'none'     => $request->query('none') === '0' ? '0' : null,
+            'preview'  => $preview ? '1' : null,
             'per'      => $perPage === self::DEFAULT_PER_PAGE ? null : $perPage,
             'interval' => $interval === self::DEFAULT_INTERVAL ? null : $interval,
             'reload'   => $reload === self::DEFAULT_RELOAD ? null : $reload,
@@ -174,8 +198,40 @@ final class VacancyController
             // One page means nothing moves, so the only reason to come back is
             // the data - and that arrives by hand, slowly.
             $pages > 1 ? $interval : $reload,
-            url('/vacancy') . ($query !== '' ? '?' . $query : '')
+            url('/vacancy') . ($query !== '' ? '?' . $query : ''),
+            $note
         );
+    }
+
+    /**
+     * What the banner says on a rehearsal.
+     *
+     * It names the day, because a rehearsal of the wrong date is the easy
+     * mistake, and it says how many of the programmes on screen the real
+     * board will actually carry - which is the thing the office cannot see
+     * by looking, and the thing that is wrong when the board comes up empty
+     * on the day.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private function previewNote(string $date, array $rows): string
+    {
+        $shown = count($rows);
+        $onBoard = count(array_filter(
+            $rows,
+            static fn (array $row): bool => ($row['on_board'] ?? false) === true
+        ));
+
+        $note = jp_date($date) . ' の表示テスト　催事名は実際のものですが、空き状況の記号は架空です';
+
+        if ($onBoard < $shown) {
+            $note .= sprintf(
+                '　／　本番に出るのは「予約不要」の %d 件だけです（この画面は %d 件）',
+                $onBoard,
+                $shown
+            );
+        }
+        return $note;
     }
 
     /**
@@ -190,6 +246,7 @@ final class VacancyController
         int $pages,
         int $interval,
         ?string $nextUrl,
+        ?string $previewNote = null,
     ): Response {
         // renderPartial, not render: the board is its own document from
         // <html> down. Nothing of the public layout belongs on a wall, and an
@@ -204,6 +261,8 @@ final class VacancyController
             'pages'    => $pages,
             'interval' => $interval,
             'nextUrl'  => $nextUrl,
+            'preview'  => $previewNote !== null,
+            'previewNote' => $previewNote,
         ]));
     }
 

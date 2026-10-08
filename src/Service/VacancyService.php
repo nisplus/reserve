@@ -216,6 +216,66 @@ final class VacancyService
     }
 
     /**
+     * The real programme list for a day, with invented marks on it.
+     *
+     * For looking at the board before the day it is for. sampleRows() answers
+     * "does the layout work"; this answers "does it work with OUR programmes"
+     * - the real company names, the real titles, the real number of them,
+     *   which is what actually decides whether a wall is readable.
+     *
+     * Nothing is written. The marks are derived from the row's id rather than
+     * drawn at random, so the screen does not reshuffle itself every time it
+     * refreshes - a rehearsal that flickers tells you nothing about a wall.
+     *
+     * Programmes that take bookings are included even though the real board
+     * will not carry them: the point here is the shape of the day's line-up,
+     * and leaving them out would hide how long the real titles are. Each row
+     * says which it is in on_board, and the banner says how many of them the
+     * real thing will show.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function previewRows(string $date, string $view = 'now'): array
+    {
+        $rows = $view === 'sessions'
+            ? $this->reports->sessionsOn($date, null, null, true, false)
+            : $this->reports->eventsOn($date, null, true, false);
+
+        $marks = VacancyLevel::cases();
+        $count = count($rows);
+
+        $out = [];
+        foreach ($rows as $i => $row) {
+            $id = (int) $row['id'];
+            $level = $marks[$id % count($marks)];
+
+            // One row old enough to grey out. That state cannot be staged on
+            // the day, and it is the one worth seeing beforehand.
+            $stale = $count > 2 ? $i === 2 : $i === $count - 1;
+            $age = $stale ? self::STALE_MINUTES + 25 : ($id % 7) * 9 + 1;
+
+            $remaining = match (true) {
+                $level === VacancyLevel::None => 0,
+                $id % 3 === 0 => 2 + $id % 15,
+                default => null,
+            };
+
+            $row['report'] = $this->decorate([
+                'level' => $level->value,
+                'remaining' => $remaining,
+                'note' => null,
+                'reported_at' => date('Y-m-d H:i:s', time() - $age * 60),
+                'reported_by' => 'preview',
+            ]);
+            $row['fallback'] = null;
+            $row['on_board'] = (int) ($row['booking_required'] ?? 1) === 0;
+
+            $out[] = $row;
+        }
+        return $out;
+    }
+
+    /**
      * Rows that look like a busy day, for checking the wall display before
      * there is a day to check it on.
      *

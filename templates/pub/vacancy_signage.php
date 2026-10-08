@@ -19,11 +19,13 @@
  * @var int         $pages
  * @var int         $interval seconds before it reloads
  * @var string|null $nextUrl  where the reload goes; null reloads in place
- * @var bool        $preview  true for the rehearsal; the data is invented
+ * @var bool        $preview  true for the rehearsal; the marks are invented
+ * @var string|null $previewNote what the rehearsal banner says
  */
 $preview ??= false;
 $display ??= 'signage';
 $nextUrl ??= null;
+$previewNote ??= '表示テスト中　この画面のデータはすべて架空のものです';
 ?><!doctype html>
 <html lang="ja">
 <head>
@@ -43,9 +45,11 @@ $nextUrl ??= null;
 <body class="sg sg--<?= e($display) ?>">
 
 <?php if ($preview): ?>
-  <?php /* Unmissable, and only ever rendered behind the admin login. A
-           rehearsal screen left running by mistake must announce itself. */ ?>
-  <div class="sg-preview">表示テスト中　この画面のデータはすべて架空のものです</div>
+  <?php /* Unmissable, and part of the page rather than a flag that could be
+           left off: this URL needs no sign-in, so a rehearsal left running on
+           the wall - or found by a visitor - has to say what it is without
+           anybody having to remember to make it. */ ?>
+  <div class="sg-preview"><?= e($previewNote) ?></div>
 <?php endif; ?>
 
 <header class="sg-head">

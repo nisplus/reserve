@@ -151,10 +151,28 @@ final class VacancyRepository
      *
      * @return array<int, array<string, mixed>>
      */
-    public function eventsOn(string $date, ?int $companyId = null, bool $publishedOnly = true): array
-    {
+    public function eventsOn(
+        string $date,
+        ?int $companyId = null,
+        bool $publishedOnly = true,
+        bool $walkInOnly = true,
+    ): array {
         $params = [$date];
-        $where = '';
+        /*
+         * $walkInOnly false is the rehearsal, and nothing else: it asks for
+         * every programme running that day so the office can see the real
+         * line-up - the real names, the real lengths - laid out before the
+         * day. Defaulted true so the board itself cannot get it by accident.
+         */
+        /*
+         * Walk-up booths have no date of their own and belong to every
+         * day. The rehearsal adds the ones with a round that day, which
+         * is what makes it the DAY'S line-up rather than the whole
+         * catalogue - a date that nothing runs on must come up empty.
+         */
+        $where = $walkInOnly
+            ? ' AND e.booking_required = 0'
+            : ' AND (e.booking_required = 0 OR today.id IS NOT NULL)';
         if ($companyId !== null) {
             $where .= ' AND e.company_id = ?';
             $params[] = $companyId;
@@ -173,7 +191,7 @@ final class VacancyRepository
                JOIN companies c ON c.id = e.company_id
                LEFT JOIN event_sessions today
                       ON today.event_id = e.id AND DATE(today.starts_at) = ?
-              WHERE e.booking_required = 0
+              WHERE 1 = 1
                     {$where}
               GROUP BY e.id, e.title, e.venue, e.booking_required, e.external_url,
                        c.id, c.name, c.area, e.sort_order, c.sort_order
@@ -193,10 +211,21 @@ final class VacancyRepository
      *
      * @return array<int, array<string, mixed>>
      */
-    public function sessionsOn(string $date, ?int $companyId = null, ?int $eventId = null, bool $publishedOnly = true): array
-    {
+    public function sessionsOn(
+        string $date,
+        ?int $companyId = null,
+        ?int $eventId = null,
+        bool $publishedOnly = true,
+        bool $walkInOnly = true,
+    ): array {
         $params = [$date];
-        $where = ' AND e.booking_required = 0';
+        /*
+         * See eventsOn(): false is the rehearsal and nothing else. No
+         * second arm is needed here - every row this returns already has
+         * a round on $date, which is the thing eventsOn() has to go
+         * looking for.
+         */
+        $where = $walkInOnly ? ' AND e.booking_required = 0' : '';
         if ($companyId !== null) {
             $where .= ' AND e.company_id = ?';
             $params[] = $companyId;
@@ -212,6 +241,7 @@ final class VacancyRepository
         return Db::select(
             "SELECT s.id, s.starts_at, s.ends_at, s.status,
                     e.id AS event_id, e.title AS event_title, e.venue, e.external_url,
+                    e.booking_required,
                     c.id AS company_id, c.name AS company_name, c.area
                FROM event_sessions s
                JOIN events e    ON e.id = s.event_id

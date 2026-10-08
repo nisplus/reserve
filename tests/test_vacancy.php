@@ -376,6 +376,61 @@ try {
     $assert(array_key_exists('external_url', $repo->sessionsOn($DAY, $companyA, $standing, false)[0] ?? []),
         'and to the per-round view, where the cards link out the same way');
 
+    // --- rehearsing with the real programme list --------------------------------
+    // sampleRows() answers "does the layout work". This answers "does it work
+    // with OUR programmes", which is the question the real company names and
+    // the real number of them decide - so it reads the database, and must
+    // still write nothing to it.
+    Db::execute('UPDATE companies SET is_published = 1 WHERE id = ?', [$companyA]);
+    try {
+        $before = (int) Db::scalar('SELECT COUNT(*) FROM vacancy_reports');
+        $preview = $service->previewRows($DAY);
+        $assert((int) Db::scalar('SELECT COUNT(*) FROM vacancy_reports') === $before,
+            'a rehearsal over real programmes still writes nothing');
+
+        $previewIds = $idsOf($preview);
+        $assert(in_array($standing, $previewIds, true) && in_array($walkIn, $previewIds, true),
+            "the day's real programmes are what is on screen, not invented ones");
+        $assert(in_array($booked, $previewIds, true),
+            'including the ones that take bookings - their titles are the long ones, '
+            . 'and the point of the rehearsal is to see the real lengths');
+
+        $flags = [];
+        foreach ($preview as $row) {
+            $flags[(int) $row['id']] = (bool) $row['on_board'];
+        }
+        $assert($flags[$standing] === true && $flags[$booked] === false,
+            'but each row says whether the real board will carry it, so the banner can count them');
+
+        $assert(array_filter($preview, static fn (array $r): bool => $r['report'] === null) === [],
+            'every row carries a mark - a rehearsal of blank cards shows nothing');
+
+        // Derived from the id, not drawn at random: a wall that reshuffles on
+        // every refresh tells you nothing about how the real one will read.
+        $marks = static fn (array $rows): array => array_map(
+            static fn (array $r): string => $r['report']['level']->value,
+            $rows
+        );
+        $assert($marks($preview) === $marks($service->previewRows($DAY)),
+            'and the same marks come back every time, so the screen does not flicker');
+
+        // A far-off day is the day's line-up too, and the day's line-up there
+        // is the walk-up booths and nothing else - they have no date of their
+        // own. What must NOT follow them across is a programme whose rounds
+        // are elsewhere, or the rehearsal would be the catalogue, not a day.
+        $far = $idsOf($service->previewRows('2035-01-01'));
+        $assert(in_array($walkIn, $far, true),
+            'a walk-up booth rehearses on any day, because it runs on any day');
+        $assert(!in_array($booked, $far, true),
+            'a programme whose rounds are on another day does not, or this would be the catalogue');
+
+        $rounds = $service->previewRows($DAY, 'sessions');
+        $assert($rounds !== [] && isset($rounds[0]['starts_at'], $rounds[0]['report']),
+            'the per-round view rehearses too, from the rounds in the database');
+    } finally {
+        Db::execute('UPDATE companies SET is_published = 0 WHERE id = ?', [$companyA]);
+    }
+
     // --- the signage rehearsal -------------------------------------------------
     // Checking the wall display must not require the day it has to be right on.
     $before = (int) Db::scalar('SELECT COUNT(*) FROM vacancy_reports');

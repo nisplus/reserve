@@ -63,10 +63,17 @@ $current = static function (?array $report): string {
     <?php /* Rehearsing the wall display needs neither the day nor any data,
              which is the point: you cannot check it for the first time on the
              morning it has to be right. */ ?>
+    <?php $try = static fn (string $mode): string => url('/vacancy') . '?' . http_build_query([
+        'display' => $mode,
+        'preview' => '1',
+        'date'    => $date,
+    ]); ?>
+    <a class="btn btn--ghost btn--small" href="<?= e($try('signage')) ?>"
+       target="_blank" rel="noopener">サイネージ表示（この日の催事で）</a>
+    <a class="btn btn--ghost btn--small" href="<?= e($try('embed')) ?>"
+       target="_blank" rel="noopener">埋め込み表示（この日の催事で）</a>
     <a class="btn btn--ghost btn--small" href="<?= url('/admin/vacancy/signage') ?>"
-       target="_blank" rel="noopener">サイネージの表示テスト</a>
-    <a class="btn btn--ghost btn--small" href="<?= url('/admin/vacancy/signage') ?>?display=embed"
-       target="_blank" rel="noopener">埋め込み表示のテスト</a>
+       target="_blank" rel="noopener">見本データで見る</a>
   <?php endif; ?>
 </div>
 
