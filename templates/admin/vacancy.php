@@ -144,7 +144,7 @@ $current = static function (?array $report): string {
                    the marks above are the whole of what can be said. */ ?>
           <?php if (!$row['is_walk_in']): ?>
             <a class="btn btn--ghost btn--small" href="<?= e($dayUrl($date, (int) $row['id'])) ?>#sessions">
-              開催回を入力（<?= (int) $row['session_count'] ?>）
+              回ごとの空き状況（<?= (int) $row['session_count'] ?>）
             </a>
           <?php else: ?>
             <span class="muted" style="font-size:12px">開催回なし</span>
@@ -158,11 +158,16 @@ $current = static function (?array $report): string {
 
 <?php /* ------------------------------------------- transcription ------- */ ?>
 <?php if ($event !== null): ?>
-  <h2 id="sessions" style="margin-top:28px">開催回ごとに登録する</h2>
+  <h2 id="sessions" style="margin-top:28px">開催回ごとの空き状況を登録する</h2>
   <p class="muted">
     各社から届いた<strong>整理券の状況を貼った開催回一覧表の写真</strong>を見ながら入力します。
     並びは<strong>開催時刻順</strong>で、紙の一覧表と同じ順序です。<br>
-    <strong>記号を選んでいない行は登録しません。</strong>写真に写っていない回は、そのままにしておいてください。
+    <strong>記号を選んでいない行は登録しません。</strong>写真に写っていない回は、そのままにしておいてください。<br>
+    <?php /* Said out loud because the old wording read as "add a session",
+             and an operator who believes that will go looking for a way to
+             create one here. */ ?>
+    <strong>この画面で開催回を追加・変更することはできません。</strong>
+    開催回は<a href="<?= url('/admin/events/' . (int) $event['id'] . '/sessions') ?>">体験内容</a>の画面で登録したものが並びます。
   </p>
 
   <div class="panel" style="max-width:900px">
@@ -210,7 +215,9 @@ $current = static function (?array $report): string {
 
         <div class="form-actions">
           <button type="submit" class="btn">まとめて登録</button>
-          <a class="btn btn--ghost" href="<?= e($dayUrl($date)) ?>">閉じる</a>
+          <?php /* Back to the row it was opened from, not the top of a long
+                   table. Closing a panel should put you where you were. */ ?>
+          <a class="btn btn--ghost" href="<?= e($dayUrl($date)) ?>#e<?= (int) $event['id'] ?>">閉じる</a>
         </div>
       </form>
     <?php endif; ?>

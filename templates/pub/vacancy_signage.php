@@ -22,6 +22,8 @@
  * @var bool        $preview  true for the rehearsal; the marks are invented
  * @var string|null $previewNote what the rehearsal banner says
  */
+use App\Domain\Area;
+
 $preview ??= false;
 $display ??= 'signage';
 $nextUrl ??= null;
@@ -55,7 +57,6 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
 <header class="sg-head">
   <div class="sg-head__title">
     当日の空き状況
-    <?php if ($view === 'sessions'): ?><span class="sg-head__sub">開催回ごと</span><?php endif; ?>
   </div>
   <div class="sg-head__meta">
     <span class="sg-head__asof"><?= e($asOf) ?> 現在</span>
@@ -103,12 +104,21 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
       $tag = $href !== '' ? 'a' : 'section';
     ?>
     <<?= $tag ?> class="<?= e($classes) ?>"<?= $href !== '' ? ' href="' . e($href) . '" target="_blank" rel="noopener noreferrer"' : '' ?>>
-      <div class="sg-card__company">
-        <?= e($row['company_name']) ?>
-        <?php if ($view === 'sessions'): ?>
-          <span class="sg-card__slot">
-            <?= e(jp_time((string) $row['starts_at'])) ?>〜<?= e(jp_time((string) $row['ends_at'])) ?>
-          </span>
+      <?php
+        $area = ($row['area'] ?? null) !== null ? Area::labelFor((string) $row['area']) : null;
+        // A round says when it is and nothing else: "15:00の回" is what a
+        // visitor repeats to themselves walking over, and the end time is one
+        // more number than a wall can afford.
+        $slot = ($row['board_kind'] ?? 'booth') !== 'booth' && ($row['starts_at'] ?? null) !== null
+            ? jp_time((string) $row['starts_at']) . 'の回'
+            : null;
+      ?>
+      <div class="sg-card__meta">
+        <span class="sg-card__company">
+          <?= e($row['company_name']) ?><?php if ($area !== null): ?>（<?= e($area) ?>）<?php endif; ?>
+        </span>
+        <?php if ($slot !== null): ?>
+          <span class="sg-card__slot"><?= e($slot) ?></span>
         <?php endif; ?>
       </div>
       <div class="sg-card__event"><?= e($row['event_title'] ?? $row['title']) ?></div>

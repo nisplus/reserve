@@ -85,19 +85,33 @@ html, body {
   color: inherit;
 }
 
-.sg-card__company {
+/*
+ * Company, area, and - on a round - when it is. Laid out so the company name
+ * is the part that gives way: a long one is ellipsised, while "15:00の回"
+ * keeps its full width, because that is the half a visitor acts on.
+ */
+.sg-card__meta {
   grid-column: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 1vw;
+  min-width: 0;
+}
+
+.sg-card__company {
   color: var(--sg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .sg-card__slot {
-  margin-left: 1vw;
+  flex: none;
   font-weight: 700;
   color: var(--sg-ink);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .sg-card__event {
@@ -198,14 +212,14 @@ html, body {
 }
 
 /* Fallbacks first, for a browser that will not divide inside calc(). */
-.sg--signage .sg-card__company { font-size: 2.1vh; }
+.sg--signage .sg-card__meta    { font-size: 2.1vh; }
 .sg--signage .sg-card__event   { font-size: 3.4vh; }
 .sg--signage .sg-card__mark    { font-size: 11vh; min-width: 11vh; }
 .sg--signage .sg-card__label   { font-size: 2.4vh; }
 .sg--signage .sg-card__when    { font-size: 1.7vh; }
 .sg--signage .sg-card__stale   { font-size: 1.45vh; margin-top: .3vh; }
 
-.sg--signage .sg-card__company { font-size: calc(var(--sg-unit) * 0.100); }
+.sg--signage .sg-card__meta    { font-size: calc(var(--sg-unit) * 0.100); }
 .sg--signage .sg-card__event   { font-size: calc(var(--sg-unit) * 0.165); }
 .sg--signage .sg-card__mark    { font-size: calc(var(--sg-unit) * 0.520);
                                  min-width: calc(var(--sg-unit) * 0.560); }
@@ -243,12 +257,12 @@ html, body {
   min-height: 92px;
 }
 
-.sg--embed .sg-card__company   { font-size: 12px; }
+.sg--embed .sg-card__meta      { font-size: 12px; }
 .sg--embed .sg-card__event     { font-size: 17px; }
 .sg--embed .sg-card__mark      { font-size: 44px; min-width: 50px; }
 .sg--embed .sg-card__label     { font-size: 13px; }
 .sg--embed .sg-card__remaining { margin-left: 6px; }
-.sg--embed .sg-card__slot      { margin-left: 6px; }
+.sg--embed .sg-card__meta      { gap: 8px; }
 .sg--embed .sg-card__when      { font-size: 11px; white-space: normal; }
 .sg--embed .sg-card__stale     { font-size: 10px; margin-top: 2px; }
 .sg--embed .sg-foot            { font-size: 11px; padding: 8px 14px; }

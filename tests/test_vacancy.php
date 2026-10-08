@@ -94,8 +94,12 @@ try {
     $s2 = fixture_create_session($tour, $DAY . ' 13:00:00', $DAY . ' 14:00:00', 20);
     fixture_create_session($build, $DAY . ' 10:00:00', $DAY . ' 11:00:00', 20);
     fixture_create_session($other, $DAY . ' 10:00:00', $DAY . ' 11:00:00', 20);
-    // Another day, to prove the date filter does something.
+    // Another day, to prove the date filter does something - and three of
+    // them, because a round that has not happened yet is the only kind the
+    // board shows, and a test run at 16:00 must still have some.
     fixture_create_session($tour, $NEXT . ' 10:00:00', $NEXT . ' 11:00:00', 20);
+    fixture_create_session($tour, $NEXT . ' 13:00:00', $NEXT . ' 14:00:00', 20);
+    fixture_create_session($tour, $NEXT . ' 15:00:00', $NEXT . ' 16:00:00', 20);
 
     // --- the marks -----------------------------------------------------------
     $assert(VacancyLevel::Open->mark() === '◎' && VacancyLevel::None->mark() === '✕',
@@ -162,7 +166,7 @@ try {
     // Not whether a booth is listed - a 予約不要 booth has no date of its own
     // and is always worth asking about - but whether it has rounds that day.
     $nextDay = $rowsFor($companyA, $NEXT);
-    $assert((int) $nextDay[$tour]['session_count'] === 1 && $nextDay[$tour]['is_walk_in'] === false,
+    $assert((int) $nextDay[$tour]['session_count'] === 3 && $nextDay[$tour]['is_walk_in'] === false,
         'the booth with a round the next day offers its per-session screen then');
     $assert($nextDay[$build]['is_walk_in'] === true,
         'and the one without takes the marks and nothing else');
@@ -302,7 +306,7 @@ try {
         'listed once each and in date order, which is how they are read');
     foreach ($days as $day) {
         if ($day['date'] === $NEXT) {
-            $assert($day['sessions'] === 1, 'each with how many sessions are on, so the right day is obvious');
+            $assert($day['sessions'] === 3, 'each with how many sessions are on, so the right day is obvious');
         }
     }
 
@@ -318,36 +322,74 @@ try {
         'level' => VacancyLevel::from($v), 'remaining' => null, 'is_stale' => $stale,
         'age_minutes' => 0, 'reported_at' => date('Y-m-d H:i:s'),
     ];
-    $board = $service->sortByAvailability([
-        ['id' => 1, 'starts_at' => $DAY . ' 09:00:00', 'report' => $level('none')],
-        ['id' => 2, 'starts_at' => $DAY . ' 15:00:00', 'report' => $level('open')],
-        ['id' => 3, 'starts_at' => $DAY . ' 11:00:00', 'report' => $level('few')],
-        ['id' => 4, 'starts_at' => $DAY . ' 10:00:00', 'report' => $level('open')],
-        ['id' => 5, 'starts_at' => $DAY . ' 12:00:00', 'report' => null, 'fallback' => $level('ample')],
-        ['id' => 6, 'starts_at' => $DAY . ' 08:00:00', 'report' => null, 'fallback' => null],
+    $board = $service->sortForBoard([
+        ['id' => 1, 'board_kind' => 'next',  'starts_at' => $DAY . ' 09:00:00', 'report' => $level('none')],
+        ['id' => 2, 'board_kind' => 'later', 'starts_at' => $DAY . ' 15:00:00', 'report' => $level('open')],
+        ['id' => 3, 'board_kind' => 'booth', 'report' => $level('ample')],
+        ['id' => 4, 'board_kind' => 'next',  'starts_at' => $DAY . ' 10:00:00', 'report' => $level('few')],
+        ['id' => 5, 'board_kind' => 'next',  'starts_at' => $DAY . ' 12:00:00', 'report' => null, 'fallback' => $level('open')],
+        ['id' => 6, 'board_kind' => 'booth', 'report' => null, 'fallback' => null],
     ]);
-    $assert($idsOf($board) === [4, 2, 5, 3, 1, 6],
-        'the board sorts by mark first, then by the earliest round within each mark');
-    $assert((int) $board[2]['id'] === 5,
+    $assert($idsOf($board) === [5, 4, 3, 2, 1, 6],
+        'next round beats no-round beats later round, and ✕ waits behind all three');
+    $assert((int) $board[0]['id'] === 5,
         'a row showing the booth state in place of a missing round sorts on what it displays');
+    $assert((int) $board[4]['id'] === 1,
+        '✕ goes behind even a later round, however early in the day it is');
     $assert((int) $board[5]['id'] === 6,
-        'and an unreported row goes last - it is not full, it is unknown, which beats neither');
+        'and an unreported row goes last of all - it is unknown, not full, which beats neither');
+
+    // Inside one group: ◎ ◯ △, and the earlier round first within a mark.
+    $withinNext = $service->sortForBoard([
+        ['id' => 11, 'board_kind' => 'next', 'starts_at' => $DAY . ' 16:00:00', 'report' => $level('open')],
+        ['id' => 12, 'board_kind' => 'next', 'starts_at' => $DAY . ' 10:00:00', 'report' => $level('few')],
+        ['id' => 13, 'board_kind' => 'next', 'starts_at' => $DAY . ' 11:00:00', 'report' => $level('open')],
+    ]);
+    $assert($idsOf($withinNext) === [13, 11, 12],
+        'and inside a group the mark decides first, then the earlier round');
 
     // Ties keep catalogue order, which is what the printed programme uses.
-    $sameMark = $service->sortByAvailability([
-        ['id' => 7, 'first_starts_at' => null, 'report' => $level('open')],
-        ['id' => 8, 'first_starts_at' => null, 'report' => $level('open')],
+    $sameMark = $service->sortForBoard([
+        ['id' => 7, 'board_kind' => 'booth', 'report' => $level('open')],
+        ['id' => 8, 'board_kind' => 'booth', 'report' => $level('open')],
     ]);
     $assert($idsOf($sameMark) === [7, 8],
         'two rows that cannot be told apart stay in the order they came in');
 
-    // A booth with no rounds has no time to sort on.
-    $mixed = $service->sortByAvailability([
-        ['id' => 9,  'first_starts_at' => null,              'report' => $level('open')],
-        ['id' => 10, 'first_starts_at' => $DAY . ' 10:00:00', 'report' => $level('open')],
-    ]);
-    $assert($idsOf($mixed) === [10, 9],
-        'a booth with no rounds sorts after the timed ones rather than in front of them all');
+    // --- one list, rounds and programmes together -------------------------------
+    // The board used to be two tabs, and a visitor had to know which one
+    // answered their question. Nobody standing in front of a wall finds out:
+    // there is nothing to press.
+    // The board is the public view, so it only ever shows published companies.
+    Db::execute('UPDATE companies SET is_published = 1 WHERE id = ?', [$companyA]);
+    try {
+        /** @return array<int, array<int, string>> event id => its rows' kinds */
+        $kindsOf = static function (array $rows): array {
+            $out = [];
+            foreach ($rows as $row) {
+                $out[(int) ($row['event_id'] ?? $row['id'])][] = (string) $row['board_kind'];
+            }
+            return $out;
+        };
+
+        $kinds = $kindsOf($service->boardRows($NEXT, 99));
+        $assert(($kinds[$walkIn] ?? []) === ['booth'],
+            'a programme with no rounds is one row on the same list');
+        $assert(($kinds[$tour][0] ?? '') === 'next',
+            'a programme with rounds is a row per round, the first marked as the next one');
+        $assert($kinds[$tour] === ['next', 'later', 'later'],
+            'every round of it is there, each knowing whether it is the next one or a later one');
+
+        // Unbounded is unusable: 56 programmes at 7 rounds is 53 pages, and a
+        // wall that comes round every 26 minutes answers nobody.
+        $capped = $kindsOf($service->boardRows($NEXT, 1));
+        $assert(max(array_map('count', $capped)) === 1,
+            'rounds= caps how many of a programme appear, so the wall stays short enough to read');
+        $assert(count($service->boardRows($NEXT, 99)) > count($service->boardRows($NEXT, 1)),
+            'and raising it shows more of them again');
+    } finally {
+        Db::execute('UPDATE companies SET is_published = 0 WHERE id = ?', [$companyA]);
+    }
 
     // --- ✕ on or off ------------------------------------------------------------
     $kept = $service->withoutFull([
@@ -388,7 +430,14 @@ try {
         $assert((int) Db::scalar('SELECT COUNT(*) FROM vacancy_reports') === $before,
             'a rehearsal over real programmes still writes nothing');
 
-        $previewIds = $idsOf($preview);
+        // A row is either a round or a whole programme, so the programme it
+        // belongs to is event_id on one and id on the other.
+        $ofEvent = static fn (array $rows): array => array_map(
+            static fn (array $r): int => (int) ($r['event_id'] ?? $r['id']),
+            $rows
+        );
+
+        $previewIds = $ofEvent($preview);
         $assert(in_array($standing, $previewIds, true) && in_array($walkIn, $previewIds, true),
             "the day's real programmes are what is on screen, not invented ones");
         $assert(in_array($booked, $previewIds, true),
@@ -397,7 +446,7 @@ try {
 
         $flags = [];
         foreach ($preview as $row) {
-            $flags[(int) $row['id']] = (bool) $row['on_board'];
+            $flags[(int) ($row['event_id'] ?? $row['id'])] = (bool) $row['on_board'];
         }
         $assert($flags[$standing] === true && $flags[$booked] === false,
             'but each row says whether the real board will carry it, so the banner can count them');
@@ -418,15 +467,11 @@ try {
         // is the walk-up booths and nothing else - they have no date of their
         // own. What must NOT follow them across is a programme whose rounds
         // are elsewhere, or the rehearsal would be the catalogue, not a day.
-        $far = $idsOf($service->previewRows('2035-01-01'));
+        $far = $ofEvent($service->previewRows('2035-01-01'));
         $assert(in_array($walkIn, $far, true),
             'a walk-up booth rehearses on any day, because it runs on any day');
         $assert(!in_array($booked, $far, true),
             'a programme whose rounds are on another day does not, or this would be the catalogue');
-
-        $rounds = $service->previewRows($DAY, 'sessions');
-        $assert($rounds !== [] && isset($rounds[0]['starts_at'], $rounds[0]['report']),
-            'the per-round view rehearses too, from the rounds in the database');
     } finally {
         Db::execute('UPDATE companies SET is_published = 0 WHERE id = ?', [$companyA]);
     }

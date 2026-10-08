@@ -40,6 +40,17 @@ final class VacancyController
     private const DEFAULT_PER_PAGE = 8;
 
     /**
+     * How many of a programme's upcoming rounds the board shows.
+     *
+     * The next one plus two. Without a cap this is unbounded, and unbounded
+     * here means unusable: fifty-six programmes at seven rounds each is four
+     * hundred cards, a wall that comes round again every twenty-six minutes,
+     * where a visitor glancing at it for thirty seconds has a one-in-fifty
+     * chance of seeing the booth they asked about.
+     */
+    private const DEFAULT_ROUNDS = 3;
+
+    /**
      * Seconds a wall rests on one page before moving to the next.
      *
      * Reading time, not freshness: the data is re-read on the way past, but
@@ -87,8 +98,17 @@ final class VacancyController
          */
         $preview = $display !== 'page' && $request->query('preview') === '1';
 
-        if ($preview) {
-            $rows = $service->previewRows($date, $view);
+        if ($display !== 'page') {
+            /*
+             * One list, whatever shape the programmes are. The board used to
+             * have the same two tabs as the page, and a visitor had to know
+             * which one answered their question; nobody standing in front of
+             * a wall is going to find out, because there is nothing to press.
+             */
+            $rounds = $this->bounded($request->queryInt('rounds', self::DEFAULT_ROUNDS), 1, 99);
+            $rows = $preview
+                ? $service->previewRows($date, $rounds)
+                : $service->boardRows($date, $rounds);
         } elseif ($view === 'sessions') {
             $rows = $service->forSessions(
                 $date,
@@ -152,7 +172,7 @@ final class VacancyController
 
         $note = $preview ? $this->previewNote($date, $rows) : null;
 
-        $rows = (new VacancyService())->sortByAvailability($rows);
+        $rows = (new VacancyService())->sortForBoard($rows);
 
         $interval = $this->bounded($request->queryInt('interval', self::DEFAULT_INTERVAL), 5, 600);
         $reload   = $this->bounded($request->queryInt('reload', self::DEFAULT_RELOAD), 10, 3600);
@@ -178,9 +198,11 @@ final class VacancyController
         $next = $page >= $pages ? 1 : $page + 1;
         $query = http_build_query(array_filter([
             'display'  => 'signage',
-            'view'     => $view === 'sessions' ? 'sessions' : null,
             'date'     => $date === VacancyService::today() ? null : $date,
             'none'     => $request->query('none') === '0' ? '0' : null,
+            'rounds'   => $request->queryInt('rounds', self::DEFAULT_ROUNDS) === self::DEFAULT_ROUNDS
+                ? null
+                : $this->bounded($request->queryInt('rounds', self::DEFAULT_ROUNDS), 1, 99),
             'preview'  => $preview ? '1' : null,
             'per'      => $perPage === self::DEFAULT_PER_PAGE ? null : $perPage,
             'interval' => $interval === self::DEFAULT_INTERVAL ? null : $interval,

@@ -153,7 +153,72 @@ final class VacancyService
     }
 
     /**
-     * The order the board shows things in: ◎ ◯ △ ✕, then earliest first.
+     * One list for the board: a row per upcoming round, or one row for a
+     * programme that has no rounds that day.
+     *
+     * The board used to be two screens - programmes on one tab, rounds on
+     * another - and a visitor had to know which tab answered their question.
+     * One list answers both, as long as it is ordered by what they can act
+     * on; see sortForBoard().
+     *
+     * $rounds caps how many of a programme's upcoming rounds appear. Without
+     * a cap this is unbounded: fifty-six programmes at seven rounds each is
+     * four hundred cards, which at eight to a page is a wall that takes
+     * twenty-six minutes to come round again - and a visitor looking at it
+     * for thirty seconds has a one-in-fifty chance of seeing their booth.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function boardRows(string $date, int $rounds = 3): array
+    {
+        return $this->assemble($this->forEvents($date), $this->forSessions($date), $rounds);
+    }
+
+    /**
+     * Fold programmes and their rounds into the single list the board shows.
+     *
+     * Each row is tagged with what it is, because the order depends on it:
+     * 'next' for a programme's first upcoming round, 'later' for the ones
+     * behind it, 'booth' for a programme with no rounds that day.
+     *
+     * @param array<int, array<string, mixed>> $events
+     * @param array<int, array<string, mixed>> $sessions in time order
+     * @return array<int, array<string, mixed>>
+     */
+    private function assemble(array $events, array $sessions, int $rounds): array
+    {
+        $byEvent = [];
+        foreach ($sessions as $session) {
+            $byEvent[(int) $session['event_id']][] = $session;
+        }
+
+        $out = [];
+        foreach ($events as $event) {
+            $mine = $byEvent[(int) $event['id']] ?? [];
+
+            if ($mine === []) {
+                $event['board_kind'] = 'booth';
+                $out[] = $event;
+                continue;
+            }
+
+            foreach (array_slice($mine, 0, max(1, $rounds)) as $i => $session) {
+                $session['board_kind'] = $i === 0 ? 'next' : 'later';
+                $out[] = $session;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * The order the board shows things in.
+     *
+     *   1. each programme's NEXT round        - what a visitor can act on now
+     *   2. programmes with no rounds          - always open, always actionable
+     *   3. the rounds after the next one      - worth knowing, not urgent
+     *   4. ✕, whatever kind it is             - the answer nobody came for
+     *
+     * and inside each of those, ◎ ◯ △ and then earliest first.
      *
      * Only the board. The public page keeps its headings - one per company on
      * the "now" tab, one per time on the "rounds" tab - and sorting by mark
@@ -171,19 +236,27 @@ final class VacancyService
      * @param array<int, array<string, mixed>> $rows
      * @return array<int, array<string, mixed>>
      */
-    public function sortByAvailability(array $rows): array
+    public function sortForBoard(array $rows): array
     {
         $key = static function (array $row): array {
             $report = $row['report'] ?? $row['fallback'] ?? null;
 
-            // Unreported last: it is the absence of an answer, so it cannot
-            // come before ✕, which is one.
+            $tier = match (true) {
+                // Unreported last of all: it is the absence of an answer, so
+                // it cannot come before ✕, which is one.
+                $report === null => 5,
+                $report['level'] === VacancyLevel::None => 4,
+                ($row['board_kind'] ?? 'booth') === 'next'  => 1,
+                ($row['board_kind'] ?? 'booth') === 'booth' => 2,
+                default => 3,
+            };
+
             $when = (string) ($row['starts_at'] ?? $row['first_starts_at'] ?? '');
 
             return [
-                $report === null ? 1 : 0,
+                $tier,
                 $report === null ? 0 : $report['level']->rank(),
-                // A booth with no rounds has no time to sort on; it goes
+                // A programme with no rounds has no time to sort on; it goes
                 // after the timed ones rather than in front of all of them.
                 $when === '' ? '9999-12-31 23:59:59' : $when,
             ];
@@ -235,12 +308,36 @@ final class VacancyService
      *
      * @return array<int, array<string, mixed>>
      */
-    public function previewRows(string $date, string $view = 'now'): array
+    public function previewRows(string $date, int $rounds = 3): array
     {
-        $rows = $view === 'sessions'
-            ? $this->reports->sessionsOn($date, null, null, true, false)
-            : $this->reports->eventsOn($date, null, true, false);
+        $now = date('Y-m-d H:i:s');
+        $sessions = array_values(array_filter(
+            $this->reports->sessionsOn($date, null, null, true, false),
+            // Finished rounds are off the real board, so they are off the
+            // rehearsal too - otherwise a morning rehearsal of this afternoon
+            // shows cards the afternoon will not.
+            static fn (array $s): bool => (string) $s['ends_at'] >= $now
+        ));
 
+        return $this->assemble(
+            $this->invent($this->reports->eventsOn($date, null, true, false)),
+            $this->invent($sessions),
+            $rounds
+        );
+    }
+
+    /**
+     * Hang an invented mark off each row, without writing any of it down.
+     *
+     * Derived from the row's id rather than drawn at random, so a rehearsal
+     * left running does not reshuffle itself every time it refreshes - a
+     * wall that flickers tells you nothing about how the real one will read.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    private function invent(array $rows): array
+    {
         $marks = VacancyLevel::cases();
         $count = count($rows);
 
@@ -288,27 +385,32 @@ final class VacancyService
      */
     public function sampleRows(int $count = 8): array
     {
+        // Both shapes of row, because the board carries both: a programme
+        // that runs in rounds, and one that is simply open. A rehearsal that
+        // only showed one of them would not be a rehearsal.
         $recipe = [
-            ['サンプル工業株式会社', '工場見学ツアー', VacancyLevel::Open, null, 3],
-            ['サンプル工業株式会社', '組立体験', VacancyLevel::Few, 6, 12],
-            ['みほん電機株式会社', '製品体験ワークショップ', VacancyLevel::None, 0, 25],
-            ['みほん電機株式会社', '技術説明会', VacancyLevel::Ample, null, 8],
-            ['れい精密工業株式会社', 'ロボット操作体験', VacancyLevel::Open, 20, 2],
-            ['れい精密工業株式会社', '切削加工の実演', VacancyLevel::Few, 2, 40],
-            ['テスト食品株式会社', '試食と工場案内', VacancyLevel::Ample, null, 15],
-            ['テスト食品株式会社', 'パン作り体験', VacancyLevel::None, 0, self::STALE_MINUTES + 30],
+            ['サンプル工業株式会社', 'east', '工場見学ツアー', VacancyLevel::Open, null, 3, 'next', '11:00'],
+            ['サンプル工業株式会社', 'east', '組立体験', VacancyLevel::Few, 6, 12, 'booth', null],
+            ['みほん電機株式会社', 'south', '製品体験ワークショップ', VacancyLevel::None, 0, 25, 'next', '11:30'],
+            ['みほん電機株式会社', 'south', '技術説明会', VacancyLevel::Ample, null, 8, 'booth', null],
+            ['れい精密工業株式会社', 'north', 'ロボット操作体験', VacancyLevel::Open, 20, 2, 'next', '12:00'],
+            ['れい精密工業株式会社', 'north', '切削加工の実演', VacancyLevel::Few, 2, 40, 'later', '15:00'],
+            ['テスト食品株式会社', 'main', '試食と工場案内', VacancyLevel::Ample, null, 15, 'booth', null],
+            ['テスト食品株式会社', 'main', 'パン作り体験', VacancyLevel::None, 0, self::STALE_MINUTES + 30, 'later', '16:30'],
         ];
 
         $out = [];
         for ($i = 0; $i < $count; $i++) {
-            [$company, $title, $level, $remaining, $age] = $recipe[$i % count($recipe)];
+            [$company, $area, $title, $level, $remaining, $age, $kind, $at] = $recipe[$i % count($recipe)];
             $out[] = [
                 'id' => -($i + 1),
                 'title' => $title,
                 'event_title' => $title,
                 'company_name' => $company,
-                'starts_at' => date('Y-m-d 10:00:00'),
-                'ends_at' => date('Y-m-d 11:00:00'),
+                'area' => $area,
+                'board_kind' => $kind,
+                'starts_at' => $at !== null ? date('Y-m-d ') . $at . ':00' : null,
+                'ends_at' => null,
                 'in_progress' => false,
                 'fallback' => null,
                 'report' => $this->decorate([
@@ -327,6 +429,23 @@ final class VacancyService
     public static function today(): string
     {
         return date('Y-m-d');
+    }
+
+    /**
+     * When to say a report made now, on the screen for $date, happened.
+     *
+     * A report carrying no session has no date but the one it was typed on,
+     * so that is the day it belongs to - and the office works a day ahead.
+     * Stamping the wall clock meant a mark entered on the screen for next
+     * Friday was saved against today and then could not be read back: the
+     * operator was told it worked and nothing changed.
+     *
+     * So the date follows the screen and only the time of day is the clock.
+     * On the day itself the two are the same thing.
+     */
+    public static function stampFor(string $date): string
+    {
+        return $date . ' ' . date('H:i:s');
     }
 
     /** A date from a query string, or today. */

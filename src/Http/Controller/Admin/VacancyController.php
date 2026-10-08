@@ -59,7 +59,7 @@ final class VacancyController
         $service = new VacancyService();
         // Sorted the same way the real board is, or the rehearsal would not
         // be showing what the day will show.
-        $rows = $service->sortByAvailability($service->sampleRows($per));
+        $rows = $service->sortForBoard($service->sampleRows($per));
 
         return Response::html(View::renderPartial('pub/vacancy_signage', [
             'rows' => $rows,
@@ -166,9 +166,12 @@ final class VacancyController
             $remaining,
             null,
             Auth::actor(),
+            VacancyService::stampFor($date),
         );
 
-        Flash::success('登録しました。');
+        Flash::success($date === VacancyService::today()
+            ? '登録しました。'
+            : jp_date($date) . ' の空き状況として登録しました。');
         /*
          * Back to the row that was pressed, not the top of the page. On the
          * day this button is pressed dozens of times down a long list, and
@@ -221,6 +224,7 @@ final class VacancyController
         }
 
         $actor = Auth::actor();
+        $stamp = VacancyService::stampFor($date);
         $repo = new VacancyRepository();
         $count = Db::transaction(static function () use ($reports, $eventId, $actor, $repo): int {
             foreach ($reports as $report) {
@@ -231,6 +235,7 @@ final class VacancyController
                     $report['remaining'],
                     null,
                     $actor,
+                    $stamp,
                 );
             }
             return count($reports);
