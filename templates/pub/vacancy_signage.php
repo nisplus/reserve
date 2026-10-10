@@ -87,6 +87,7 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
           ], static fn (mixed $v): bool => $v !== null),
           'filter' => $filter,
           'keywords' => $keywords,
+          'areas' => $areas ?? [],
       ]) ?>
   </div>
 <?php endif; ?>

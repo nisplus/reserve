@@ -8,6 +8,7 @@ use App\Core\Config;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\View;
+use App\Repository\CompanyRepository;
 use App\Domain\Area;
 use App\Service\VacancyService;
 
@@ -184,6 +185,7 @@ final class VacancyController
             'refresh'  => self::PAGE_REFRESH,
             'filter'   => $filter,
             'keywords' => Config::array('vacancy_keywords'),
+            'areas'    => (new CompanyRepository())->areasInUse(),
         ], 'layouts/public'));
     }
 
@@ -336,6 +338,7 @@ final class VacancyController
             'heading'  => Config::siteName() . ' の空き状況',
             'filter'   => $filter,
             'keywords' => Config::array('vacancy_keywords'),
+            'areas'    => (new CompanyRepository())->areasInUse(),
             'perPage'  => $perPage ?? count($rows),
         ]));
     }

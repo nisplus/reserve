@@ -10,6 +10,7 @@ use App\Core\Response;
 use App\Core\View;
 use App\Domain\Area;
 use App\Exception\NotFoundException;
+use App\Repository\CompanyRepository;
 use App\Repository\EventRepository;
 use App\Repository\EventSessionRepository;
 
@@ -44,7 +45,10 @@ final class EventController
         return Response::html(View::render('pub/events_index', [
             'title'     => '体験内容一覧',
             'companies' => $events->groupByCompany($catalogue),
-            'areas'     => Area::options(),
+            // The areas a visitor can choose come from the companies, not
+            // from the enum: one held open for a company that has not
+            // joined yet is a filter whose only answer is "nothing here".
+            'areas'     => (new CompanyRepository())->areasInUse(),
             'companyOptions' => $events->publishedCompanies($area),
             'area'      => $area,
             'companyId' => $companyId,

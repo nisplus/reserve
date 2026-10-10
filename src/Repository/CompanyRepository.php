@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Core\Db;
+use App\Domain\Area;
 
 final class CompanyRepository
 {
@@ -23,6 +24,38 @@ final class CompanyRepository
     public function find(int $id): ?array
     {
         return Db::selectOne('SELECT * FROM companies WHERE id = ?', [$id]);
+    }
+
+    /**
+     * Areas that actually have a published company in them, as value => label.
+     *
+     * The enum and the ENUM column both carry every area the site may ever
+     * use, including ones held open for companies that have not joined yet.
+     * Offering one of those as a filter is offering a visitor a button whose
+     * only possible answer is "nothing here" - so what goes on screen comes
+     * from the companies, while the definitions stay where they are. An area
+     * gets its first company and its button appears; nobody has to remember.
+     *
+     * Not for the company form: that is where an area gets its first company,
+     * so it has to go on offering the empty ones.
+     *
+     * @return array<string, string>
+     */
+    public function areasInUse(bool $publishedOnly = true): array
+    {
+        $where = $publishedOnly ? 'AND is_published = 1' : '';
+        $used = array_column(
+            Db::select("SELECT DISTINCT area FROM companies WHERE area IS NOT NULL {$where}"),
+            'area'
+        );
+
+        // Kept in Area::options() order rather than the database's: that is
+        // the order the site names its areas in everywhere else.
+        return array_filter(
+            Area::options(),
+            static fn (string $value): bool => in_array($value, $used, true),
+            ARRAY_FILTER_USE_KEY
+        );
     }
 
     /** id => name, for populating select boxes. @return array<int, string> */

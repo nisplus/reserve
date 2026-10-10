@@ -84,6 +84,7 @@ $status = static function (?array $report, string $prefix = ''): string {
       ], static fn (mixed $v): bool => $v !== null),
       'filter' => $filter ?? ['area' => null, 'words' => [], 'q' => '', 'full' => true],
       'keywords' => $keywords ?? [],
+      'areas' => $areas ?? [],
   ]) ?>
 
 <?php if ($rows === []): ?>

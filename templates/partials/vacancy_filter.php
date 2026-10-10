@@ -1,7 +1,5 @@
 <?php
 
-use App\Domain\Area;
-
 /**
  * The narrowing controls, as links.
  *
@@ -18,6 +16,7 @@ use App\Domain\Area;
  * @var array<string, string> $keep  query parameters to carry through
  * @var array{area: ?string, words: array<int, string>, q: string, full: bool} $filter
  * @var array<int, string> $keywords
+ * @var array<string, string> $areas  value => label, only the ones in use
  */
 $link = static function (array $changed) use ($base, $keep, $filter): string {
     $query = $keep + array_filter([
@@ -37,18 +36,22 @@ $link = static function (array $changed) use ($base, $keep, $filter): string {
     return $base . ($query === [] ? '' : '?' . http_build_query($query));
 };
 
-$areas = Area::cases();
 ?>
 <div class="vac-filter">
-  <div class="vac-filter__row">
-    <span class="vac-filter__label">エリア</span>
-    <a class="btn btn--small <?= $filter['area'] === null ? '' : 'btn--ghost' ?>"
-       href="<?= e($link(['area' => null])) ?>">すべて</a>
-    <?php foreach ($areas as $area): ?>
-      <a class="btn btn--small <?= $filter['area'] === $area->value ? '' : 'btn--ghost' ?>"
-         href="<?= e($link(['area' => $area->value])) ?>"><?= e($area->label()) ?></a>
-    <?php endforeach; ?>
-  </div>
+  <?php /* Only the areas that have a company in them. One kept open for a
+           company that has not joined yet would be a button whose only
+           possible answer is "nothing here". */ ?>
+  <?php if (count($areas) > 1): ?>
+    <div class="vac-filter__row">
+      <span class="vac-filter__label">エリア</span>
+      <a class="btn btn--small <?= $filter['area'] === null ? '' : 'btn--ghost' ?>"
+         href="<?= e($link(['area' => null])) ?>">すべて</a>
+      <?php foreach ($areas as $value => $label): ?>
+        <a class="btn btn--small <?= $filter['area'] === $value ? '' : 'btn--ghost' ?>"
+           href="<?= e($link(['area' => $value])) ?>"><?= e($label) ?></a>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
 
   <?php if ($keywords !== []): ?>
     <div class="vac-filter__row">
