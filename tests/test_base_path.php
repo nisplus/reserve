@@ -57,5 +57,26 @@ $assert(Request::stripBasePath('/booking/public/index.php/admin', '/booking'), '
 // A path that merely starts with the same letters must survive intact.
 $assert(Request::stripBasePath('/publicity/1', ''), '/publicity/1', 'lookalike segment not eaten');
 
+// --- asset(): the same URL, plus something that changes when the file does --
+// A stylesheet with no version in its URL is a stylesheet a browser keeps
+// until it feels like letting go. That showed on the availability board,
+// where signage.css is the only stylesheet the page loads: a copy cached
+// from before the filter bar existed left every button as a bare underlined
+// link, on a venue display stick nobody can clear.
+$css = asset('/assets/css/app.css');
+$assert(str_starts_with($css, url('/assets/css/app.css')), true,
+    'asset() is url() with something on the end, so mount prefixes still work');
+$assert((bool) preg_match('/\?v=\d+$/', $css), true,
+    'and what is on the end is a number - the file\'s own timestamp');
+
+$assert(asset('/assets/css/app.css'), $css,
+    'an unchanged file gets the same URL every time, or nothing would ever stay cached');
+$assert(asset('/assets/css/app.css') === asset('/assets/css/signage.css'), false,
+    'and two different files do not share one');
+
+// A path that is not there must not take the page down with it.
+$assert(asset('/assets/css/nope.css'), url('/assets/css/nope.css'),
+    'a missing file falls back to the plain path - a stale URL beats a blank page');
+
 echo $failures === 0 ? "base path: all OK\n" : "base path: {$failures} failure(s)\n";
 exit($failures === 0 ? 0 : 1);

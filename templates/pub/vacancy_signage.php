@@ -51,9 +51,15 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
   one it reloads in place, which is all an embedded board needs.
 */ ?>
 <meta http-equiv="refresh" content="<?= (int) $interval ?><?= $nextUrl !== null ? '; url=' . e($nextUrl) : '' ?>">
-<link rel="stylesheet" href="<?= url('/assets/css/signage.css') ?>">
+<link rel="stylesheet" href="<?= asset('/assets/css/signage.css') ?>">
 </head>
 <body class="sg sg--<?= e($display) ?>">
+
+<?php /* Banner, title and controls as one block, so the embed can pin the
+         lot with a single sticky rule. Pinning them separately needed the
+         header's height written into the stylesheet as a number, and the
+         number was wrong by eight pixels the moment the title wrapped. */ ?>
+<div class="sg-top">
 
 <?php if ($preview): ?>
   <?php /* Unmissable, and part of the page rather than a flag that could be
@@ -91,6 +97,8 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
       ]) ?>
   </div>
 <?php endif; ?>
+
+</div><!-- .sg-top -->
 
 <?php if ($rows === []): ?>
   <main class="sg-empty">ただいま掲載できる情報がありません</main>
@@ -147,15 +155,18 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
             ? jp_time((string) $row['starts_at']) . 'の回'
             : null;
       ?>
+      <?php /* The company gets the line to itself. Sharing it with the round
+               meant the company name was the half that got ellipsised, and
+               nobody can find a company by name in "サンプル工業株…". The
+               round moves after the programme, where it reads as part of the
+               thing it belongs to. */ ?>
       <div class="sg-card__meta">
         <span class="sg-card__company">
           <?= e($row['company_name']) ?><?php if ($area !== null): ?>（<?= e($area) ?>）<?php endif; ?>
         </span>
-        <?php if ($slot !== null): ?>
-          <span class="sg-card__slot"><?= e($slot) ?></span>
-        <?php endif; ?>
       </div>
-      <div class="sg-card__event"><?= e($row['event_title'] ?? $row['title']) ?></div>
+      <div class="sg-card__event"><?= e($row['event_title'] ?? $row['title']) ?><?php
+        if ($slot !== null): ?><span class="sg-card__slot"><?= e($slot) ?></span><?php endif; ?></div>
 
       <div class="sg-card__mark"><?= e($level->mark()) ?></div>
       <div class="sg-card__label">

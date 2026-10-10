@@ -85,6 +85,9 @@ $status = static function (?array $report, string $prefix = ''): string {
       'filter' => $filter ?? ['area' => null, 'words' => [], 'q' => '', 'full' => true],
       'keywords' => $keywords ?? [],
       'areas' => $areas ?? [],
+      // Pinned on the page, where a reader scrolls a long list and wants the
+      // controls back without going to the top for them.
+      'sticky' => true,
   ]) ?>
 
 <?php if ($rows === []): ?>

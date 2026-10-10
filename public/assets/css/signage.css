@@ -38,6 +38,7 @@ html, body {
 }
 
 .sg { display: flex; flex-direction: column; }
+.sg-top { flex: none; }
 
 /* ---------------------------------------------------------------- header */
 
@@ -85,29 +86,28 @@ html, body {
   color: inherit;
 }
 
-/*
- * Company, area, and - on a round - when it is. Laid out so the company name
- * is the part that gives way: a long one is ellipsised, while "15:00の回"
- * keeps its full width, because that is the half a visitor acts on.
- */
+/* Company and area, with the whole line to themselves. */
 .sg-card__meta {
   grid-column: 1;
-  display: flex;
-  align-items: baseline;
-  gap: 1vw;
   min-width: 0;
 }
 
 .sg-card__company {
+  display: block;
   color: var(--sg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
 }
 
+/*
+ * The round, after the programme it belongs to. Smaller than the title and
+ * unbreakable, so "15:00の回" stays on the title's last line where there is
+ * room for it, rather than taking a line of its own on every card.
+ */
 .sg-card__slot {
-  flex: none;
+  margin-left: .6em;
+  font-size: .78em;
   font-weight: 700;
   color: var(--sg-ink);
   font-variant-numeric: tabular-nums;
@@ -270,12 +270,25 @@ html, body {
 .sg--embed .sg-card__mark      { font-size: 44px; min-width: 50px; }
 .sg--embed .sg-card__label     { font-size: 13px; }
 .sg--embed .sg-card__remaining { margin-left: 6px; }
-.sg--embed .sg-card__meta      { gap: 8px; }
 .sg--embed .sg-card__when      { font-size: 11px; white-space: normal; }
 .sg--embed .sg-card__stale     { font-size: 10px; margin-top: 2px; }
 .sg--embed .sg-foot            { font-size: 11px; padding: 8px 14px; }
 .sg--embed .sg-preview         { font-size: 13px; padding: 6px 14px; }
 .sg--embed .sg-empty           { font-size: 16px; padding: 40px 14px; }
+
+/*
+ * Title and controls stay put while the cards scroll under them. Plain
+ * sticky, no script - and it works inside an iframe because the iframe is
+ * the thing that scrolls, which is why the documented embed snippet gives
+ * it a height. Pinned as one block rather than two, so nothing has to know
+ * how tall the title bar came out.
+ */
+.sg--embed .sg-top {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  box-shadow: 0 6px 6px -6px rgba(15, 23, 42, .25);
+}
 
 /* A card that can be pressed should say so where there is a pointer. */
 @media (hover: hover) {
@@ -344,7 +357,24 @@ a.sg-card:focus-visible { outline: 3px solid var(--sg-ink); outline-offset: 2px;
 }
 .sg-filter .vac-filter { margin: 0 0 8px; gap: 5px; }
 .sg-filter .vac-filter__label { font-size: 11px; color: var(--sg-muted); min-width: 3em; }
-.sg-filter .vac-filter__row { gap: 5px; }
+/*
+ * One line per row, scrolled sideways rather than wrapped. This page
+ * loads no other stylesheet, so the rule app.css carries for the public
+ * page has to be repeated here - and it matters more here, because the
+ * whole block is pinned: wrapped, three rows became six on a phone and
+ * took a third of the screen with them.
+ */
+.sg-filter .vac-filter__row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.sg-filter .vac-filter__row::-webkit-scrollbar { display: none; }
+.sg-filter .vac-filter__row > .btn { flex: none; }
+.sg-filter .vac-filter { display: grid; gap: 5px; }
 /* app.css is not loaded here, so the buttons need their own look. */
 .sg-filter .btn {
   display: inline-block;

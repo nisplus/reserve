@@ -344,10 +344,42 @@ input[type=number] { max-width: 140px; }
    nothing in this feature uses JavaScript, so that a venue display stick
    with an old browser runs the same screens as a phone. */
 .vac-filter { margin: 0 0 16px; display: grid; gap: 6px; }
-.vac-filter__row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+/*
+ * One line per row, scrolled sideways rather than wrapped. Wrapped, the three
+ * rows became five or six on a phone and took a quarter of the screen - which
+ * matters because the whole thing is sticky below.
+ */
+.vac-filter__row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.vac-filter__row::-webkit-scrollbar { display: none; }
+.vac-filter__row > .btn { flex: none; }
 .vac-filter__label {
   font-size: 12px;
   color: var(--ink-soft);
   min-width: 3.5em;
   flex: none;
+}
+
+/*
+ * The public page keeps its heading in the flow - there is explanation and a
+ * pair of tabs above it, and pinning all of that would leave no page. The
+ * controls are what a reader comes back to, so those are what stays.
+ */
+.vac-filter--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg);
+  padding: 8px 0;
+  margin-left: -16px;
+  margin-right: -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+  box-shadow: 0 6px 6px -6px rgba(15, 23, 42, .18);
 }

@@ -17,7 +17,9 @@
  * @var array{area: ?string, words: array<int, string>, q: string, full: bool} $filter
  * @var array<int, string> $keywords
  * @var array<string, string> $areas  value => label, only the ones in use
+ * @var bool $sticky  keep the controls on screen while the list scrolls
  */
+$sticky ??= false;
 $link = static function (array $changed) use ($base, $keep, $filter): string {
     $query = $keep + array_filter([
         'area' => $filter['area'],
@@ -37,7 +39,7 @@ $link = static function (array $changed) use ($base, $keep, $filter): string {
 };
 
 ?>
-<div class="vac-filter">
+<div class="vac-filter<?= $sticky ? ' vac-filter--sticky' : '' ?>">
   <?php /* Only the areas that have a company in them. One kept open for a
            company that has not joined yet would be a button whose only
            possible answer is "nothing here". */ ?>

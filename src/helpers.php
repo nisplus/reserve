@@ -38,6 +38,27 @@ function url(string $path = '/'): string
     return e(App\Core\Request::basePath() . $path);
 }
 
+/**
+ * url() for a file under public/, with the file's own timestamp on the end.
+ *
+ * Browsers and proxies keep a stylesheet as long as they are allowed to, and
+ * nothing in a plain /assets/css/app.css tells them when it changed. That bit
+ * worst on the availability board: signage.css is the only stylesheet that
+ * page loads, so a copy cached from before the filter bar existed left every
+ * button as a bare underlined link - and it runs on a venue display stick and
+ * on visitors' phones, neither of which anybody can be asked to clear.
+ *
+ * The stamp changes only when the file does, so a deploy invalidates the copy
+ * while an untouched file stays cached. A missing file falls back to the plain
+ * path rather than throwing: a stale URL beats a blank page.
+ */
+function asset(string $path): string
+{
+    $stamp = @filemtime(APP_ROOT . '/public' . $path);
+
+    return url($path) . ($stamp !== false ? '?v=' . $stamp : '');
+}
+
 /** Format a DATETIME string as "2026-08-20 (木) 10:00". */
 function jp_datetime(string $datetime): string
 {

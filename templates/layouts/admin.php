@@ -17,7 +17,7 @@ $user = Auth::user();
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title><?= e($pageTitle) ?></title>
-<link rel="stylesheet" href="<?= url('/assets/css/app.css') ?>">
+<link rel="stylesheet" href="<?= asset('/assets/css/app.css') ?>">
 </head>
 <body>
 <header class="admin-header">
