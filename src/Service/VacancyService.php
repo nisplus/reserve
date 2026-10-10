@@ -54,12 +54,37 @@ final class VacancyService
     {
         $events = $this->reports->eventsOn($date, $companyId, $publishedOnly);
         $current = $this->reports->currentByEvent($date, $companyId);
+        $wayIn = $this->wayInByEvent($date, $companyId, $publishedOnly);
 
         $out = [];
         foreach ($events as $event) {
-            $report = $current[(int) $event['id']] ?? null;
-            $event['report'] = $this->decorate($report);
+            $id = (int) $event['id'];
+            $report = $this->decorate($current[$id] ?? null);
+
+            $event['report'] = $report;
             $event['is_walk_in'] = (int) $event['session_count'] === 0;
+
+            /*
+             * "Can I get in there now" is the question this view answers, and
+             * for a programme that takes bookings the seat counts can answer
+             * it - not round by round, but across the rounds still to come.
+             * Without this the one tab a visitor is most likely to open said
+             * 未報告 against every bookable programme on the site.
+             */
+            $event['seats_left'] = isset($wayIn[$id]) && $wayIn[$id] ? 1 : 0;
+            $event['waitlist_count'] = 0;
+            $event = $this->withSystemAnswer(
+                $event + ['booking_required' => $event['booking_required']],
+                $report
+            );
+
+            // No rounds left today: the seat counts have nothing to say, so
+            // the row goes back to whatever a person said, or to nothing.
+            if (!array_key_exists($id, $wayIn)) {
+                $event['report'] = $report;
+                $event['is_system'] = false;
+            }
+
             $out[] = $event;
         }
         return $out;
@@ -102,15 +127,18 @@ final class VacancyService
                 continue;
             }
 
-            $report = $perSession[(int) $session['id']] ?? null;
-            $session['report'] = $this->decorate($report);
+            $report = $this->decorate($perSession[(int) $session['id']] ?? null);
 
             // Nothing about this slot: say so, and offer what is known about
             // the booth under a different label rather than dressing it up as
             // a report about the slot.
-            $session['fallback'] = $report === null
+            $fallback = $report === null
                 ? $this->decorate($perEvent[(int) $session['event_id']] ?? null)
                 : null;
+
+            $session['report'] = $report;
+            $session['fallback'] = $fallback;
+            $session = $this->withSystemAnswer($session, $report ?? $fallback);
 
             $session['in_progress'] = (string) $session['starts_at'] <= $now
                 && $now < (string) $session['ends_at'];
@@ -118,6 +146,101 @@ final class VacancyService
             $out[] = $session;
         }
         return $out;
+    }
+
+    /**
+     * Per programme: is there any way into a round still to come today?
+     *
+     * The "now" view is one row per programme, and a programme's rounds each
+     * have their own seat count, so the answer across them is "any of them".
+     * One query, grouped here rather than in SQL because the rule that turns
+     * seats into a way in lives in VacancyLevel and should stay there.
+     *
+     * Absent from the result means no rounds left today - which is not the
+     * same as no way in, and must not be reported as ✕.
+     *
+     * @return array<int, bool> event id => somewhere to get in
+     */
+    private function wayInByEvent(string $date, ?int $companyId, bool $publishedOnly): array
+    {
+        $now = date('Y-m-d H:i:s');
+
+        $out = [];
+        foreach ($this->reports->sessionsOn($date, $companyId, null, $publishedOnly) as $session) {
+            if ((int) $session['booking_required'] !== 1) {
+                continue;
+            }
+            if ((string) $session['ends_at'] < $now) {
+                continue;
+            }
+
+            $id = (int) $session['event_id'];
+            $open = VacancyLevel::fromSeats(
+                (int) $session['seats_left'],
+                (int) $session['waitlist_count']
+            ) !== VacancyLevel::None;
+
+            $out[$id] = ($out[$id] ?? false) || $open;
+        }
+        return $out;
+    }
+
+    /**
+     * Let the booking system answer for a round nobody is speaking for.
+     *
+     * A person beats the seat count, which is the whole arrangement: the
+     * database knows how many seats were sold and nothing about the queue in
+     * the corridor, so whoever is standing there outranks it.
+     *
+     * But only while they are still speaking. A report goes stale after
+     * ninety minutes, and a stale report is not a person's word any more -
+     * it is a trace of one. The seat count is current by construction, so
+     * past that line it takes over. Otherwise a mark typed at nine in the
+     * morning would hold the booth's card all day with the accurate number
+     * sitting underneath it.
+     *
+     * is_system is carried so the ordering can put the rows somebody actually
+     * reported on in front of the rows nobody has - see sortForBoard().
+     *
+     * @param array<string, mixed> $session
+     * @param array<string, mixed>|null $human the report on display, if any
+     * @return array<string, mixed>
+     */
+    private function withSystemAnswer(array $session, ?array $human): array
+    {
+        $session['is_system'] = false;
+
+        if ((int) ($session['booking_required'] ?? 0) !== 1) {
+            return $session;  // nothing to count: no seats are sold for it
+        }
+        if ($human !== null && $human['is_stale'] === false) {
+            return $session;
+        }
+
+        $level = VacancyLevel::fromSeats(
+            (int) ($session['seats_left'] ?? 0),
+            (int) ($session['waitlist_count'] ?? 0)
+        );
+
+        /*
+         * Shown exactly like a report, on purpose. It is as true as one and
+         * truer than a stale one, and a card that explained where its mark
+         * came from would spend a wall's worth of room on a distinction the
+         * reader cannot act on.
+         */
+        $session['report'] = [
+            'level' => $level,
+            'remaining' => null,
+            'note' => null,
+            'reported_at' => date('Y-m-d H:i:s'),
+            'reported_by' => 'system',
+            'age_minutes' => 0,
+            'is_stale' => false,
+        ];
+        $session['fallback'] = null;
+        $session['is_system'] = true;
+
+        return $session;
     }
 
     /**
@@ -213,12 +336,20 @@ final class VacancyService
     /**
      * The order the board shows things in.
      *
+     * Rows somebody reported on come first, then the ones only the booking
+     * system can speak for. That is not politeness: the day the booking
+     * system has every round of every programme in it, the reported rows are
+     * fifty-six cards deep otherwise, and a ◎ that a company rang in sits on
+     * page eight behind a wall of computed △. The one piece of news worth
+     * crossing a hall for would be the hardest thing on the screen to find.
+     *
+     * Then ◎ ◯ △ ✕, and only then what kind of row it is:
+     *
      *   1. each programme's NEXT round        - what a visitor can act on now
      *   2. programmes with no rounds          - always open, always actionable
      *   3. the rounds after the next one      - worth knowing, not urgent
-     *   4. ✕, whatever kind it is             - the answer nobody came for
      *
-     * and inside each of those, ◎ ◯ △ and then earliest first.
+     * and earliest first within that.
      *
      * Only the board. The public page keeps its headings - one per company on
      * the "now" tab, one per time on the "rounds" tab - and sorting by mark
@@ -241,21 +372,20 @@ final class VacancyService
         $key = static function (array $row): array {
             $report = $row['report'] ?? $row['fallback'] ?? null;
 
-            $tier = match (true) {
-                // Unreported last of all: it is the absence of an answer, so
-                // it cannot come before ✕, which is one.
-                $report === null => 5,
-                $report['level'] === VacancyLevel::None => 4,
-                ($row['board_kind'] ?? 'booth') === 'next'  => 1,
-                ($row['board_kind'] ?? 'booth') === 'booth' => 2,
+            $kind = match ($row['board_kind'] ?? 'booth') {
+                'next'  => 1,
+                'booth' => 2,
                 default => 3,
             };
 
             $when = (string) ($row['starts_at'] ?? $row['first_starts_at'] ?? '');
 
             return [
-                $tier,
+                // Unreported last of all: the absence of an answer cannot
+                // come before ✕, which is one.
+                $report === null ? 2 : (($row['is_system'] ?? false) ? 1 : 0),
                 $report === null ? 0 : $report['level']->rank(),
+                $kind,
                 // A programme with no rounds has no time to sort on; it goes
                 // after the timed ones rather than in front of all of them.
                 $when === '' ? '9999-12-31 23:59:59' : $when,
@@ -264,6 +394,48 @@ final class VacancyService
 
         usort($rows, static fn (array $a, array $b): int => $key($a) <=> $key($b));
         return $rows;
+    }
+
+    /**
+     * Narrow the day down to part of it.
+     *
+     * Two dials, because the board got long the moment it started carrying
+     * every programme: a whole festival is fifty-odd cards before anything
+     * repeats, and nobody reads a wall that takes ten minutes to come round.
+     *
+     * $area  matches companies.area, so a screen hung in one hall shows that
+     *        hall. It is the dial that pays: four areas, four quarters.
+     * $words is matched against the programme's title, any one of them. A
+     *        proper 種別 column would be better and is not here, so this is
+     *        the nearest honest thing - the titles end in what they are
+     *        (…見学ツアー, …ワークショップ), so a word does the work a column
+     *        would have. Where a title says nothing useful, nothing matches,
+     *        and that is visible rather than silent.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @param array<int, string> $words
+     * @return array<int, array<string, mixed>>
+     */
+    public function narrow(array $rows, ?string $area = null, array $words = []): array
+    {
+        $words = array_values(array_filter(array_map('trim', $words), static fn (string $w): bool => $w !== ''));
+
+        return array_values(array_filter($rows, static function (array $row) use ($area, $words): bool {
+            if ($area !== null && (string) ($row['area'] ?? '') !== $area) {
+                return false;
+            }
+            if ($words === []) {
+                return true;
+            }
+
+            $title = (string) ($row['event_title'] ?? $row['title'] ?? '');
+            foreach ($words as $word) {
+                if (mb_stripos($title, $word) !== false) {
+                    return true;
+                }
+            }
+            return false;
+        }));
     }
 
     /**
@@ -312,7 +484,7 @@ final class VacancyService
     {
         $now = date('Y-m-d H:i:s');
         $sessions = array_values(array_filter(
-            $this->reports->sessionsOn($date, null, null, true, false),
+            $this->reports->sessionsOn($date),
             // Finished rounds are off the real board, so they are off the
             // rehearsal too - otherwise a morning rehearsal of this afternoon
             // shows cards the afternoon will not.
@@ -320,7 +492,7 @@ final class VacancyService
         ));
 
         return $this->assemble(
-            $this->invent($this->reports->eventsOn($date, null, true, false)),
+            $this->invent($this->reports->eventsOn($date)),
             $this->invent($sessions),
             $rounds
         );

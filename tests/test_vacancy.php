@@ -262,37 +262,105 @@ try {
     $assert($rowsFor($companyA, $FAR)[$standing]['is_walk_in'] === true,
         'but only with the marks on a day none of its rounds run');
 
-    // --- 予約必要 is not on this board at all -----------------------------------
-    // It has a seat count the booking system can answer with. A second,
-    // hand-typed number beside it could only disagree with the first.
+    // --- 予約必要: the booking system answers for itself --------------------------
+    // It carries a seat count, so a round nobody has reported on is not a
+    // blank - it is whatever the seats say. Two steps only: the count knows
+    // whether anyone can still get in, not whether the queue is out the door.
+    $assert(VacancyLevel::fromSeats(5, 0) === VacancyLevel::Few,
+        'seats free and nobody queueing is △ - a way in, and no claim beyond that');
+    $assert(VacancyLevel::fromSeats(0, 0) === VacancyLevel::None,
+        'no seats is ✕');
+    $assert(VacancyLevel::fromSeats(5, 1) === VacancyLevel::None,
+        'and seats free with somebody queueing is ✕ too, because the queue owns them');
+
     $booked = $events->create($companyA, 'A社 要予約の見学', null, null, 0, true, true);
-    $bs = fixture_create_session($booked, $DAY . ' 10:00:00', $DAY . ' 11:00:00', 20);
+    $full  = fixture_create_session($booked, $DAY . ' 23:30:00', $DAY . ' 23:45:00', 20);
+    $spare = fixture_create_session($booked, $DAY . ' 23:50:00', $DAY . ' 23:59:00', 20);
+    Db::execute('UPDATE event_sessions SET confirmed_seats = capacity WHERE id = ?', [$full]);
 
-    $assert(!in_array($booked, $idsOf($service->forEvents($DAY, $companyA, false)), true),
-        'a programme that takes bookings is not listed');
-    $assert(!in_array($bs, $idsOf($service->forSessions($DAY, $companyA, false, null, false)), true),
-        'nor are its rounds, so no per-session screen can be opened onto it');
+    $rounds = [];
+    foreach ($service->forSessions($DAY, $companyA, false, $booked, false) as $row) {
+        $rounds[(int) $row['id']] = $row;
+    }
+    $assert(isset($rounds[$full], $rounds[$spare]),
+        'a programme that takes bookings is on the board now, round by round');
+    $assert($rounds[$full]['report']['level'] === VacancyLevel::None
+        && $rounds[$full]['is_system'] === true,
+        'and a full round says ✕ without anybody typing anything');
+    $assert($rounds[$spare]['report']['level'] === VacancyLevel::Few,
+        'while one with seats says △');
 
-    // Even a report written against it directly stays off the screen - the
-    // read side agrees with the write side rather than stranding the row.
-    $repo->add($booked, null, 'open', null, null, 'test:vacancy');
-    $assert(!in_array($booked, $idsOf($service->forEvents($DAY, $companyA, false)), true),
-        'and a report left on one from before does not drag it back on');
+    // The "now" tab is one row per programme, so it answers across the
+    // rounds still to come. Without it that tab - the one a visitor is
+    // likeliest to open - said 未報告 against every bookable programme.
+    $byEvent = [];
+    foreach ($service->forEvents($DAY, $companyA, false) as $row) {
+        $byEvent[(int) $row['id']] = $row;
+    }
+    $assert(($byEvent[$booked]['report']['level'] ?? null) === VacancyLevel::Few,
+        'and the programme itself says △ while any round of it can still be got into');
+
+    // A person beats the seat count: they can see the queue in the corridor
+    // and the database cannot.
+    $repo->add($booked, $full, 'open', null, null, 'test:vacancy');
+    $rounds = [];
+    foreach ($service->forSessions($DAY, $companyA, false, $booked, false) as $row) {
+        $rounds[(int) $row['id']] = $row;
+    }
+    $assert($rounds[$full]['report']['level'] === VacancyLevel::Open
+        && $rounds[$full]['is_system'] === false,
+        'somebody at the booth overrules the seat count');
+
+    // But only while they are still speaking. A report nobody has refreshed
+    // in ninety minutes is a trace of a person, not a person; the seat count
+    // is current by construction, so past that line it takes over again.
+    Db::execute(
+        'UPDATE vacancy_reports SET reported_at = ? WHERE session_id = ?',
+        [date('Y-m-d H:i:s', time() - (VacancyService::STALE_MINUTES + 10) * 60), $full]
+    );
+    $rounds = [];
+    foreach ($service->forSessions($DAY, $companyA, false, $booked, false) as $row) {
+        $rounds[(int) $row['id']] = $row;
+    }
+    $assert($rounds[$full]['report']['level'] === VacancyLevel::None
+        && $rounds[$full]['is_system'] === true,
+        'and once it goes stale the seat count has it back, rather than a morning ◎ holding all day');
 
     $assert(!in_array($DAY, array_column($service->sessionDaysNear($FAR, $companyA, 5), 'date'), true)
         || $idsOf($service->forSessions($DAY, $companyA, false, null, false)) !== [],
         'the days offered are days this screen can actually show rounds for');
 
-    // The write side agrees with the read side: a posted form naming one is
-    // refused rather than saved somewhere nothing will ever display it.
-    $refused = false;
+    // --- narrowing the day down --------------------------------------------------
+    // A whole festival is more cards than any screen holds, so the screens
+    // that can be aimed at part of it should be.
+    Db::execute('UPDATE companies SET is_published = 1 WHERE id = ?', [$companyA]);
+    try {
+        $all = $service->boardRows($DAY, 99);
+        $assert($all !== [], 'the day has something on it to narrow');
+        $assert($service->narrow($all, 'north') === [],
+            'an area nothing is in comes back empty rather than coming back whole');
+        $assert(count($service->narrow($all, null, ['見学'])) < count($all)
+            && $service->narrow($all, null, ['見学']) !== [],
+            'a word narrows to the programmes whose title carries it');
+        $assert(count($service->narrow($all, null, ['見学', '体験']))
+            > count($service->narrow($all, null, ['見学'])),
+            'and two words ask for either, not both');
+        $assert($service->narrow($all, null, ['ありえない語']) === [],
+            'a word nothing matches shows nothing, which is visible rather than silent');
+    } finally {
+        Db::execute('UPDATE companies SET is_published = 0 WHERE id = ?', [$companyA]);
+    }
+
+    // The write side agrees with the read side, and what it agrees to has
+    // changed: 予約必要 is on the board, so it can be reported on.
+    $allowed = true;
     try {
         (new ReflectionMethod(AdminVacancyController::class, 'loadEvent'))
             ->invoke(new AdminVacancyController(), $booked, null);
     } catch (NotFoundException) {
-        $refused = true;
+        $allowed = false;
     }
-    $assert($refused, 'and a form posted against one is refused, not quietly stranded');
+    $assert($allowed, 'and the input screen takes a form posted against one');
 
     // --- finding the day that does have sessions ------------------------------
     // Every day but the festival's own lists walk-up booths and nothing else,
@@ -330,14 +398,26 @@ try {
         ['id' => 5, 'board_kind' => 'next',  'starts_at' => $DAY . ' 12:00:00', 'report' => null, 'fallback' => $level('open')],
         ['id' => 6, 'board_kind' => 'booth', 'report' => null, 'fallback' => null],
     ]);
-    $assert($idsOf($board) === [5, 4, 3, 2, 1, 6],
-        'next round beats no-round beats later round, and ✕ waits behind all three');
+    $assert($idsOf($board) === [5, 2, 3, 4, 1, 6],
+        'the mark decides, then what kind of row it is, then the earlier round');
     $assert((int) $board[0]['id'] === 5,
         'a row showing the booth state in place of a missing round sorts on what it displays');
     $assert((int) $board[4]['id'] === 1,
-        '✕ goes behind even a later round, however early in the day it is');
+        '✕ goes behind everything that is not');
     $assert((int) $board[5]['id'] === 6,
         'and an unreported row goes last of all - it is unknown, not full, which beats neither');
+
+    // What somebody rang in goes in front of what the seat count worked out.
+    // Without this a ◎ a company reported sits fifty-six cards deep, behind
+    // every computed △ the booking system has - the one piece of news worth
+    // crossing a hall for, and the hardest thing on the screen to find.
+    $mixed = $service->sortForBoard([
+        ['id' => 21, 'board_kind' => 'next', 'starts_at' => $DAY . ' 09:00:00',
+         'report' => $level('few'), 'is_system' => true],
+        ['id' => 22, 'board_kind' => 'booth', 'report' => $level('none'), 'is_system' => false],
+    ]);
+    $assert($idsOf($mixed) === [22, 21],
+        'a person who reported ✕ still comes before a round the seat count called △');
 
     // Inside one group: ◎ ◯ △, and the earlier round first within a mark.
     $withinNext = $service->sortForBoard([

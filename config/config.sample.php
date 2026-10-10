@@ -54,6 +54,21 @@ return [
         'main'  => '本館',
     ],
 
+    /*
+     * Buttons for narrowing the day-of availability board by what a
+     * programme IS, rather than whose it is.
+     *
+     * A 種別 column on events would be the right home for this, and there
+     * isn't one - adding it would mean filling it in for every programme
+     * already entered. These words are matched against the title instead,
+     * which works because titles end in what they are: 工場見学ツアー,
+     * 製品体験ワークショップ. The vocabulary belongs to the festival and not
+     * to the software, which is why it sits here beside the area names.
+     *
+     * Leave it empty and the buttons do not appear; ?q= still takes any word.
+     */
+    'vacancy_keywords' => ['見学', '体験', 'ワークショップ', '展示', '説明会'],
+
     'db' => [
         // 127.0.0.1 rather than localhost: on Windows the name can resolve to
         // IPv6 ::1 and stall or fail.

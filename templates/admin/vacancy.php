@@ -47,11 +47,13 @@ $current = static function (?array $report): string {
   <?php if (!$isOffice): ?>登録できるのは<strong>自社の体験プログラム</strong>のみです。<?php endif; ?>
 </p>
 
-<?php /* Stated up front rather than left to be noticed: an operator looking
-         for a programme that is not here needs to know it is not missing. */ ?>
+<?php /* Stated up front rather than left to be found out: an operator who
+         does not know the booking system is already answering will not
+         understand why a programme nobody reported on still shows a mark. */ ?>
 <p class="muted">
-  この画面に出るのは<strong>「予約不要」の体験プログラム</strong>だけです。
-  予約が必要なものは<a href="<?= url('/admin/events') ?>">体験内容</a>・<a href="<?= url('/admin/bookings') ?>">予約一覧</a>で残席がわかるため、ここでは扱いません。
+  <strong>予約が必要な体験プログラム</strong>は、何も登録しなくても
+  <strong>空きがあれば △、満席・キャンセル待ちなら ✕</strong> と自動で表示されます。
+  ここで登録すると<strong>そちらが優先</strong>されます（90 分間。その後は自動表示に戻ります）。
 </p>
 
 <div class="filter-bar" style="margin-bottom:16px">

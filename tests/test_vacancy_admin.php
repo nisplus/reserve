@@ -204,14 +204,19 @@ try {
     $assert(count($reports(null)) === 2,
         'a mark this build does not know is refused rather than stored');
 
+    // 予約必要 is accepted again: the board shows the booking system's own
+    // answer for it, and a person at the booth is allowed to overrule that -
+    // which they cannot do without somewhere to type it.
     $booked = $events->create($company, 'CT-TEST- 要予約', null, null, 0, true, true);
     $response = $request('/admin/vacancy', [
         'date' => $DAY,
         'event_id' => (string) $booked,
         'level' => 'open',
     ]);
-    $assert($response['status'] === 404,
-        'and a programme this board does not carry is refused, not saved where nothing shows it');
+    $assert($response['status'] === 303,
+        'a programme that takes bookings can be reported on, or nobody could overrule the seat count');
+    $assert(Db::select('SELECT id FROM vacancy_reports WHERE event_id = ?', [$booked]) !== [],
+        'and the report is saved against it');
 } finally {
     Db::execute('DELETE FROM vacancy_reports WHERE event_id IN (SELECT id FROM events WHERE title LIKE ?)', ['CT-TEST-%']);
     if ($adminId !== null) {

@@ -339,3 +339,15 @@ input[type=number] { max-width: 140px; }
 /* The dash is a rule, not a mark: at the mark's size it shouts louder than
    the ◎ it sits next to. */
 .vac-state--unreported .vac-mark { font-size: 17px; }
+
+/* The narrowing controls above the availability list. Links, not a form:
+   nothing in this feature uses JavaScript, so that a venue display stick
+   with an old browser runs the same screens as a phone. */
+.vac-filter { margin: 0 0 16px; display: grid; gap: 6px; }
+.vac-filter__row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.vac-filter__label {
+  font-size: 12px;
+  color: var(--ink-soft);
+  min-width: 3.5em;
+  flex: none;
+}

@@ -21,12 +21,21 @@
  * @var string|null $nextUrl  where the reload goes; null reloads in place
  * @var bool        $preview  true for the rehearsal; the marks are invented
  * @var string|null $previewNote what the rehearsal banner says
+ * @var string      $heading   the festival's name, with 'の空き状況' on it
+ * @var int         $perPage   cards per page, which is NOT count($rows) on
+ *                             the last page - see --sg-per below
+ * @var array{area: ?string, words: array<int, string>, q: string, full: bool} $filter
+ * @var array<int, string> $keywords  words offered as buttons
  */
 use App\Domain\Area;
 
 $preview ??= false;
 $display ??= 'signage';
 $nextUrl ??= null;
+$heading ??= '当日の空き状況';
+$perPage ??= count($rows);
+$filter ??= ['area' => null, 'words' => [], 'q' => '', 'full' => true];
+$keywords ??= [];
 $previewNote ??= '表示テスト中　この画面のデータはすべて架空のものです';
 ?><!doctype html>
 <html lang="ja">
@@ -34,7 +43,7 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>当日の空き状況</title>
+<title><?= e($heading) ?></title>
 <?php /*
   With a url= the refresh target is the NEXT page, and that single line is the
   entire paging mechanism: no JavaScript, no stored state, and a reload from
@@ -56,7 +65,7 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
 
 <header class="sg-head">
   <div class="sg-head__title">
-    当日の空き状況
+    <?= e($heading) ?>
   </div>
   <div class="sg-head__meta">
     <span class="sg-head__asof"><?= e($asOf) ?> 現在</span>
@@ -65,6 +74,22 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
     <?php endif; ?>
   </div>
 </header>
+
+<?php if ($display === 'embed'): ?>
+  <?php /* Only here. A wall has nobody to press anything on it, and is
+           aimed with the same parameters in its URL instead. */ ?>
+  <div class="sg-filter">
+    <?= App\Core\View::renderPartial('partials/vacancy_filter', [
+          'base' => url('/vacancy'),
+          'keep' => array_filter([
+              'display' => 'embed',
+              'date' => $date === App\Service\VacancyService::today() ? null : $date,
+          ], static fn (mixed $v): bool => $v !== null),
+          'filter' => $filter,
+          'keywords' => $keywords,
+      ]) ?>
+  </div>
+<?php endif; ?>
 
 <?php if ($rows === []): ?>
   <main class="sg-empty">ただいま掲載できる情報がありません</main>
@@ -76,7 +101,15 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
   it had, which in one column was right for five cards and overlapped itself
   for any more - on a portrait wall exactly as badly as on a phone.
 */ ?>
-<main class="sg-grid" style="--sg-per: <?= count($rows) ?>">
+<?php /*
+  --sg-per is the PAGE size, not how many cards happen to be on this page.
+  Passing the count made the last page - the one with the remainder on it -
+  divide a whole screen between two cards, so the final page of every cycle
+  came up in a different, enormous size with the titles broken over three
+  lines. The stylesheet lays out a page's worth of rows and leaves the
+  remainder of the screen empty, which is what the other pages look like.
+*/ ?>
+<main class="sg-grid" style="--sg-per: <?= max(count($rows), (int) $perPage) ?>">
   <?php foreach ($rows as $row): ?>
     <?php
       // A slot with no report of its own falls back to the booth's state. The

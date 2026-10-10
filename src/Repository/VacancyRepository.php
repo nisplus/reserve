@@ -61,11 +61,12 @@ final class VacancyRepository
      */
     public function currentByEvent(string $date, ?int $companyId = null): array
     {
-        // The same events as eventsOn(), and it must stay in step with it: an
-        // event the input screen lists but this query drops can be reported
-        // on, and the report never comes back out - a worse failure than
-        // refusing the report would have been.
-        $scope = 'AND e.booking_required = 0';
+        // No scope but the company: the board carries every programme now,
+        // 予約必要 included, because a person standing at the booth can
+        // correct what the booking system believes. This has to stay as wide
+        // as eventsOn() - an event the input screen lists but this query
+        // drops can be reported on, and the report never comes back out.
+        $scope = '';
         $params = [$date];
         if ($companyId !== null) {
             $scope .= ' AND e.company_id = ?';
@@ -134,14 +135,15 @@ final class VacancyRepository
      * Booths to show for $date, in the order the public catalogue uses: area,
      * then company, then the event's own sort order.
      *
-     * ONLY 予約不要 (booking_required = 0). A programme that takes bookings
-     * already has a seat count the booking system can answer with, and a
-     * second, hand-typed number beside it would only disagree with it. This
-     * board is for the walk-up programmes, where nothing but a person at the
-     * booth knows how full it is.
+     * Every programme running that day, 予約必要 included. The booking
+     * system knows how many seats are left on those, but it does not know
+     * what is happening at the booth - so the board shows what it knows and
+     * lets a person say otherwise (VacancyService::forSessions).
      *
-     * Every 予約不要 booth is listed on every day. It has no session to take
-     * a date from, so there is no day it is not worth asking about.
+     * A 予約不要 booth is listed on every day: it has no session to take a
+     * date from, so there is no day it is not worth asking about. One that
+     * takes bookings is listed on the days it runs, or - having no rounds at
+     * all - on every day, like a booth.
      *
      * session_count is how many sessions the booth has on $date, straight
      * from event_sessions. Taking no bookings does not mean having no rounds:
@@ -155,24 +157,9 @@ final class VacancyRepository
         string $date,
         ?int $companyId = null,
         bool $publishedOnly = true,
-        bool $walkInOnly = true,
     ): array {
         $params = [$date];
-        /*
-         * $walkInOnly false is the rehearsal, and nothing else: it asks for
-         * every programme running that day so the office can see the real
-         * line-up - the real names, the real lengths - laid out before the
-         * day. Defaulted true so the board itself cannot get it by accident.
-         */
-        /*
-         * Walk-up booths have no date of their own and belong to every
-         * day. The rehearsal adds the ones with a round that day, which
-         * is what makes it the DAY'S line-up rather than the whole
-         * catalogue - a date that nothing runs on must come up empty.
-         */
-        $where = $walkInOnly
-            ? ' AND e.booking_required = 0'
-            : ' AND (e.booking_required = 0 OR today.id IS NOT NULL)';
+        $where = '';
         if ($companyId !== null) {
             $where .= ' AND e.company_id = ?';
             $params[] = $companyId;
@@ -191,7 +178,12 @@ final class VacancyRepository
                JOIN companies c ON c.id = e.company_id
                LEFT JOIN event_sessions today
                       ON today.event_id = e.id AND DATE(today.starts_at) = ?
-              WHERE 1 = 1
+              WHERE (
+                      e.booking_required = 0
+                      OR today.id IS NOT NULL
+                      OR NOT EXISTS (SELECT 1 FROM event_sessions any_s
+                                      WHERE any_s.event_id = e.id)
+                    )
                     {$where}
               GROUP BY e.id, e.title, e.venue, e.booking_required, e.external_url,
                        c.id, c.name, c.area, e.sort_order, c.sort_order
@@ -203,11 +195,14 @@ final class VacancyRepository
     /**
      * Sessions running on $date, in time order.
      *
-     * 予約不要 only, to match eventsOn(). Taking no bookings does not mean
-     * having no rounds: a workshop that runs 10:00, 13:00 and 15:00 and hands
-     * its tickets out on the door has three separate things to say about, and
-     * event_sessions is where that is recorded - so that is where the rounds
-     * come from, rather than being inferred from anything else.
+     * Every programme's rounds, to match eventsOn(). Taking no bookings does
+     * not mean having no rounds: a workshop that runs 10:00, 13:00 and 15:00
+     * and hands its tickets out on the door has three separate things to say
+     * about, and event_sessions is where that is recorded.
+     *
+     * seats_left and waitlist_count come with them, so a round that takes
+     * bookings can answer for itself while nobody has reported on it. Read
+     * only: nothing here can disturb a booking.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -216,16 +211,9 @@ final class VacancyRepository
         ?int $companyId = null,
         ?int $eventId = null,
         bool $publishedOnly = true,
-        bool $walkInOnly = true,
     ): array {
         $params = [$date];
-        /*
-         * See eventsOn(): false is the rehearsal and nothing else. No
-         * second arm is needed here - every row this returns already has
-         * a round on $date, which is the thing eventsOn() has to go
-         * looking for.
-         */
-        $where = $walkInOnly ? ' AND e.booking_required = 0' : '';
+        $where = '';
         if ($companyId !== null) {
             $where .= ' AND e.company_id = ?';
             $params[] = $companyId;
@@ -242,7 +230,13 @@ final class VacancyRepository
             "SELECT s.id, s.starts_at, s.ends_at, s.status,
                     e.id AS event_id, e.title AS event_title, e.venue, e.external_url,
                     e.booking_required,
-                    c.id AS company_id, c.name AS company_name, c.area
+                    c.id AS company_id, c.name AS company_name, c.area,
+                    -- Cast before subtracting: both columns are UNSIGNED, and an
+                    -- unsigned subtraction that goes below zero wraps to an
+                    -- enormous number instead.
+                    GREATEST(CAST(s.capacity AS SIGNED) - CAST(s.confirmed_seats AS SIGNED), 0) AS seats_left,
+                    (SELECT COUNT(*) FROM bookings b
+                      WHERE b.session_id = s.id AND b.status = 'waitlisted') AS waitlist_count
                FROM event_sessions s
                JOIN events e    ON e.id = s.event_id
                JOIN companies c ON c.id = e.company_id
@@ -255,19 +249,18 @@ final class VacancyRepository
     /**
      * Days that have sessions, the ones nearest $date first.
      *
-     * 予約不要 only, so the days offered are days this screen can actually
-     * show something for. The input screen opens on today, and on a day with
-     * no rounds on it there is nothing but the marks; the office needs to be
-     * told which day to go to rather than left to guess with the arrows.
+     * The input screen opens on today, and on a day with no rounds on it
+     * there is nothing but the marks; the office needs to be told which day
+     * to go to rather than left to guess with the arrows.
      *
      * @return array<int, array{date: string, sessions: int}>
      */
     public function sessionDaysNear(string $date, ?int $companyId = null, int $limit = 3): array
     {
         $params = [];
-        $where = 'WHERE e.booking_required = 0';
+        $where = '';
         if ($companyId !== null) {
-            $where .= ' AND e.company_id = ?';
+            $where = 'WHERE e.company_id = ?';
             $params[] = $companyId;
         }
         $params[] = $date;

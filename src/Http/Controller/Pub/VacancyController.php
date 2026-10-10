@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controller\Pub;
 
+use App\Core\Config;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\View;
+use App\Domain\Area;
 use App\Service\VacancyService;
 
 /**
@@ -120,29 +122,68 @@ final class VacancyController
             $rows = $service->forEvents($date);
         }
 
-        // Before the page is sliced, or hiding ✕ would leave gaps in the
-        // pages rather than fewer of them.
-        if ($request->query('none') === '0') {
+        // All the narrowing happens before the page is sliced, or hiding
+        // rows would leave gaps in the pages rather than fewer of them.
+        $filter = $this->filter($request);
+        $rows = $service->narrow($rows, $filter['area'], $filter['words']);
+        if (!$filter['full']) {
             $rows = $service->withoutFull($rows);
         }
 
         return $display === 'page'
-            ? $this->page($rows, $date, $view)
-            : $this->board($request, $rows, $date, $view, $display, $preview);
+            ? $this->page($rows, $date, $view, $filter)
+            : $this->board($request, $rows, $date, $view, $display, $preview, $filter);
+    }
+
+    /**
+     * What the URL asks to be left out.
+     *
+     * A whole festival is more cards than a screen holds, so the screens that
+     * can be aimed at part of it should be. area is the one that pays - four
+     * halls, four quarters - and q names what a programme is, in the absence
+     * of a column that does.
+     *
+     * Read in one place so the board, the page and the links they print all
+     * agree about what is currently being shown.
+     *
+     * @return array{area: ?string, words: array<int, string>, q: string, full: bool}
+     */
+    private function filter(Request $request): array
+    {
+        $area = trim($request->query('area'));
+        $area = Area::tryFrom($area) !== null ? $area : null;
+
+        $q = trim($request->query('q'));
+
+        return [
+            'area' => $area,
+            // Spaces split, so ?q=見学 体験 asks for either. Full-width ones
+            // too: a phone keyboard in Japanese gives those by default.
+            'words' => $q === '' ? [] : (preg_split('/[\s\x{3000}]+/u', $q) ?: []),
+            'q' => $q,
+            // ✕ shown unless asked otherwise. "Full" is an answer, and
+            // without it a reader cannot tell a full programme from one
+            // nobody has reported on.
+            'full' => $request->query('none') !== '0',
+        ];
     }
 
     /**
      * @param array<int, array<string, mixed>> $rows
+     * @param array{area: ?string, words: array<int, string>, q: string, full: bool} $filter
      */
-    private function page(array $rows, string $date, string $view): Response
+    private function page(array $rows, string $date, string $view, array $filter): Response
     {
         return Response::html(View::render('pub/vacancy', [
-            'title'   => '当日の空き状況',
-            'rows'    => $rows,
-            'date'    => $date,
-            'view'    => $view,
-            'asOf'    => date('H:i'),
-            'refresh' => self::PAGE_REFRESH,
+            'title'    => Config::siteName() . ' の空き状況',
+            'heading'  => Config::siteName() . ' の空き状況',
+            'rows'     => $rows,
+            'date'     => $date,
+            'view'     => $view,
+            'asOf'     => date('H:i'),
+            'refresh'  => self::PAGE_REFRESH,
+            'filter'   => $filter,
+            'keywords' => Config::array('vacancy_keywords'),
         ], 'layouts/public'));
     }
 
@@ -157,7 +198,8 @@ final class VacancyController
         string $date,
         string $view,
         string $display,
-        bool $preview = false,
+        bool $preview,
+        array $filter,
     ): Response {
         /*
          * A wall of dashes is not worth the room it takes from the rows that
@@ -181,7 +223,7 @@ final class VacancyController
             // Nothing to page to - the box scrolls. It still re-reads itself,
             // because an embedded board left open all day should not still be
             // showing the morning.
-            return $this->render($rows, $date, $view, 'embed', 1, 1, $reload, null, $note);
+            return $this->render($rows, $date, $view, 'embed', 1, 1, $reload, null, $note, $filter);
         }
 
         $perPage = $this->bounded($request->queryInt('per', self::DEFAULT_PER_PAGE), 1, 40);
@@ -199,7 +241,9 @@ final class VacancyController
         $query = http_build_query(array_filter([
             'display'  => 'signage',
             'date'     => $date === VacancyService::today() ? null : $date,
-            'none'     => $request->query('none') === '0' ? '0' : null,
+            'none'     => $filter['full'] ? null : '0',
+            'area'     => $filter['area'],
+            'q'        => $filter['q'] !== '' ? $filter['q'] : null,
             'rounds'   => $request->queryInt('rounds', self::DEFAULT_ROUNDS) === self::DEFAULT_ROUNDS
                 ? null
                 : $this->bounded($request->queryInt('rounds', self::DEFAULT_ROUNDS), 1, 99),
@@ -221,7 +265,9 @@ final class VacancyController
             // the data - and that arrives by hand, slowly.
             $pages > 1 ? $interval : $reload,
             url('/vacancy') . ($query !== '' ? '?' . $query : ''),
-            $note
+            $note,
+            $filter,
+            $perPage
         );
     }
 
@@ -269,6 +315,8 @@ final class VacancyController
         int $interval,
         ?string $nextUrl,
         ?string $previewNote = null,
+        array $filter = ['area' => null, 'words' => [], 'q' => '', 'full' => true],
+        ?int $perPage = null,
     ): Response {
         // renderPartial, not render: the board is its own document from
         // <html> down. Nothing of the public layout belongs on a wall, and an
@@ -285,6 +333,10 @@ final class VacancyController
             'nextUrl'  => $nextUrl,
             'preview'  => $previewNote !== null,
             'previewNote' => $previewNote,
+            'heading'  => Config::siteName() . ' の空き状況',
+            'filter'   => $filter,
+            'keywords' => Config::array('vacancy_keywords'),
+            'perPage'  => $perPage ?? count($rows),
         ]));
     }
 

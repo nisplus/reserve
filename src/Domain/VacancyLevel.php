@@ -63,6 +63,29 @@ enum VacancyLevel: string
     }
 
     /**
+     * What the booking system alone can say about a round.
+     *
+     * Two steps, not four. The seat count knows whether anybody can still get
+     * in; it does not know whether the queue is out the door, so it never
+     * claims ◎ or ◯. △ means "there is a way in", ✕ means "there is not".
+     *
+     * The rule is the booking page's, not a new one: a round with anybody
+     * waiting cannot be booked however many seats are free, because those
+     * seats belong to the queue (BookingService::wouldWaitlist, and the same
+     * test in templates/pub/event_show.php). Saying otherwise here would put
+     * two different answers on two screens of the same site.
+     *
+     * Deliberately NOT consulted: whether online booking has closed. The
+     * closing date ends the website's part in it, not the programme's - there
+     * are still seats in the room, and a visitor standing in front of a board
+     * is asking about the room.
+     */
+    public static function fromSeats(int $seatsLeft, int $waiting): self
+    {
+        return $waiting > 0 || $seatsLeft <= 0 ? self::None : self::Few;
+    }
+
+    /**
      * Sort position on the board: ◎ ◯ △ ✕.
      *
      * Not the order the catalogue uses. Somebody standing in front of the

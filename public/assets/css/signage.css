@@ -184,6 +184,14 @@ html, body {
   --sg-rows: calc(var(--sg-per, 8) / var(--sg-cols) + 0.5);
   --sg-unit: calc(84vh / var(--sg-rows));
   grid-template-columns: repeat(var(--sg-cols), minmax(0, 1fr));
+  /*
+   * A row is a card's worth of height, and the leftover stays empty. Without
+   * this the rows share out whatever the grid has, so the last page of a
+   * cycle - the one with the remainder on it - blew two cards up to fill a
+   * screen built for eight, and came round looking like a different design.
+   */
+  grid-auto-rows: var(--sg-unit);
+  align-content: start;
 }
 
 /* One column where there is no width for two: a portrait panel, or a phone
@@ -327,3 +335,27 @@ a.sg-card:focus-visible { outline: 3px solid var(--sg-ink); outline-offset: 2px;
   font-size: 4vh;
   color: var(--sg-muted);
 }
+
+/* ------------------------------------------------ the embed's own controls */
+.sg-filter {
+  flex: none;
+  padding: 8px 10px 0;
+  background: var(--sg-bg);
+}
+.sg-filter .vac-filter { margin: 0 0 8px; gap: 5px; }
+.sg-filter .vac-filter__label { font-size: 11px; color: var(--sg-muted); min-width: 3em; }
+.sg-filter .vac-filter__row { gap: 5px; }
+/* app.css is not loaded here, so the buttons need their own look. */
+.sg-filter .btn {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1px solid #1d5fb5;
+  border-radius: 5px;
+  background: #1d5fb5;
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.sg-filter .btn--ghost { background: #fff; color: #1d5fb5; }

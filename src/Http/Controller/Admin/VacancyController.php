@@ -265,10 +265,10 @@ final class VacancyController
      * 404 rather than 403 for another company's id, as everywhere else in the
      * admin - an id should not be probeable for existence.
      *
-     * 予約必要 is refused here as well as left off the screen, so the write
-     * side agrees with the read side. A report saved against a programme that
-     * nothing will ever display is worse than a refusal: the operator is told
-     * it worked, and then it is never seen again.
+     * 予約必要 is accepted again. It was refused while the board did not
+     * carry those programmes; now it does, showing the booking system's own
+     * answer - which a person at the booth is allowed to overrule, and
+     * cannot overrule without somewhere to type it.
      *
      * @return array<string, mixed>
      */
@@ -285,7 +285,6 @@ final class VacancyController
 
         if ($row === null
             || ($companyId !== null && (int) $row['company_id'] !== $companyId)
-            || (int) $row['booking_required'] !== 0
         ) {
             throw new NotFoundException('お探しの体験プログラムは見つかりませんでした。');
         }

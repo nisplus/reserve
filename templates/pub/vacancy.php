@@ -56,7 +56,7 @@ $status = static function (?array $report, string $prefix = ''): string {
          left on a table, and this works with no JavaScript at all. */ ?>
 <meta http-equiv="refresh" content="<?= (int) $refresh ?>">
 
-<h1>当日の空き状況</h1>
+<h1><?= e($heading ?? '当日の空き状況') ?></h1>
 
 <p class="lead">
   <strong><?= e(jp_date($date)) ?></strong>
@@ -65,16 +65,26 @@ $status = static function (?array $report, string $prefix = ''): string {
 </p>
 
 <p class="muted">
-  <strong>予約不要の体験</strong>について、各社からご連絡いただいた状況を掲載しています。
-  当日券は紙でお渡ししているため、<strong>予約システムの残席数とは異なります。</strong>
-  お越しの際は現地の表示をご確認ください。<br>
-  ご予約が必要な体験の空き状況は、<a href="<?= url('/') ?>">体験内容一覧</a>をご覧ください。
+  <strong>予約不要の体験</strong>は、各社からご連絡いただいた状況です。
+  当日券は各参加企業にてお渡ししているため、<strong>表示は必ずしも最新とは限りません。</strong><br>
+  <strong>ご予約が必要な体験</strong>は、空きがあれば △、満席・キャンセル待ちの場合は ✕ と表示します。
+  お申し込みは<a href="<?= url('/') ?>">体験内容一覧</a>からどうぞ。
 </p>
 
 <div class="filter-bar" style="margin-bottom:16px">
   <a class="btn btn--small <?= $view === 'now' ? '' : 'btn--ghost' ?>" href="<?= e($tab('now')) ?>">いま空いているか</a>
   <a class="btn btn--small <?= $view === 'sessions' ? '' : 'btn--ghost' ?>" href="<?= e($tab('sessions')) ?>">開催回ごと</a>
 </div>
+
+<?= App\Core\View::renderPartial('partials/vacancy_filter', [
+      'base' => url('/vacancy'),
+      'keep' => array_filter([
+          'view' => $view === 'sessions' ? 'sessions' : null,
+          'date' => $date === App\Service\VacancyService::today() ? null : $date,
+      ], static fn (mixed $v): bool => $v !== null),
+      'filter' => $filter ?? ['area' => null, 'words' => [], 'q' => '', 'full' => true],
+      'keywords' => $keywords ?? [],
+  ]) ?>
 
 <?php if ($rows === []): ?>
   <p class="empty">この日に開催される体験はありません。</p>
