@@ -24,7 +24,7 @@ $tab = static fn (string $v): string => url('/vacancy') . '?' . http_build_query
  * down a column - and a column of marks that do not line up is the one thing
  * that makes that impossible.
  */
-$status = static function (?array $report, string $prefix = ''): string {
+$status = static function (?array $report, string $prefix = '', bool $present = true): string {
     if ($report === null) {
         // Not "vac-state--none": ✕ already owns that value, and an unreported
         // booth must not be dressed up as a full one.
@@ -38,7 +38,7 @@ $status = static function (?array $report, string $prefix = ''): string {
         $out .= '<span class="vac-label">' . e($prefix) . '</span>';
     }
     $out .= '<span class="vac-mark">' . e($level->mark()) . '</span>'
-          . '<span class="vac-words">' . e($level->label()) . '</span>';
+          . '<span class="vac-words">' . e($level->label($present)) . '</span>';
     if ($report['remaining'] !== null) {
         $out .= '<span class="vac-remaining">残り ' . (int) $report['remaining'] . ' 枚</span>';
     }
@@ -129,7 +129,7 @@ $status = static function (?array $report, string $prefix = ''): string {
       </div>
       <div class="vac-row__status">
         <?php if ($row['report'] !== null): ?>
-          <?= $status($row['report']) ?>
+          <?= $status($row['report'], '', ($row['starts_later'] ?? false) === false) ?>
         <?php elseif ($row['fallback'] !== null): ?>
           <?php /* Nothing about this slot. The booth's own state is still
                    worth showing, under a label that says what it is. */ ?>

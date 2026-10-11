@@ -97,9 +97,9 @@ try {
     // Another day, to prove the date filter does something - and three of
     // them, because a round that has not happened yet is the only kind the
     // board shows, and a test run at 16:00 must still have some.
-    fixture_create_session($tour, $NEXT . ' 10:00:00', $NEXT . ' 11:00:00', 20);
-    fixture_create_session($tour, $NEXT . ' 13:00:00', $NEXT . ' 14:00:00', 20);
-    fixture_create_session($tour, $NEXT . ' 15:00:00', $NEXT . ' 16:00:00', 20);
+    $n1 = fixture_create_session($tour, $NEXT . ' 10:00:00', $NEXT . ' 11:00:00', 20);
+    $n2 = fixture_create_session($tour, $NEXT . ' 13:00:00', $NEXT . ' 14:00:00', 20);
+    $n3 = fixture_create_session($tour, $NEXT . ' 15:00:00', $NEXT . ' 16:00:00', 20);
 
     // --- the marks -----------------------------------------------------------
     $assert(VacancyLevel::Open->mark() === '◎' && VacancyLevel::None->mark() === '✕',
@@ -467,6 +467,48 @@ try {
             'rounds= caps how many of a programme appear, so the wall stays short enough to read');
         $assert(count($service->boardRows($NEXT, 99)) > count($service->boardRows($NEXT, 1)),
             'and raising it shows more of them again');
+    } finally {
+        Db::execute('UPDATE companies SET is_published = 0 WHERE id = ?', [$companyA]);
+    }
+
+    // --- a mark that cannot say "now" ------------------------------------------
+    $assert(VacancyLevel::Open->label() === '今すぐ参加できます',
+        '◎ on something happening now says so');
+    $assert(VacancyLevel::Open->label(false) === '参加可能です',
+        'but on a round that has not begun it does not - "今すぐ" would send somebody two hours early');
+    $assert(VacancyLevel::Ample->label(false) === VacancyLevel::Ample->label()
+        && VacancyLevel::Few->label(false) === VacancyLevel::Few->label()
+        && VacancyLevel::None->label(false) === VacancyLevel::None->label(),
+        'and the other three read the same either way, so they say the same thing');
+
+    // --- which rounds are worth the cards ----------------------------------------
+    // Taking the earliest three is the obvious rule and the wrong one: a
+    // programme whose next rounds are full showed ✕ ✕ ✕ and hid the round
+    // that had room, which is the one thing a visitor came to find out.
+    Db::execute('UPDATE companies SET is_published = 1 WHERE id = ?', [$companyA]);
+    try {
+        $repo->add($tour, $n1, 'none', 0, null, 'test:vacancy', $NEXT . ' 09:00:00');
+        $repo->add($tour, $n2, 'none', 0, null, 'test:vacancy', $NEXT . ' 09:00:00');
+        $repo->add($tour, $n3, 'open', null, null, 'test:vacancy', $NEXT . ' 09:00:00');
+
+        $mine = static fn (int $limit): array => $idsOf(array_values(array_filter(
+            $service->boardRows($NEXT, $limit),
+            static fn (array $r): bool => (int) ($r['event_id'] ?? 0) === $tour
+        )));
+
+        $assert($mine(2) === [$n1, $n3],
+            'two cards go to the next round and the earliest one with room, not the next two');
+        $assert($mine(3) === [$n1, $n2, $n3],
+            'and with room for all of them nothing is dropped');
+        $assert($mine(1) === [$n1],
+            'one card still goes to the next round - what is happening now comes first');
+
+        $flags = [];
+        foreach ($service->boardRows($NEXT, 3) as $row) {
+            $flags[(int) $row['id']] = $row['starts_later'] ?? null;
+        }
+        $assert(($flags[$n1] ?? null) === true,
+            'a round on another day has not begun, so its ◎ cannot claim to be about now');
     } finally {
         Db::execute('UPDATE companies SET is_published = 0 WHERE id = ?', [$companyA]);
     }

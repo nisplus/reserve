@@ -41,10 +41,19 @@ enum VacancyLevel: string
         };
     }
 
-    public function label(): string
+    /**
+     * @param bool $present Whether the mark is about this moment. A round
+     *        that has not begun is the exception: ◎ there means "there will
+     *        be room", and "今すぐ参加できます" on the 15:00 card at one in
+     *        the afternoon sends somebody across a hall two hours early.
+     *
+     *        Only ◎ claims a moment. The other three read the same either
+     *        way, so they are the same string.
+     */
+    public function label(bool $present = true): string
     {
         return match ($this) {
-            self::Open  => '今すぐ参加できます',
+            self::Open  => $present ? '今すぐ参加できます' : '参加可能です',
             self::Ample => '残席にゆとりがあります',
             self::Few   => '残数わずか',
             self::None  => '残数なし',

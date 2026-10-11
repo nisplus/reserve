@@ -143,6 +143,9 @@ final class VacancyService
             $session['in_progress'] = (string) $session['starts_at'] <= $now
                 && $now < (string) $session['ends_at'];
 
+            // Whether a mark on this row can honestly say "now".
+            $session['starts_later'] = (string) $session['starts_at'] > $now;
+
             $out[] = $session;
         }
         return $out;
@@ -325,12 +328,65 @@ final class VacancyService
                 continue;
             }
 
-            foreach (array_slice($mine, 0, max(1, $rounds)) as $i => $session) {
-                $session['board_kind'] = $i === 0 ? 'next' : 'later';
+            $nextId = (int) $mine[0]['id'];
+            foreach ($this->chooseRounds($mine, $rounds) as $session) {
+                $session['board_kind'] = (int) $session['id'] === $nextId ? 'next' : 'later';
                 $out[] = $session;
             }
         }
         return $out;
+    }
+
+    /**
+     * Which of a programme's rounds are worth the cards it gets.
+     *
+     * Taking the earliest $limit of them is the obvious rule and the wrong
+     * one: a programme whose next three rounds are all full showed three ✕
+     * and hid the 15:00 round that had room - the single thing a visitor
+     * came to the board to find out. Somebody standing there is asking "can
+     * I do this today", and the answer was being cut off.
+     *
+     * So: the next round always, because that is what is happening now;
+     * then the earliest rounds anybody can still get into; then whatever
+     * else fits. No extra cards - the same number, chosen better.
+     *
+     * The rounds that come back are not necessarily consecutive, which is
+     * why every card names its own time.
+     *
+     * @param array<int, array<string, mixed>> $rounds in time order
+     * @return array<int, array<string, mixed>> in time order
+     */
+    private function chooseRounds(array $rounds, int $limit): array
+    {
+        $limit = max(1, $limit);
+        if (count($rounds) <= $limit) {
+            return $rounds;
+        }
+
+        $hasRoom = static function (array $round): bool {
+            $report = $round['report'] ?? $round['fallback'] ?? null;
+            return $report !== null && $report['level'] !== VacancyLevel::None;
+        };
+
+        $chosen = [0 => $rounds[0]];
+
+        foreach ($rounds as $i => $round) {
+            if (count($chosen) >= $limit) {
+                break;
+            }
+            if ($i !== 0 && $hasRoom($round)) {
+                $chosen[$i] = $round;
+            }
+        }
+        foreach ($rounds as $i => $round) {
+            if (count($chosen) >= $limit) {
+                break;
+            }
+            $chosen[$i] ??= $round;
+        }
+
+        ksort($chosen);  // back into clock order; only the choosing was not
+        return array_values($chosen);
     }
 
     /**

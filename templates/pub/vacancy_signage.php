@@ -130,6 +130,14 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
           $isFallback = true;
       }
       $level = $report['level'];
+
+      /*
+       * Can this mark say "now"? Not on a round that has not begun - ◎
+       * there means there will be room, not that somebody should set off.
+       * A fallback is the exception: it is the booth's state, which is
+       * about now whatever round it happens to be shown against.
+       */
+      $present = $isFallback || ($row['starts_later'] ?? false) === false;
       $classes = 'sg-card ' . $level->signageClass() . ($report['is_stale'] ? ' sg-card--stale' : '');
 
       /*
@@ -170,7 +178,7 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
 
       <div class="sg-card__mark"><?= e($level->mark()) ?></div>
       <div class="sg-card__label">
-        <?= e($level->label()) ?>
+        <?= e($level->label($present)) ?>
         <?php if ($report['remaining'] !== null): ?>
           <span class="sg-card__remaining">残り <?= (int) $report['remaining'] ?> 枚</span>
         <?php endif; ?>
