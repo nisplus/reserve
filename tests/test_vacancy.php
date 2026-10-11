@@ -627,6 +627,44 @@ try {
     $assert(count($marks) === 4, 'all four marks appear, so every colour can be judged');
     $assert($stale > 0, 'and one row is old enough to grey out, which is the case you cannot stage');
 
+    // --- taking a mark back ------------------------------------------------------
+    // Reports are only ever appended, so a mark could be replaced but never
+    // withdrawn: a ◎ pressed on the wrong row stayed on the board, and there
+    // was no way to say "we do not know" again. Withdrawing is another
+    // append, which keeps the history and the race-freedom both.
+    $repo->add($walkIn, null, 'few', 3, null, 'test:vacancy');
+    $assert($rowsFor($companyA)[$walkIn]['report']['level'] === VacancyLevel::Few,
+        'a mark is showing before it is taken back');
+
+    $before = (int) Db::scalar('SELECT COUNT(*) FROM vacancy_reports WHERE event_id = ?', [$walkIn]);
+    $repo->add($walkIn, null, VacancyRepository::CLEARED, null, null, 'test:vacancy');
+
+    $assert($rowsFor($companyA)[$walkIn]['report'] === null,
+        'and afterwards the programme is 未報告 again, not ✕ - unknown is not full');
+    $assert((int) Db::scalar('SELECT COUNT(*) FROM vacancy_reports WHERE event_id = ?', [$walkIn]) === $before + 1,
+        'the row count went up, not down: nothing is deleted');
+    $assert((string) Db::scalar(
+        'SELECT level FROM vacancy_reports WHERE event_id = ? ORDER BY id DESC LIMIT 1',
+        [$walkIn]
+    ) === VacancyRepository::CLEARED, 'and who withdrew what is still on the record');
+
+    // A mark can be put back afterwards; withdrawing is not a one-way door.
+    $repo->add($walkIn, null, 'open', null, null, 'test:vacancy');
+    $assert($rowsFor($companyA)[$walkIn]['report']['level'] === VacancyLevel::Open,
+        'a mark can be given again after one is taken back');
+
+    // On a programme that takes bookings, withdrawing hands the card back to
+    // the seat count rather than blanking it - the seats did not stop being
+    // true because somebody stopped speaking for them.
+    $repo->add($booked, $spare, VacancyRepository::CLEARED, null, null, 'test:vacancy');
+    $rounds = [];
+    foreach ($service->forSessions($DAY, $companyA, false, $booked, false) as $row) {
+        $rounds[(int) $row['id']] = $row;
+    }
+    $assert($rounds[$spare]['report']['level'] === VacancyLevel::Few
+        && $rounds[$spare]['is_system'] === true,
+        'withdrawing on a bookable round gives the card back to the seat count');
+
     // --- the history the office reads back ------------------------------------
     $recent = $repo->recent(5, $companyA);
     $assert($recent !== [] && (string) $recent[0]['reported_by'] === 'test:vacancy',

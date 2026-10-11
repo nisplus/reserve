@@ -94,6 +94,7 @@ return static function (Router $router): void {
     $router->get('/admin/vacancy',           [App\Http\Controller\Admin\VacancyController::class, 'index'], $auth);
     $router->post('/admin/vacancy',          [App\Http\Controller\Admin\VacancyController::class, 'store'], $auth);
     $router->post('/admin/vacancy/sessions', [App\Http\Controller\Admin\VacancyController::class, 'storeSessions'], $auth);
+    $router->post('/admin/vacancy/clear',    [App\Http\Controller\Admin\VacancyController::class, 'clear'], $auth);
 
     $router->get('/admin/reminders',           [App\Http\Controller\Admin\ReminderController::class, 'index'], $office);
     $router->post('/admin/reminders/settings', [App\Http\Controller\Admin\ReminderController::class, 'saveSettings'], $office);

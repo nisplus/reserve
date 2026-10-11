@@ -125,7 +125,23 @@ $current = static function (?array $report): string {
             <br><span class="muted" style="font-size:12px"><?= e($row['venue']) ?></span>
           <?php endif; ?>
         </td>
-        <td><?= $current($row['report']) ?></td>
+        <td>
+          <?= $current($row['report']) ?>
+          <?php if ($row['report'] !== null && ($row['report']['reported_by'] ?? '') !== 'system'): ?>
+            <?php /* Here rather than beside the marks. Those get pressed
+                     dozens of times on the day and deliberately ask nothing
+                     before saving; a fifth button among them would be
+                     pressed by accident. This one is a quiet link, and it
+                     does ask, because the row goes blank on the board. */ ?>
+            <form class="inline-form" method="post" action="<?= url('/admin/vacancy/clear') ?>"
+                  onsubmit="return confirm('「今の状況」を取り消して未報告に戻します。よろしいですか？開催回ごとの登録はそのまま残ります。')">
+              <?= Csrf::field() ?>
+              <input type="hidden" name="date" value="<?= e($date) ?>">
+              <input type="hidden" name="event_id" value="<?= (int) $row['id'] ?>">
+              <button type="submit" class="linkish">取り消す</button>
+            </form>
+          <?php endif; ?>
+        </td>
         <td>
           <form class="inline-form" method="post" action="<?= url('/admin/vacancy') ?>">
             <?= Csrf::field() ?>

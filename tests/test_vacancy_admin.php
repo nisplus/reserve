@@ -201,13 +201,45 @@ try {
     $assert($response['status'] === 303 && count($reports($s1)) === 1,
         'a form with nothing chosen writes nothing - a round missing from the photo stays unreported');
 
+    // --- taking a mark back, through the form ------------------------------------
+    $response = $request('/admin/vacancy', [
+        'date' => $DAY,
+        'event_id' => (string) $event,
+        'level' => 'ample',
+    ]);
+    $assert($response['status'] === 303 && count($reports(null)) === 3,
+        'a mark goes on before it comes off');
+
+    $response = $request('/admin/vacancy/clear', [
+        'date' => $DAY,
+        'event_id' => (string) $event,
+    ]);
+    $assert($response['status'] === 303, 'taking it back redirects like any other save');
+    $assert(str_contains($response['location'], '#e' . $event),
+        'and lands back on the row it was pressed from');
+
+    $rows = $reports(null);
+    $assert(count($rows) === 4, 'the withdrawal is appended, not a delete');
+    $assert((string) end($rows)['level'] === 'cleared',
+        'and is stored as what it is');
+
+    $screen = $request('/admin/vacancy?date=' . $DAY);
+    $assert(str_contains($screen['body'], '未報告'),
+        'the row reads 未報告 again on the screen that was used to clear it');
+
+    // Rounds are not touched: they have their own marks, and their own way
+    // of not having one.
+    $assert($reports($s1) !== [] && $reports($s2) !== [],
+        'and the rounds keep theirs');
+
     // --- what the screen refuses --------------------------------------------------
+    $was = count($reports(null));
     $response = $request('/admin/vacancy', [
         'date' => $DAY,
         'event_id' => (string) $event,
         'level' => 'banana',
     ]);
-    $assert(count($reports(null)) === 2,
+    $assert(count($reports(null)) === $was,
         'a mark this build does not know is refused rather than stored');
 
     // 予約必要 is accepted again: the board shows the booking system's own

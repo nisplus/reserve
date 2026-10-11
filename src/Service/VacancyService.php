@@ -259,6 +259,12 @@ final class VacancyService
             return null;
         }
 
+        if ((string) $report['level'] === VacancyRepository::CLEARED) {
+            // Somebody took their mark back. The row exists so the history
+            // does; what it resolves to is nothing at all.
+            return null;
+        }
+
         $level = VacancyLevel::tryFrom((string) $report['level']);
         if ($level === null) {
             // A value this build does not know. Treated as no report at all

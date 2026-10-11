@@ -182,6 +182,41 @@ final class VacancyController
     }
 
     /**
+     * POST /admin/vacancy/clear - take back a programme's current status.
+     *
+     * Not a delete. A mark could always be replaced by another mark, but
+     * never withdrawn, so a ◎ pressed on the wrong row stayed on the board
+     * and there was no way to say "we do not know" again. This appends a
+     * report that resolves to nothing, which leaves the history intact.
+     *
+     * The rounds are untouched. They have their own marks and their own way
+     * of not having one.
+     */
+    public function clear(Request $request): Response
+    {
+        Csrf::verify($request);
+
+        $date = VacancyService::dateFrom($request->post('date'));
+        $companyId = Authz::scopeCompanyId();
+
+        $eventId = $request->postInt('event_id');
+        $this->loadEvent($eventId, $companyId);
+
+        (new VacancyRepository())->add(
+            $eventId,
+            null,
+            VacancyRepository::CLEARED,
+            null,
+            null,
+            Auth::actor(),
+            VacancyService::stampFor($date),
+        );
+
+        Flash::success('「今の状況」を取り消しました。未報告に戻ります。');
+        return Response::redirect('/admin/vacancy?date=' . urlencode($date) . '#e' . $eventId);
+    }
+
+    /**
      * POST /admin/vacancy/sessions - a whole programme's day, from the photo.
      *
      * Rows with no mark are skipped rather than defaulted: a session missing

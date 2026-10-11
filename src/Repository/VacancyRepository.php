@@ -19,6 +19,26 @@ use App\Core\Db;
  */
 final class VacancyRepository
 {
+    /**
+     * A report that says "forget what I said" rather than a mark.
+     *
+     * Reports are only ever appended, which is what keeps the history and
+     * what keeps two people pressing at once from fighting. That left no way
+     * to take one back: a mark could be replaced with another mark, but a
+     * programme could never return to 未報告 - so a ◎ pressed on the wrong
+     * row stayed on the board, and the booth status of a programme that had
+     * moved to reporting round by round went on contradicting its rounds.
+     *
+     * Taking one back is therefore another append. The row is stored, it is
+     * the newest, and it resolves to no report at all. Nothing is deleted;
+     * who cleared what and when is as recoverable as anything else here.
+     *
+     * The column is a varchar and the marks live in VacancyLevel, so this
+     * needs no migration - and an older build reading it would see a value
+     * it does not know, which it already treats as no report.
+     */
+    public const CLEARED = 'cleared';
+
     public function add(
         int $eventId,
         ?int $sessionId,
