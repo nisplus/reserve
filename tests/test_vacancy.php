@@ -481,6 +481,18 @@ try {
         && VacancyLevel::None->label(false) === VacancyLevel::None->label(),
         'and the other three read the same either way, so they say the same thing');
 
+    // The booth state shown in place of a missing round is no exception,
+    // though it reads like one: the mark is about the booth, but the card
+    // is headed 10:00の回, and a board opened for tomorrow was putting
+    // "今すぐ参加できます" under tomorrow's ten o'clock. Reported from the
+    // festival floor. What decides the wording is the round, every time.
+    $tomorrow = [];
+    foreach ($service->forSessions($NEXT, $companyA, true, $tour, false) as $row) {
+        $tomorrow[(int) $row['id']] = $row;
+    }
+    $assert(($tomorrow[$n1]['starts_later'] ?? null) === true,
+        'a round on another day has not begun, whoever is speaking for it');
+
     // --- which rounds are worth the cards ----------------------------------------
     // Taking the earliest three is the obvious rule and the wrong one: a
     // programme whose next rounds are full showed ✕ ✕ ✕ and hid the round

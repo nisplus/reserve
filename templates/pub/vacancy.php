@@ -133,7 +133,7 @@ $status = static function (?array $report, string $prefix = '', bool $present = 
         <?php elseif ($row['fallback'] !== null): ?>
           <?php /* Nothing about this slot. The booth's own state is still
                    worth showing, under a label that says what it is. */ ?>
-          <?= $status($row['fallback'], 'この回の情報はありません。現在の状況') ?>
+          <?= $status($row['fallback'], 'この回の情報はありません。現在の状況', ($row['starts_later'] ?? false) === false) ?>
         <?php else: ?>
           <?= $status(null) ?>
         <?php endif; ?>

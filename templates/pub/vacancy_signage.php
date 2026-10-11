@@ -134,10 +134,15 @@ $previewNote ??= '表示テスト中　この画面のデータはすべて架�
       /*
        * Can this mark say "now"? Not on a round that has not begun - ◎
        * there means there will be room, not that somebody should set off.
-       * A fallback is the exception: it is the booth's state, which is
-       * about now whatever round it happens to be shown against.
+       *
+       * The booth state shown in place of a missing round is no exception,
+       * though it reads like one. The mark is about the booth, but the
+       * card is headed 10:00の回, and a board opened for tomorrow put
+       * "今すぐ参加できます" under tomorrow's ten o'clock. The 現在の状況
+       * label carries the "whose state is this" part; the words must not
+       * add a "when" that is not true.
        */
-      $present = $isFallback || ($row['starts_later'] ?? false) === false;
+      $present = ($row['starts_later'] ?? false) === false;
       $classes = 'sg-card ' . $level->signageClass() . ($report['is_stale'] ? ' sg-card--stale' : '');
 
       /*

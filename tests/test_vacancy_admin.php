@@ -16,6 +16,11 @@ declare(strict_types=1);
  * bin/request.php, and looks at what came back. Slower than calling a method,
  * and it covers the parts that only exist once a request is real: the CSRF
  * check, the sign-in, the transaction, the redirect target.
+ *
+ * It reads the board the same way, for the same reason. The wording on a
+ * card is decided in the template, and the fault that reached the festival
+ * floor - tomorrow's ten o'clock round announcing "今すぐ参加できます" - was
+ * a condition there that every test of the service walked straight past.
  */
 
 require dirname(__DIR__) . '/bootstrap.php';
@@ -24,6 +29,7 @@ require __DIR__ . '/_fixture.php';
 use App\Core\Db;
 use App\Domain\VacancyLevel;
 use App\Repository\EventRepository;
+use App\Repository\VacancyRepository;
 use App\Service\VacancyService;
 
 if (PHP_SAPI !== 'cli') {
@@ -207,6 +213,47 @@ try {
     // 予約必要 is accepted again: the board shows the booking system's own
     // answer for it, and a person at the booth is allowed to overrule that -
     // which they cannot do without somewhere to type it.
+    // --- what the board actually prints ------------------------------------
+    // A round with no report of its own shows the booth's state instead. The
+    // mark is about the booth; the card is headed 10:00の回. Saying "今すぐ"
+    // there put the present tense under a time that had not come.
+    Db::execute('UPDATE companies SET is_published = 1 WHERE id = ?', [$company]);
+    try {
+        $tomorrow = date('Y-m-d', strtotime('+1 day'));
+        $later = $events->create($company, 'CT-TEST- 明日の回', null, null, 0, true, false);
+        Db::execute(
+            "INSERT INTO event_sessions (event_id, starts_at, ends_at, capacity, status)
+             VALUES (?, ?, ?, 0, 'open')",
+            [$later, $tomorrow . ' 10:00:00', $tomorrow . ' 11:00:00']
+        );
+        // Against the programme, not the round: the round falls back to this.
+        (new VacancyRepository())->add($later, null, 'open', null, null, 'test', $tomorrow . ' 09:30:00');
+
+        $board = $request('/vacancy?display=embed&date=' . $tomorrow . '&q=明日の回');
+        $assert(str_contains($board['body'], '現在の状況'),
+            'the round with no report of its own shows the booth state');
+        $assert(str_contains($board['body'], '参加可能です'),
+            'and says 参加可能です, because the round it is headed with has not begun');
+        $assert(!str_contains($board['body'], '今すぐ参加できます'),
+            'never 今すぐ - the card is about ten tomorrow, whoever is speaking for it');
+
+        // A round happening now keeps the present tense, which is the half
+        // that was right all along.
+        $running = $events->create($company, 'CT-TEST- 開催中の回', null, null, 0, true, false);
+        Db::execute(
+            "INSERT INTO event_sessions (event_id, starts_at, ends_at, capacity, status)
+             VALUES (?, ?, ?, 0, 'open')",
+            [$running, date('Y-m-d H:i:00', time() - 600), date('Y-m-d H:i:00', time() + 2400)]
+        );
+        (new VacancyRepository())->add($running, null, 'open', null, null, 'test');
+
+        $now = $request('/vacancy?display=embed&q=開催中の回');
+        $assert(str_contains($now['body'], '今すぐ参加できます'),
+            'a round already running does say 今すぐ, because it is happening');
+    } finally {
+        Db::execute('UPDATE companies SET is_published = 0 WHERE id = ?', [$company]);
+    }
+
     $booked = $events->create($company, 'CT-TEST- 要予約', null, null, 0, true, true);
     $response = $request('/admin/vacancy', [
         'date' => $DAY,
